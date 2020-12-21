@@ -1,0 +1,12 @@
+ex1.bash : lines: 1000 matched:607
+	 time: 0:00.03 real,	0.03 user,	0.00 sys
+
+ex1-c : lines: 1000 matched:607
+	 time: 0:00.00 real,	0.00 user,	0.00 sys
+
+ex2.bash : lines: 1000 matched:321
+	 time: 0:00.03 real,	0.03 user,	0.00 sys
+
+ex2-c : lines: 1000 matched:321
+	 time: 0:00.00 real,	0.00 user,	0.00 sys
+

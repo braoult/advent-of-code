@@ -1,0 +1,12 @@
+ex1.bash : lines:322 pos=966 found:169
+	 time: 0:00.01 real,	0.01 user,	0.00 sys
+
+ex1-c : lines:322 pos:966 found:169
+	 time: 0:00.00 real,	0.00 user,	0.00 sys
+
+ex2.bash : lines=323 res=6847128288
+ 	 time: 0:00.04 real,	0.03 user,	0.00 sys
+
+ex2-c : lines=323 res=6847128288
+	 time: 0:00.00 real,	0.00 user,	0.00 sys
+
