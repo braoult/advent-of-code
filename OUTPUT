@@ -4,42 +4,41 @@
 
 +++++++++++++++++ ex1
 ex1.bash : 33:1701 180:319 sum=2020 mul=542619
-	time: 0:00.06 real, 0.06 user, 0.00 sys
-	context-switch:	8+4, page-faults: 0+308
+	time: 0:00.12 real, 0.06 user, 0.00 sys
+	context-switch:	7+9, page-faults: 1+303
 
 ex1-cob : res=       542619
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+172
+	time: 0:00.08 real, 0.00 user, 0.00 sys
+	context-switch:	1+12, page-faults: 5+172
 
 ex1-c : 33:1701 180:319 sum=2020 mul=542619
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+74
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+74
 
 +++++++++++++++++ ex2
-cobc -fmfcomment -free -x ex2-pure-sort-cob.cob
 ex2.bash : 80:1450 94:43 185:527 sum=2020 mul=32858450
-	time: 0:10.26 real, 10.23 user, 0.00 sys
-	context-switch:	1360+4, page-faults: 0+304
+	time: 0:10.01 real, 9.98 user, 0.00 sys
+	context-switch:	1060+5, page-faults: 0+303
 
 ex2-sort.bash : 0:43 2:527 81:1450 sum=2020 mul=32858450
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	2+7, page-faults: 0+477
+	time: 0:00.04 real, 0.01 user, 0.00 sys
+	context-switch:	1+8, page-faults: 0+477
 
 ex2-pure-sort.bash : 0:43 2:527 81:1450 sum=2020 mul=32858450
-	time: 0:00.55 real, 0.54 user, 0.00 sys
-	context-switch:	126+4, page-faults: 0+309
+	time: 0:00.50 real, 0.50 user, 0.00 sys
+	context-switch:	47+5, page-faults: 0+306
 
 ex2-sort-cob : res=     32858450
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+173
+	time: 0:00.03 real, 0.01 user, 0.00 sys
+	context-switch:	1+3, page-faults: 1+174
 
 ex2-pure-sort-cob : res=     32858450
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+172
+	time: 0:00.02 real, 0.02 user, 0.00 sys
+	context-switch:	2+3, page-faults: 1+173
 
 ex2-c : 80:1450 94:43 185:527 sum=2020 mul=32858450
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+73
+	context-switch:	1+2, page-faults: 0+74
 
 =========================================
 ================= day02 =================
@@ -47,21 +46,21 @@ ex2-c : 80:1450 94:43 185:527 sum=2020 mul=32858450
 
 +++++++++++++++++ ex1
 ex1.bash : lines: 1000 matched:607
-	time: 0:00.02 real, 0.02 user, 0.00 sys
-	context-switch:	2+1, page-faults: 0+153
+	time: 0:00.06 real, 0.03 user, 0.00 sys
+	context-switch:	3+3, page-faults: 0+152
 
 ex1-c : lines: 1000 matched:607
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+75
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+73
 
 +++++++++++++++++ ex2
 ex2.bash : lines: 1000 matched:321
-	time: 0:00.02 real, 0.01 user, 0.01 sys
-	context-switch:	5+1, page-faults: 0+153
+	time: 0:00.03 real, 0.02 user, 0.00 sys
+	context-switch:	11+2, page-faults: 0+155
 
 ex2-c : lines: 1000 matched:321
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+0, page-faults: 0+73
+	context-switch:	0+2, page-faults: 0+74
 
 =========================================
 ================= day03 =================
@@ -69,21 +68,21 @@ ex2-c : lines: 1000 matched:321
 
 +++++++++++++++++ ex1
 ex1.bash : lines:322 pos=966 found:169
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	2+1, page-faults: 0+154
+	time: 0:00.03 real, 0.01 user, 0.00 sys
+	context-switch:	1+3, page-faults: 0+152
 
 ex1-c : lines:322 pos:966 found:169
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+73
+	context-switch:	0+2, page-faults: 0+72
 
 +++++++++++++++++ ex2
 ex2.bash : lines=323 res=6847128288
- 	time: 0:00.05 real, 0.05 user, 0.00 sys
-	context-switch:	5+1, page-faults: 0+154
+ 	time: 0:00.06 real, 0.04 user, 0.00 sys
+	context-switch:	4+2, page-faults: 0+157
 
 ex2-c : lines=323 res=6847128288
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+72
+	context-switch:	0+2, page-faults: 0+73
 
 =========================================
 ================= day04 =================
@@ -91,21 +90,21 @@ ex2-c : lines=323 res=6847128288
 
 +++++++++++++++++ ex1
 ex1.bash : valid=182/251
-	time: 0:00.07 real, 0.06 user, 0.00 sys
-	context-switch:	9+1, page-faults: 0+159
+	time: 0:00.10 real, 0.06 user, 0.00 sys
+	context-switch:	7+3, page-faults: 0+163
 
 ex1-c : valid=182/251
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+74
+	context-switch:	0+2, page-faults: 0+73
 
 +++++++++++++++++ ex2
 ex2.bash : valid=109/251
-	time: 0:00.17 real, 0.16 user, 0.00 sys
-	context-switch:	16+1, page-faults: 0+195
+	time: 0:00.18 real, 0.17 user, 0.00 sys
+	context-switch:	19+2, page-faults: 0+192
 
 ex2-c : valid=109/251
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+73
+	context-switch:	2+2, page-faults: 0+73
 
 =========================================
 ================= day05 =================
@@ -113,21 +112,21 @@ ex2-c : valid=109/251
 
 +++++++++++++++++ ex1
 ex1.bash : lines=743 max=838
-	time: 0:00.99 real, 0.64 user, 0.45 sys
-	context-switch:	77+4438, page-faults: 0+149316
+	time: 0:01.02 real, 0.65 user, 0.43 sys
+	context-switch:	91+4426, page-faults: 0+150059
 
 ex1-c : lines=743 max=838
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+71
+	time: 0:00.05 real, 0.00 user, 0.00 sys
+	context-switch:	1+2, page-faults: 0+73
 
 +++++++++++++++++ ex2
 ex2.bash : lines=743 seat=714
-	time: 0:01.00 real, 0.70 user, 0.39 sys
-	context-switch:	66+4437, page-faults: 0+155941
+	time: 0:01.12 real, 0.75 user, 0.45 sys
+	context-switch:	81+4425, page-faults: 0+155940
 
 ex2-c : lines=743 seat=714
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+72
+	time: 0:00.03 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+73
 
 =========================================
 ================= day06 =================
@@ -135,29 +134,29 @@ ex2-c : lines=743 seat=714
 
 +++++++++++++++++ ex1
 ex1.bash : groups=484 count=6585
-	time: 0:01.38 real, 1.20 user, 0.21 sys
-	context-switch:	138+1376, page-faults: 0+58975
+	time: 0:01.33 real, 1.22 user, 0.15 sys
+	context-switch:	106+1388, page-faults: 0+58002
 
 ex1-bis.bash : groups=484 count=6585
-	time: 0:01.20 real, 1.03 user, 0.19 sys
-	context-switch:	110+1339, page-faults: 0+60090
+	time: 0:01.23 real, 1.08 user, 0.17 sys
+	context-switch:	84+1309, page-faults: 0+59601
 
 ex1-c : groups=484 count=6585
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+71
+	time: 0:00.01 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+71
 
 +++++++++++++++++ ex2
 ex2.bash : groups=484 count=3276
-	time: 0:01.43 real, 1.27 user, 0.20 sys
-	context-switch:	117+1381, page-faults: 0+60568
+	time: 0:01.33 real, 1.20 user, 0.15 sys
+	context-switch:	91+1391, page-faults: 0+60081
 
 ex2-bis.bash : groups=484 count=3276
-	time: 0:01.29 real, 1.16 user, 0.15 sys
-	context-switch:	159+1370, page-faults: 0+59366
+	time: 0:01.28 real, 1.09 user, 0.19 sys
+	context-switch:	114+1370, page-faults: 0+58880
 
 ex2-c : groups=484 count=3276
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+72
+	context-switch:	1+2, page-faults: 0+72
 
 =========================================
 ================= day07 =================
@@ -165,25 +164,25 @@ ex2-c : groups=484 count=3276
 
 +++++++++++++++++ ex1
 ex1.bash : target=shinygold nkeys=594 res=287
-	time: 0:07.02 real, 7.01 user, 0.00 sys
-	context-switch:	715+1, page-faults: 0+408
+	time: 0:07.04 real, 6.98 user, 0.01 sys
+	context-switch:	969+3, page-faults: 0+406
 
 ex1-bis.bash : target=shinygold res=287
-	time: 0:00.13 real, 0.13 user, 0.00 sys
-	context-switch:	13+1, page-faults: 0+208
+	time: 0:00.13 real, 0.12 user, 0.00 sys
+	context-switch:	36+2, page-faults: 0+208
 
 ex1-c : target=shinygold nkeys=594 res=287
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+117
+	context-switch:	0+2, page-faults: 0+118
 
 +++++++++++++++++ ex2
 ex2.bash : target=shinygold res=48160
-	time: 0:00.34 real, 0.29 user, 0.05 sys
-	context-switch:	38+253, page-faults: 0+12134
+	time: 0:00.36 real, 0.28 user, 0.06 sys
+	context-switch:	37+253, page-faults: 0+11816
 
 ex2-c : target=shinygold nkeys=594 res=48160
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+118
+	context-switch:	0+2, page-faults: 0+117
 
 =========================================
 ================= day08 =================
@@ -191,21 +190,21 @@ ex2-c : target=shinygold nkeys=594 res=48160
 
 +++++++++++++++++ ex1
 ex1.bash : res=1594
-	time: 0:00.02 real, 0.01 user, 0.01 sys
-	context-switch:	3+4, page-faults: 0+300
+	time: 0:00.06 real, 0.03 user, 0.00 sys
+	context-switch:	3+6, page-faults: 0+303
 
 ex1-c : res=1594
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+80
+	context-switch:	0+2, page-faults: 0+80
 
 +++++++++++++++++ ex2
 ex2.bash : res:758
-	time: 0:02.44 real, 2.24 user, 0.23 sys
-	context-switch:	249+1093, page-faults: 0+43022
+	time: 0:02.20 real, 1.95 user, 0.28 sys
+	context-switch:	270+1092, page-faults: 0+43751
 
 ex2-c : res=758
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+78
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+79
 
 =========================================
 ================= day09 =================
@@ -213,21 +212,21 @@ ex2-c : res=758
 
 +++++++++++++++++ ex1
 ex1.bash : res=167829540
-	time: 0:00.41 real, 0.40 user, 0.00 sys
-	context-switch:	43+1, page-faults: 0+177
+	time: 0:00.40 real, 0.37 user, 0.00 sys
+	context-switch:	40+3, page-faults: 0+177
 
 ex1-c : res=167829540
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+74
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	2+2, page-faults: 0+75
 
 +++++++++++++++++ ex2
 ex2.bash : res=167829540 sum=28045630
-	time: 0:02.89 real, 2.67 user, 0.23 sys
-	context-switch:	322+931, page-faults: 0+49182
+	time: 0:02.91 real, 2.67 user, 0.24 sys
+	context-switch:	235+936, page-faults: 0+48716
 
 ex2-c : res=167829540 sum=28045630
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+74
+	context-switch:	1+2, page-faults: 0+74
 
 =========================================
 ================= day10 =================
@@ -235,21 +234,21 @@ ex2-c : res=167829540 sum=28045630
 
 +++++++++++++++++ ex1
 ex1.bash : diff1=71 diff2=27 res=1917
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+4, page-faults: 0+330
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	4+6, page-faults: 0+328
 
 ex1-c : diff1=71 diff2=27 res=1917
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+74
+	context-switch:	1+2, page-faults: 0+72
 
 +++++++++++++++++ ex2
 ex2.bash : size=99 res=113387824750592
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	3+4, page-faults: 0+335
+	time: 0:00.02 real, 0.01 user, 0.00 sys
+	context-switch:	4+5, page-faults: 0+331
 
 ex2-c : size=99 res=113387824750592
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+74
+	context-switch:	0+2, page-faults: 0+72
 
 =========================================
 ================= day11 =================
@@ -257,21 +256,21 @@ ex2-c : size=99 res=113387824750592
 
 +++++++++++++++++ ex1
 ex1.bash : res=2386
-	time: 0:40.97 real, 40.86 user, 0.05 sys
-	context-switch:	4671+11, page-faults: 0+1315
+	time: 0:40.81 real, 40.25 user, 0.07 sys
+	context-switch:	6828+17, page-faults: 0+1317
 
 ex1-c : res=2386
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	2+1, page-faults: 0+89
+	time: 0:00.03 real, 0.00 user, 0.00 sys
+	context-switch:	1+2, page-faults: 0+91
 
 +++++++++++++++++ ex2
 ex2.bash : res=2091
-	time: 1:20.97 real, 80.52 user, 0.14 sys
-	context-switch:	12282+11, page-faults: 0+1716
+	time: 1:19.37 real, 78.72 user, 0.08 sys
+	context-switch:	9445+14, page-faults: 0+1717
 
 ex2-c : res=2091
-	time: 0:00.02 real, 0.02 user, 0.00 sys
-	context-switch:	2+1, page-faults: 0+90
+	time: 0:00.04 real, 0.02 user, 0.00 sys
+	context-switch:	2+2, page-faults: 0+91
 
 =========================================
 ================= day12 =================
@@ -279,21 +278,21 @@ ex2-c : res=2091
 
 +++++++++++++++++ ex1
 ex1.bash : res=1457
-	time: 0:00.01 real, 0.01 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+154
+	time: 0:00.03 real, 0.02 user, 0.00 sys
+	context-switch:	2+3, page-faults: 0+153
 
 ex1-c : res=1457
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+74
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	1+2, page-faults: 0+75
 
 +++++++++++++++++ ex2
 ex2.bash : res=106860
-	time: 0:00.09 real, 0.08 user, 0.00 sys
-	context-switch:	10+1, page-faults: 0+154
+	time: 0:00.11 real, 0.08 user, 0.00 sys
+	context-switch:	10+2, page-faults: 0+152
 
 ex2-c : res=106860
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+73
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	0+2, page-faults: 0+73
 
 =========================================
 ================= day13 =================
@@ -301,19 +300,40 @@ ex2-c : res=106860
 
 +++++++++++++++++ ex1
 ex1.bash : res=410
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+156
+	time: 0:00.02 real, 0.00 user, 0.00 sys
+	context-switch:	1+3, page-faults: 0+155
 
 ex1-c : res=410
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+76
+	context-switch:	1+2, page-faults: 0+76
 
 +++++++++++++++++ ex2
 ex2.bash : res=600691418730595
-	time: 0:00.01 real, 0.00 user, 0.00 sys
-	context-switch:	1+1, page-faults: 0+156
+	time: 0:00.01 real, 0.01 user, 0.00 sys
+	context-switch:	2+2, page-faults: 0+156
 
 ex2-c : res=600691418730595
-	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+75
+	time: 0:00.01 real, 0.00 user, 0.00 sys
+	context-switch:	1+2, page-faults: 0+76
 
+=========================================
+================= day14 =================
+=========================================
+
++++++++++++++++++ ex1
+ex1.bash : res=10035335144067
+	time: 0:00.05 real, 0.05 user, 0.00 sys
+	context-switch:	5+1, page-faults: 0+202
+
+ex1-c : res=10035335144067
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	2+1, page-faults: 0+79
+
++++++++++++++++++ ex2
+ex2.bash : res=3817372618036
+	time: 0:06.83 real, 6.80 user, 0.00 sys
+	context-switch:	916+1, page-faults: 0+5951
+
+ex2-c : res=3817372618036
+	time: 0:00.03 real, 0.03 user, 0.00 sys
+	context-switch:	3+1, page-faults: 0+663
