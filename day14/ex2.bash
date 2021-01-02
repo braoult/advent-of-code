@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 14/game 1.
+# ex1.bash: Advent2020 game, day 14/game 2.
 
 CMD=${0##*/}
 shopt -s extglob
@@ -10,7 +10,7 @@ declare ORMASK ANDMASK
 declare -a xlist
 
 function applymask() {
-	local -i curmem val mask cur
+	local -i curmem val mask
 	if (($# < 3)); then
 		mem[$1]=$2
 		return
