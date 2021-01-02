@@ -1,12 +1,13 @@
 #!/bin/bash
 #
 # ex1.bash: Advent2020 game, day 15/games 1 and 2.
+# ===> Too slow for exercise 2, needed to rewrite the algorithm.
 
 CMD=${0##*/}
 #shopt -s extglob
 
-declare -A prev
-declare -i cur=1 last previous
+declare -A prev nums
+declare -i cur=0 last
 
 
 function print_binary() {
@@ -29,8 +30,11 @@ function print_array() {
 
 	printf "last: %d\n" "$last"
 	printf "nums:\n"
-	for i in "${!prev[@]}"; do
-		printf " prev[%d] => %d\n" "$i" "${prev[$i]}" >&2
+	for i in "${!nums[@]}"; do
+		printf "  %6d => %d\n" "$i" "${nums[$i]}" >&2
+		if [[ -v prev[$i] ]]; then
+			printf "        prev => %d\n" "${prev[$i]}" >&2
+		fi
 	done
 }
 
@@ -39,20 +43,20 @@ IFS=","
 read -r line
 set -- $line
 while (($# > 0)); do
-	prev[$1]=$cur
+	nums[$1]=$cur
 	last=$1
 	((cur++))
 	shift
 done
 
-for ((previous=0; cur <= TARGET; ++cur)); do
-	if ((previous)); then
-		((diff=cur-previous-1))
-	else
-		diff=0
+for ((; cur != TARGET; ++cur)); do
+	diff=0
+	if [[ -v prev[$last] ]]; then
+		((diff=nums[$last]-prev[$last]))
+		prev[$last]=${nums[$last]}
 	fi
-	((previous=prev[$diff]))
-	prev[$diff]=$cur
+	[[ -v nums[$diff] ]] && prev[$diff]=${nums[$diff]}
+	nums[$diff]=$cur
 	last=$diff
 done
 
