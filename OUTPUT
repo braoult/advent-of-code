@@ -337,3 +337,25 @@ ex2.bash : res=3817372618036
 ex2-c : res=3817372618036
 	time: 0:00.03 real, 0.03 user, 0.00 sys
 	context-switch:	3+1, page-faults: 0+663
+
+=========================================
+================= day15 =================
+=========================================
+
++++++++++++++++++ ex1
+ex1.bash : res[2020]=1618
+	time: 0:00.03 real, 0.02 user, 0.00 sys
+	context-switch:	6+1, page-faults: 0+158
+
+ex1-c : res[2020]=1618
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+77
+
++++++++++++++++++ ex2
+ex1.bash : res[30000000]=548531
+	time: 12:22:02 real, 44488.91 user, 2.70 sys
+	context-switch:	4552388+2, page-faults: 0+98912
+
+ex1-c : res[30000000]=548531
+	time: 0:00.56 real, 0.49 user, 0.06 sys
+	context-switch:	55+1, page-faults: 0+29369
