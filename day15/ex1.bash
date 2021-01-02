@@ -6,7 +6,7 @@ CMD=${0##*/}
 #shopt -s extglob
 
 declare -A prev
-declare -i cur=1 last previous
+declare -i cur=1 previous
 
 
 function print_binary() {
@@ -27,7 +27,6 @@ function print_binary() {
 function print_array() {
 	local -i i
 
-	printf "last: %d\n" "$last"
 	printf "nums:\n"
 	for i in "${!prev[@]}"; do
 		printf " prev[%d] => %d\n" "$i" "${prev[$i]}" >&2
@@ -40,7 +39,6 @@ read -r line
 set -- $line
 while (($# > 0)); do
 	prev[$1]=$cur
-	last=$1
 	((cur++))
 	shift
 done
@@ -53,9 +51,8 @@ for ((previous=0; cur <= TARGET; ++cur)); do
 	fi
 	((previous=prev[$diff]))
 	prev[$diff]=$cur
-	last=$diff
 done
 
-printf "%s : res=%d\n" "$CMD" "$last"
+printf "%s : res[%d]=%d\n" "$CMD" "$TARGET" "$diff"
 
 exit 0
