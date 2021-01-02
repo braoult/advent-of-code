@@ -9,30 +9,6 @@ declare -A prev
 declare -i cur=1 previous
 
 
-function print_binary() {
-	local -i num=$1 exp
-	local str="" format="%0${2}d"
-
-	for ((exp=1; num>exp; exp<<=1)); do
-		if ((num & exp)); then
-			str=1"$str"
-		else
-			str=0"$str"
-		fi
-		 echo " str=$str"
-	done
-	printf "$format" $str
-}
-
-function print_array() {
-	local -i i
-
-	printf "nums:\n"
-	for i in "${!prev[@]}"; do
-		printf " prev[%d] => %d\n" "$i" "${prev[$i]}" >&2
-	done
-}
-
 TARGET=$1
 IFS=","
 read -r line
