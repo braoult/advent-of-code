@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 15/games 1 and 2.
+# ex1.bash: Advent2020 game, day 16/game 1.
 
 CMD=${0##*/}
 #shopt -s extglob
@@ -16,11 +16,11 @@ while read -r line; do
 			valid[$i]=1
 		done
 	elif [[ $line =~ (your ticket:|nearby tickets) ]]; then
-		state=state+1
+		((state++))
 	elif [[ $line != "" ]]; then
 		if ((state == 2)); then
 			for i in ${line//,/ }; do
-				[[ ! -v valid[$i] ]] && res=res+i
+				[[ ! -v valid[$i] ]] && ((res++))
 			done
 		fi
 	fi
