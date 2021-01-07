@@ -20,7 +20,7 @@ while read -r line; do
 	elif [[ $line != "" ]]; then
 		if ((state == 2)); then
 			for i in ${line//,/ }; do
-				[[ ! -v valid[$i] ]] && ((res++))
+				[[ ! -v valid[$i] ]] && res=res+i
 			done
 		fi
 	fi
