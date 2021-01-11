@@ -20,7 +20,7 @@ ex1:
 	@#$(TIME) ex1-c 2020 < $(INPUT) 2>&1
 
 ex2:
-	@#$(TIME) ex1.bash 30000000 < $(INPUT) 2>&1
+	@$(TIME) ex2.bash < $(INPUT) 2>&1
 	@#$(TIME) ex1-c 30000000 < $(INPUT) 2>&1
 
 clean:

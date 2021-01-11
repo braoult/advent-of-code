@@ -20,6 +20,7 @@ while read -r line; do
 	elif [[ $line != "" ]]; then
 		if ((state == 2)); then
 			for i in ${line//,/ }; do
+				# shellcheck disable=SC2100
 				[[ ! -v valid[$i] ]] && res=res+i
 			done
 		fi
