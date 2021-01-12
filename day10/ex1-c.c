@@ -59,7 +59,7 @@ void print_list(list)
         printf("[%u] %llu\n", i, *(ptr+i));
 }
 
-static struct list *add_val(list, val)
+struct list *add_val(list, val)
     struct list *list;
     unsigned long long val;
 {

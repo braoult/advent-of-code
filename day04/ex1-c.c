@@ -103,20 +103,6 @@ int valid_passport()
      return valid;
 }
 
-char *my_getkeyZOBI(str)            /* search string before ':' */
-     char *str;
-{
-     char *p=str;
-
-     while (*str++ == ' ')      /* skip spaces */
-          ;
-     p=str;
-     while (*p && *p++ != ':')  /* skip spaces */
-          ;
-     *p='\0';
-     return my_strlen(str) ? str: NULL;
-}
-
 int main(ac, av)
      char **av;
 {
