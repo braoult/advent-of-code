@@ -1,0 +1,12 @@
+ex1.bash : res=21996
+	time: 0:00.19 real, 0.15 user, 0.04 sys
+	context-switch:	26+98, page-faults: 0+9522
+
+ex1-c : res=21996
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+75
+
+ex2.bash : res=650080463519
+	time: 0:06.63 real, 6.59 user, 0.04 sys
+	context-switch:	666+92, page-faults: 0+10157
+
