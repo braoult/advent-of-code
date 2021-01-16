@@ -9,28 +9,6 @@ declare -A life=()
 declare -i x=-1 y=-1 z=-1 res=0
 declare -i maxx maxy maxz
 
-function print_life() {
-	local -i x=0 y=0 z=0 foundx foundy
-	for ((z=0; z<maxz; ++z)); do
-		foundy=1
-		for ((y=0; y<maxy; ++y)); do
-			foundx=1
-			for ((x=0; x<maxx; ++x)); do
-				if [[ -v life[$x-$y-$z] ]]; then
-					#printf "%d-%d-%d:" $x $y $z
-					printf "%c" ${life["$x-$y-$z"]}
-					foundx=1
-				else
-					printf "%c" "."
-				fi
-			done
-			((foundx==1)) && foundy=1 && printf "\n"
-		done
-		((foundy==1)) && printf "z=%d\n\n" "$z"
-	done
-
-}
-
 function count_neighbors () {
 	local -i x=$1 y=$2 z=$3 x1 y1 z1 count=0
 	local str=""
@@ -49,7 +27,6 @@ function count_neighbors () {
 			done
 		done
 	done
-	#((count)) && printf "neighbours (%d, %d, %d)=%s\n" "$x" "$y" "$z" "$str" >&2
 	echo "$count"
 }
 
