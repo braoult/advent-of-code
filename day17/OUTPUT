@@ -1,0 +1,4 @@
+ex1.bash : res=263
+	time: 1:24.06 real, 60.13 user, 30.29 sys
+	context-switch:	5369+166373, page-faults: 0+7362621
+
