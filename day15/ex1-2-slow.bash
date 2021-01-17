@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 15/games 1 and 2.
+# ex1-2-slow.bash: Advent2020 game, day 15/games 1 and 2.
 # ===> Too slow for exercise 2, needed to rewrite the algorithm.
 
 CMD=${0##*/}

@@ -1,6 +1,7 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 17/game 1.
+# ex1-v1.bash: Advent2020 game, day 17/game 1.
+# too slow to adapt for task 2. See ex1.bash.
 
 CMD=${0##*/}
 #shopt -s extglob

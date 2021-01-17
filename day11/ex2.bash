@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 11/game 1.
+# ex2.bash: Advent2020 game, day 11/game 2.
 
 CMD=${0##*/}
 shopt -s extglob

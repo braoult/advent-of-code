@@ -1,4 +1,4 @@
-/* ex1-c: Advent2020 game, day 8/game 1
+/* ex1-c: Advent2020 game, day 9/game 1
  */
 
 #include <stdio.h>
