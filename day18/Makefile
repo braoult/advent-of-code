@@ -8,7 +8,7 @@ export PATH := .:$(PATH)
 
 .PHONY: clean all compile deploy ex1 ex2
 
-all: ex1 ex2
+all: ex1
 
 output:
 	@$(MAKE) --no-print-directory all 2>&1 > OUTPUT
