@@ -3,9 +3,9 @@
 # ex1.bash: Advent2020 game, day 18/game 1.
 
 CMD=${0##*/}
-shopt -s extglob
 set -o noglob
 
+# shellcheck disable=2034
 declare -a STACK=()
 declare -a LINE=()
 
@@ -24,17 +24,20 @@ function dequeue() {
     stack=( "${stack[@]}" )                       # pack
 }
 function eval_op() {
+    # shellcheck disable=2034
     local -n lvalop="$1" loptop="$2"
+    # shellcheck disable=2034
     local v v1 v2 op res=-1
     while ((${#lvalop[@]} > 1)); do
         dequeue lvalop v1
         dequeue lvalop v2
         dequeue loptop op
-        v=$((v1 $op v2))
+        # shellcheck disable=SC1102
+        v=$((v1 "$op" v2))
         enqueue lvalop "$v"
         ((res++))
     done
-    return $res
+    return "$res"
 }
 
 function find_paren() {
@@ -47,6 +50,7 @@ function find_paren() {
         val=${expr_[$k]}
         [[ $val == '(' ]] && i="$k"
         if [[ $val == ')' ]]; then
+            # shellcheck disable=SC2034
             var_="$i"
             break
         fi
@@ -54,23 +58,22 @@ function find_paren() {
 }
 
 function eval_expr() {
-    local -n gstack="$1"
-    #local -n expr=(${LINE[@]}) #"$3"
     local -i cur="$2" val len=${#LINE[@]}
     local op
-    local -a lstack=() lop=() lstack_=() LINE_=()
+    # shellcheck disable=SC2034
+    local -a lstack=() lop=() LINE_=()
 
     while ((cur < len)); do
         symbol=${LINE[$cur]}
         case "$symbol" in
-            +([0-9]))
+            [0-9]*)
                 enqueue lstack "${LINE[$cur]}"
                 unset 'LINE[$cur]'
                 ;;
             \))
                 break
                 ;;
-            +([\+\*]))
+            [\+\*]*)
                 enqueue lop "${LINE[$cur]}"
                 unset 'LINE[$cur]'
                 ;;
@@ -84,10 +87,10 @@ function eval_expr() {
     done
     dequeue lstack val
     LINE[$cur]="$val"
-    LINE=(${LINE[@]})                   # pack
+    LINE=("${LINE[@]}")                   # pack
 }
 
-declare -i res=0 num=0 paren=0
+declare -i res=0 paren=0
 
 while read -r line; do
     # cleanup input line, force split around operators and parens
@@ -97,21 +100,20 @@ while read -r line; do
     line=${line//\// \/ }
     line=${line//\(/ \( }
     line=${line//\)/ \) }
-    LINE=($line)
+    read -ra LINE <<< "$line"
     paren=0
     while ((${#LINE[@]} > 1 && paren >= 0)); do
         find_paren LINE paren
         if (( paren >= 0 )); then
-            unset LINE[$paren]
-            LINE=(${LINE[@]})                     # pack
+            unset 'LINE[$paren]'
+            LINE=("${LINE[@]}")                     # pack
             eval_expr STACK "$paren"
-            LINE=(${LINE[@]})                     # pack
         fi
     done
     if ((${#LINE[@]} > 1)); then
         eval_expr STACK 0
     fi
-    ((res+=${LINE[0]}))
+    ((res+=LINE[0]))
 done
 
 printf "%s : res=%d\n" "$CMD" "$res"
