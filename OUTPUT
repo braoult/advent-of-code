@@ -395,7 +395,29 @@ ex1.bash : res=263
 	time: 0:00.40 real, 0.40 user, 0.00 sys
 	context-switch:	41+1, page-faults: 0+315
 
+ex1-c : res=263
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+150
+
 +++++++++++++++++ ex2
 ex2.bash : res=1680
 	time: 0:07.88 real, 7.87 user, 0.00 sys
 	context-switch:	815+1, page-faults: 0+2637
+
+ex2-c : res=1680
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+1634
+
+=========================================
+================= day18 =================
+=========================================
+
++++++++++++++++++ ex1
+ex1.bash : res=650217205854
+	time: 0:01.76 real, 1.74 user, 0.01 sys
+	context-switch:	5+1, page-faults: 0+188
+
++++++++++++++++++ ex2
+ex2.bash : res=20394514442037
+	time: 0:01.54 real, 1.53 user, 0.01 sys
+	context-switch:	42+1, page-faults: 0+196

@@ -1,19 +1,13 @@
 SUBDIRS := $(shell echo day??)
-INSTALLDIR := ~/dev/www/tk.bodiccea/advent-2020
-DEST := arwen:www/tk.bodiccea/advent-2020
 
 EXCLUDE := --exclude 'cob-01/'
 
-.PHONY: clean deploy $(SUBDIRS)
+.PHONY: clean $(SUBDIRS)
 
 clean:
 	for dir in $(SUBDIRS) ; do \
 		make -C $$dir clean ; \
 	done
-
-deploy: clean
-	rsync -aHixv $(EXCLUDE) --delete --delete-excluded ./ $(INSTALLDIR)
-	rsync -aHixv $(EXCLUDE) ./ $(DEST) --delete --delete-excluded
 
 all: $(SUBDIRS)
 
