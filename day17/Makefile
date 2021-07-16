@@ -22,7 +22,7 @@ ex1:
 
 ex2:
 	@$(TIME) ex2.bash < $(INPUT) 2>&1
-	@#$(TIME) ex1-c 30000000 < $(INPUT) 2>&1
+	@$(TIME) ex2-c < $(INPUT) 2>&1
 
 clean:
 	@rm -f ex1-c ex2-c core
