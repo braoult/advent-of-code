@@ -29,7 +29,11 @@ function buildtree {
         else
             if [[ ! -v MATCH[$arg] ]]; then
                 buildtree "$((prof+1))" "$name" "${RULE[$arg]}"
-                MATCH[$arg]="(${!name})"
+                if [[ ${!name} =~ ^.$ ]] ; then
+                    MATCH[$arg]="${!name}"
+                else
+                    MATCH[$arg]="(${!name})"
+                fi
             fi
             res+=${MATCH[$arg]}
         fi
