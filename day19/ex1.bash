@@ -57,7 +57,7 @@ while read -r line; do
 done
 
 buildtree 1 var_0 0
-printf "RULE ZERO = %s\n" "${MATCH[0]}"
+#printf "RULE ZERO = %s\n" "${MATCH[0]}"
 
 for str in "${STRING[@]}"; do
     [[ "$str" =~ ^${MATCH[0]}$ ]] && ((res++))
