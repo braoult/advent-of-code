@@ -21,7 +21,7 @@ function buildtree {
     local name="var_$prof"                        # local var name, w/ depth
     eval "local $name"                            # ... declared here
     shift 2
-    local args=$* res="" arg tmp
+    local args=$* res="" arg t
 
     for arg in $args; do
         if [[ -z "${arg/[|ab]}" ]]; then
@@ -29,9 +29,12 @@ function buildtree {
         else
             if [[ ! -v MATCH[$arg] ]]; then
                 buildtree "$((prof+1))" "$name" "${RULE[$arg]}"
-                tmp="${!name}"
-                [[ ! "$tmp" =~ ^.$ ]] && tmp="($tmp)"
-                MATCH[$arg]="$tmp"
+                t="${!name}"
+                #[[ ! "$t" =~ ^.$ ]] && t="($t)"
+                if [[ ! "$t" =~ ^[ab]+$ ]] && [[ "${t:0:1}${t: -1}" != "()" ]]; then
+                    t="($t)"
+                fi
+                MATCH[$arg]="$t"
             fi
             res+=${MATCH[$arg]}
         fi
@@ -54,7 +57,7 @@ while read -r line; do
 done
 
 buildtree 1 var_0 0
-#printf "RULE ZERO = %s\n" "${MATCH[0]}"
+printf "RULE ZERO = %s\n" "${MATCH[0]}"
 
 for str in "${STRING[@]}"; do
     [[ "$str" =~ ^${MATCH[0]}$ ]] && ((res++))
