@@ -18,7 +18,6 @@ compile: ex1-c ex2-c
 
 ex1:
 	@$(TIME) ex1.bash < $(INPUT1) 2>&1
-	@$(TIME) ex1-v2.bash < $(INPUT1) 2>&1
 	@#$(TIME) ex1-c 2020 < $(INPUT1) 2>&1
 
 ex2:
