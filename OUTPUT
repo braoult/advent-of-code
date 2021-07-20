@@ -414,14 +414,18 @@ ex2-c : res=1680
 
 +++++++++++++++++ ex1
 ex1.bash : res=650217205854
-	time: 0:01.71 real, 1.70 user, 0.00 sys
-	context-switch:	39+1, page-faults: 0+191
+	time: 0:01.80 real, 1.78 user, 0.01 sys
+	context-switch:	28+1, page-faults: 0+190
 
-ex1-c : res=650217205854
+ex12-c : res=650217205854
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+73
+	context-switch:	0+1, page-faults: 0+75
 
 +++++++++++++++++ ex2
 ex2.bash : res=20394514442037
-	time: 0:01.54 real, 1.53 user, 0.01 sys
-	context-switch:	42+1, page-faults: 0+196
+	time: 0:01.56 real, 1.55 user, 0.01 sys
+	context-switch:	16+1, page-faults: 0+196
+
+ex12-c : res=20394514442037
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+74

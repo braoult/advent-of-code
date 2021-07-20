@@ -15,13 +15,13 @@ output:
 
 compile: ex1-c ex2-c
 
-ex1: ex1-c
+ex1: ex12-c
 	@$(TIME) ex1.bash < $(INPUT) 2>&1
-	@$(TIME) ex1-c 2020 < $(INPUT) 2>&1
+	@$(TIME) ex12-c 1 < $(INPUT) 2>&1
 
-ex2:
+ex2: ex12-c
 	@$(TIME) ex2.bash < $(INPUT) 2>&1
-	@#$(TIME) ex1-c 30000000 < $(INPUT) 2>&1
+	@$(TIME) ex12-c 2 < $(INPUT) 2>&1
 
 clean:
 	@rm -f ex1-c ex2-c core
