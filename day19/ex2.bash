@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# ex1.bash: Advent2020 game, day 19/game 1.
+# ex2.bash: Advent2020 game, day 19/game 2.
 
 CMD=${0##*/}
 set -o noglob
@@ -9,7 +9,7 @@ shopt -s extglob
 declare -a RULE=() MATCH=() STRING=()
 # shellcheck disable=SC2034
 declare var_0
-declare -i res=0
+declare -i res=0 MAXPROF=0
 
 # build a regexp use-able by bash =~ operator.
 # Recursively replace rules, until we get final text values.
@@ -21,7 +21,9 @@ function buildtree {
     local name="var_$prof"                        # local var name, w/ depth
     eval "local $name"                            # ... declared here
     shift 2
-    local args=$* res="" arg
+    local args=$* res="" arg t
+
+    ((prof > MAXPROF)) && MAXPROF=$prof
 
     for arg in $args; do
         if [[ -z "${arg/[|ab]}" ]]; then
@@ -29,7 +31,11 @@ function buildtree {
         else
             if [[ ! -v MATCH[$arg] ]]; then
                 buildtree "$((prof+1))" "$name" "${RULE[$arg]}"
-                MATCH[$arg]="(${!name})"
+                t="${!name}"
+                if [[ ! "$t" =~ ^[ab]+$ ]] && [[ "${t:0:1}${t: -1}" != "()" ]]; then
+                    t="($t)"
+                fi
+                MATCH[$arg]="$t"
             fi
             res+=${MATCH[$arg]}
         fi
@@ -56,13 +62,32 @@ done
 # 11: 42 31
 # New rules:
 # 8: 42 | 42 8
+# --> (${M[42]}+)
 # 11: 42 31 | 42 11 31
+# --> (${M[42]}${M[31]} | ${M[42]}${M[42]}${M[31]}${M[31]} etc...
+# --> (OR (${M[42]}{n})${M[31]}{n})), with 1 <= n <= SOME_LIMIT
 
-buildtree 1 var_0 42
-printf "RULE 42 = %s\n" "${MATCH[42]}"
-buildtree 1 var_0 31
-printf "RULE 31 = %s\n" "${MATCH[11]}"
 
+# hack:
+# 1) build part 1 tree
+# 2) calculate rule 8 and 11 with some "guessed" minimum possible value
+# 3) rebuild tree from scratch, but with rules 8 and 11 pre-loaded
+buildtree 1 var_0 0
+
+# This value was found manually: stable from 5.
+SOME_LIMIT=5
+tmp8="(${MATCH[42]})+"
+tmp11="(${MATCH[42]}${MATCH[31]})"
+for ((i=2; i<SOME_LIMIT; ++i)); do
+    tmp11+="|((${MATCH[42]}){$i}(${MATCH[31]}){$i})"
+done
+
+MATCH=()
+MATCH[8]="$tmp8"
+MATCH[11]="($tmp11)"
+buildtree 1 var_0 0
+
+res=0
 for str in "${STRING[@]}"; do
     [[ "$str" =~ ^${MATCH[0]}$ ]] && ((res++))
 done
