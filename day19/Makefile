@@ -1,5 +1,4 @@
-INPUT1 := INPUT-part1.txt
-INPUT2 := INPUT-part2.txt
+INPUT := INPUT.txt
 SHELL := /bin/bash
 CFLAGS := -w -g
 #CFLAGS := -w -g -pg
@@ -17,12 +16,12 @@ output:
 compile: ex1-c ex2-c
 
 ex1:
-	@$(TIME) ex1.bash < $(INPUT1) 2>&1
-	@#$(TIME) ex1-c 2020 < $(INPUT1) 2>&1
+	@$(TIME) ex1.bash < $(INPUT) 2>&1
+	@#$(TIME) ex1-c 2020 < $(INPUT) 2>&1
 
 ex2:
-	@$(TIME) ex2.bash < $(INPUT2) 2>&1
-	@#$(TIME) ex1-c 30000000 < $(INPUT2) 2>&1
+	@$(TIME) ex2.bash < $(INPUT) 2>&1
+	@#$(TIME) ex1-c 30000000 < $(INPUT) 2>&1
 
 clean:
 	@rm -f ex1-c ex2-c core
