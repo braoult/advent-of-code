@@ -8,8 +8,8 @@ shopt -s extglob
 
 declare -a RULE=() MATCH=() STRING=()
 # shellcheck disable=SC2034
-declare var_0
-declare -i res=0 MAXPROF=0
+declare var_0 rule8 rule11
+declare -i res=0
 
 # build a regexp use-able by bash =~ operator.
 # Recursively replace rules, until we get final text values.
@@ -22,8 +22,6 @@ function buildtree {
     eval "local $name"                            # ... declared here
     shift 2
     local args=$* res="" arg t
-
-    ((prof > MAXPROF)) && MAXPROF=$prof
 
     for arg in $args; do
         if [[ -z "${arg/[|ab]}" ]]; then
@@ -69,29 +67,25 @@ done
 
 
 # hack:
-# 1) build part 1 tree
+# 1) build rules 42 and 31
 # 2) calculate rule 8 and 11 with some "guessed" minimum possible value
-# 3) rebuild tree from scratch, but with rules 8 and 11 pre-loaded
-buildtree 1 var_0 0
+# 3) build rule 0
 
-# This value was found manually: stable from 5.
+# result is "stable" from this value
 SOME_LIMIT=5
-tmp8="(${MATCH[42]})+"
-tmp11="(${MATCH[42]}${MATCH[31]})"
+
+buildtree 1 var_0 42
+buildtree 1 var_0 31
+rule8="${MATCH[42]}+"
+rule11="${MATCH[42]}${MATCH[31]}"
 for ((i=2; i<SOME_LIMIT; ++i)); do
-    tmp11+="|((${MATCH[42]}){$i}(${MATCH[31]}){$i})"
+    rule11+="|${MATCH[42]}{$i}${MATCH[31]}{$i}"
 done
-
-MATCH=()
-MATCH[8]="$tmp8"
-MATCH[11]="($tmp11)"
+MATCH[8]="$rule8"
+MATCH[11]="($rule11)"
 buildtree 1 var_0 0
-
-res=0
 for str in "${STRING[@]}"; do
     [[ "$str" =~ ^${MATCH[0]}$ ]] && ((res++))
 done
 
 printf "%s : res=%d\n" "$CMD" "$res"
-
-exit 0
