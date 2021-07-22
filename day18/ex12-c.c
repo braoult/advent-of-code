@@ -42,10 +42,12 @@ static int prio_1(long op)
 {
     return op==T_PLUS || op==T_MULT? 1: 0;
 }
+
 static int prio_2(long op)
 {
     return op==T_PLUS? 2: op==T_MULT? 1: 0;
 }
+
 static int (*prio)()=&prio_1;
 
 static long push(struct stack *s, long val)
@@ -53,31 +55,22 @@ static long push(struct stack *s, long val)
     s->elt[s->last++]=val;
     return val;
 }
+
 static long pop(struct stack *s)
 {
     return s->elt[--s->last];
 }
+
 static long top(struct stack *s)
 {
     return s->elt[s->last-1];
 }
+
 static long empty(struct stack *s)
 {
     return s->last==0;
 }
 
-static void print() {
-    int i;
-    printf("NSTACK: ");
-    for (i=0; i<nstack.last; ++i) {
-        printf("%ld ", nstack.elt[i]);
-    }
-    printf("\nOSTACK: ");
-    for (i=0; i<ostack.last; ++i) {
-        printf("%c ", (char) -ostack.elt[i]);
-    }
-    printf("\n");
-}
 static long get_tok()
 {
     char *p, c;
@@ -90,7 +83,7 @@ static long get_tok()
             case ' ':
                 break;
             case '(':
-                   case ')':
+            case ')':
             case '*':
             case '+':
                 val=-c;
@@ -156,16 +149,11 @@ static long eval_expr()
                 break;
         }
         res=get_tok();
-        //print();
     }
     while(!OEMPTY())
         eval_top();
 
-    // return NSTACK's top
-    //printf("Returning %ld\n", NTOP());
     return NPOP();
-//end:
-//    return left;
 }
 
 int main(ac, av)
@@ -183,19 +171,8 @@ int main(ac, av)
         prio=&prio_2;
 
     while (fgets(line, sizeof line, stdin)) {
-        //gets(line, sizeof line, stdin);
-        //NPUSH(10);
-        //NPUSH(100);
-        //NPUSH(1000);
-        //print();
-        //printf("TOP=%ld\n", NTOP());
-        //NPOP();
-        //print();
-
         saveptr=line;
-        //printf("%s", line);
         tmp=eval_expr();
-        //printf("%s : res=%ld\n", line, tmp);
         res+=tmp;
     }
     printf("%s : res=%ld\n", *av, res);
