@@ -54,18 +54,21 @@ for key in "${!nums[@]}"; do
 
 done
 
-ALL=("${T[@]}" "${R[@]}" "${B[@]}" "${L[@]}" "${RT[@]}" "${RR[@]}" "${RB[@]}" "${RL[@]}")
+ALL="${T[@]} ${R[@]} ${B[@]} ${L[@]} ${RT[@]} ${RR[@]} ${RB[@]} ${RL[@]}"
+ALLSIZE=${#ALL}
+
 declare -i res=1 count
 for ((i=0; i<${#nums[@]}; ++i)); do
     count=0
 
     for t in ${T[$i]} ${R[$i]} ${B[$i]} ${L[$i]}; do
-        for s in "${ALL[@]}"; do
-            [[ $t == "$s" ]] && ((count++))
-        done
+        # https://stackoverflow.com/questions/26212889/bash-counting-substrings-in-a-string/50601141#50601141
+        S=${ALL//$t}
+        # 10 is line size
+        ((count += (ALLSIZE-${#S})/10))
     done
-
-    ((count ==6)) && ((res*=${nums[$i]}))
+    # 6 is 4 for itself, + 2 for other matching
+    ((count == 6)) && ((res*=${nums[$i]}))
 done
 
 printf "%s : res=%d\n" "$CMD" "$res"
