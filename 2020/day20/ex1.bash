@@ -6,10 +6,9 @@ CMD=${0##*/}
 set -o noglob
 shopt -s extglob
 
-#declare -A strings
 declare -a strings T R B L RT RR RB RL nums
+declare -i res=1 count=-1
 
-declare -i count=-1
 while read -r line; do
     case ${line:0:1} in
         T*)
@@ -54,10 +53,9 @@ for key in "${!nums[@]}"; do
 
 done
 
-ALL="${T[@]} ${R[@]} ${B[@]} ${L[@]} ${RT[@]} ${RR[@]} ${RB[@]} ${RL[@]}"
+ALL="${T[*]} ${R[*]} ${B[*]} ${L[*]} ${RT[*]} ${RR[*]} ${RB[*]} ${RL[*]}"
 ALLSIZE=${#ALL}
 
-declare -i res=1 count
 for ((i=0; i<${#nums[@]}; ++i)); do
     count=0
 
