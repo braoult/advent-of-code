@@ -7,6 +7,43 @@ print_tile() {
     printf "%s\n" "${src[@]}"
 }
 
+print_final() {
+    local k str
+    local -i l len r c
+    local -a tile
+    str=${strings[0]%% *}
+    len=${#str}
+    printf "print_final: len=%d\n" "$len"
+    for ((r=0; r<SQUARE; ++r)); do
+        for ((l=0; l<len; ++l)); do # each line
+            for ((c=0; c<SQUARE; ++c)); do
+                k=${FINAL[$r,$c]}
+                # shellcheck disable=SC2206
+                tile=(${strings[$k]})
+                str=${tile[$l]}
+                printf "%s " "$str"
+            done
+            printf "\n"
+        done
+        printf "\n"
+    done
+
+}
+
+trim_borders() {
+    local k s
+    for k in "${!strings[@]}"; do
+        s=${strings[$k]}
+        s=${s//? ?/ }
+        s=${s#?}
+        s=${s%?}
+        s=${s#* }
+        s=${s% * }
+        strings[$k]="$s"
+        #printf "%s\n" "${strings[$k]}"
+    done
+}
+
 flip_v() {
     local -i t=$1 i
     # shellcheck disable=SC2206
@@ -120,4 +157,116 @@ flip() {
     for ((i=9; i>=0; --i)); do
         _r+=${str:$i:1}
     done
+}
+
+# transform $2 tile to match $1 on left
+attach_left() {
+    local _l="$1"
+    local -i t="$2" m=0
+    local s
+    printf "matching left %s for tile:\n" "$_l"
+    print_tile "$t"
+    for s in ${T[$t]} ${R[$t]} ${B[$t]} ${L[$t]} \
+                      ${RT[$t]} ${RR[$t]} ${RB[$t]} ${RL[$t]}; do
+        printf "%d: %s\n" "$m" "$s"
+        if [[ "$s" == "$_l" ]]; then
+            echo "attach_left: count=$m"
+            break
+        fi
+        ((m++))
+    done
+    case $m in
+        0)                                        # top
+            printf "match=top\n"
+            r270 "$t"
+            flip_v "$t"
+            ;;
+        1)                                        # right
+            printf "match=right\n"
+            r180 "$t"
+            flip_v "$t"
+            ;;
+        2)                                        # bottom
+            printf "match=bottom\n"
+            r90 "$t"
+            ;;
+        3)                                        # left
+            printf "match=left\n"
+            ;;
+        4)                                        # rev top
+            printf "match=rev top\n"
+            r270 "$t"
+            ;;
+        5)                                        # rev right
+            printf "match=rev right\n"
+            r180 "$t"
+            ;;
+        6)                                        # rev bottom
+            printf "match=rev bottom\n"
+            r90 "$t"
+            flip_v "$t"
+            ;;
+        7)                                        # rev left
+            printf "match=rev left\n"
+            flip_v "$t"
+            ;;
+    esac
+    echo new orientation:
+    print_tile "$t"
+}
+
+# transform $2 tile to match $1 on left
+attach_top() {
+    local _l="$1"
+    local -i t="$2" m=0
+    local s
+    printf "matching top %s for tile:\n" "$_l"
+    print_tile "$t"
+    for s in ${T[$t]} ${R[$t]} ${B[$t]} ${L[$t]} \
+                      ${RT[$t]} ${RR[$t]} ${RB[$t]} ${RL[$t]}; do
+        printf "%d: %s\n" "$m" "$s"
+        if [[ "$s" == "$_l" ]]; then
+            echo "attach_top: count=$m"
+            break
+        fi
+        ((m++))
+    done
+    case $m in
+        0)                                        # top
+            printf "match=top\n"
+            ;;
+        1)                                        # right
+            printf "match=right\n"
+            r270 "$t"
+            ;;
+        2)                                        # bottom
+            printf "match=bottom\n"
+            r180 "$t"
+            flip_h "$t"
+            ;;
+        3)                                        # left
+            printf "match=left\n"
+            r90 "$t"
+            flip_h "$t"
+            ;;
+        4)                                        # rev top
+            printf "match=rev top\n"
+            flip_h "$t"
+            ;;
+        5)                                        # rev right
+            printf "match=rev right\n"
+            r270 "$t"
+            flip_h "$t"
+            ;;
+        6)                                        # rev bottom
+            printf "match=rev bottom\n"
+            r180 "$t"
+            ;;
+        7)                                        # rev left
+            printf "match=rev left\n"
+            r90 "$t"
+            ;;
+    esac
+    echo new orientation:
+    print_tile "$t"
 }
