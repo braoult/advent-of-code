@@ -27,7 +27,83 @@ print_final() {
         done
         printf "\n"
     done
+}
 
+assemble_final() {
+    local k str
+    local -i l len r c
+    local -a tile
+    str=${strings[0]%% *}
+    len=${#str}
+    for ((r=0; r<SQUARE; ++r)); do
+        for ((l=0; l<len; ++l)); do # each line
+            for ((c=0; c<SQUARE; ++c)); do
+                k=${FINAL[$r,$c]}
+                # shellcheck disable=SC2206
+                tile=(${strings[$k]})
+                str=${tile[$l]}
+                printf "%s " "$str"
+            done
+            printf "\n"
+        done
+        printf "\n"
+    done
+}
+rotate_final() {
+    local -i i j len
+    local -a new
+    local line
+    len=${#finalfoo[@]}
+    printf "rotate foo. len=%d\n" "$len"
+    for ((i=len-1; i>=0; --i)); do
+        line=${finalfoo[$i]}
+        for ((j=0; j<len; ++j)); do
+            new[$j]+=${line:$j:1}
+        done
+        #dst+=("$str2")
+    done
+    finalfoo=("${new[@]}")
+}
+
+flipv_final() {
+    local -i i len
+    local -a dst
+    len=${#finalfoo[@]}
+    for ((i=0; i<len; ++i)); do
+        dst[$((len-1-i))]=${finalfoo[$i]}
+    done
+    finalfoo=("${dst[@]}")
+}
+
+fliph_final() {
+    local -i i j len
+    local str1 str2
+    local -a dst
+    local str1 str2
+
+    len=${#finalfoo[@]}
+    for ((i=0; i<len; ++i)); do
+        str1=${finalfoo[$i]}
+        str2=""
+        for ((j=len-1; j>=0; --j)); do
+            str2+=${str1:$j:1}
+        done
+        dst+=("$str2")
+    done
+    finalfoo=("${dst[@]}")
+}
+
+final_add() {
+    local -i start=$1 r t
+    # shellcheck disable=SC2206
+    local -a src=(${strings[$2]})
+
+    for ((r=1, t=$((start*8)); r<9; ++r, t++)); do
+        printf "adding tile %d row %d to final %d\n" "$2" "$r" "$t"
+        printf "  %s -> " "${finalfoo[$t]}"
+        finalfoo[$t]+=${src[$r]:1:8}
+        printf "%s\n" "${finalfoo[$t]}"
+    done
 }
 
 trim_borders() {
@@ -58,6 +134,7 @@ flip_h() {
     local str1 str2
     # shellcheck disable=SC2206
     local -a dst src=(${strings[$t]})
+    local len=${#src[0]}
     local str1 str2
     for ((i=0; i<10; ++i)); do
         str1=${src[$i]}
@@ -82,8 +159,8 @@ r90() {
         #dst+=("$str2")
     done
     strings[$t]="${str2[*]}"
-
 }
+
 r180() {
     local -i t=$1 i j
     # shellcheck disable=SC2206

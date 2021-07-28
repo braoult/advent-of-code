@@ -10,10 +10,10 @@ source tile.bash
 
 #declare -A strings
 declare -a strings T R B L RT RR RB RL nums
-declare -a final
+declare -a final finalfoo
 declare -A FINAL
 declare -a CORNER EDGE CENTRAL
-declare -i count=-1 res=1 SQUARE
+declare -i count=-1 SQUARE
 
 while read -r line; do
     case ${line:0:1} in
@@ -152,6 +152,7 @@ for ((row=0; row<SQUARE; ++row)); do
             print_tile "$i"
             FINAL[0,0]="$i"
             final+=("${nums[$i]}")
+            final_add "$row" "$i"
             continue
         fi
         ################################## rest of 1st line
@@ -178,6 +179,7 @@ for ((row=0; row<SQUARE; ++row)); do
                     final+=("${nums[$j]}")
                     echo "c=$c"
                     attach_left "$right" "$j"
+                    final_add "$row" "$j"
                     if ((col < SQUARE-1)); then
                         unset "EDGE[$index]"
                         EDGE=("${EDGE[@]}")
@@ -228,6 +230,7 @@ for ((row=0; row<SQUARE; ++row)); do
                     final+=("${nums[$j]}")
                     echo "c=$c"
                     attach_top "$bottom" "$j"
+                    final_add "$row" "$j"
                     if ((row < SQUARE-1)); then
                         unset "EDGE[$index]"
                         EDGE=("${EDGE[@]}")
@@ -265,6 +268,7 @@ for ((row=0; row<SQUARE; ++row)); do
                     final+=("${nums[$j]}")
                     echo "c=$c"
                     attach_top "$bottom" "$j"
+                    final_add "$row" "$j"
                     unset "EDGE[$index]"
                     EDGE=("${EDGE[@]}")
                     found=1
@@ -296,6 +300,7 @@ for ((row=0; row<SQUARE; ++row)); do
                 final+=("${nums[$j]}")
                 echo "c=$c"
                 attach_top "$bottom" "$j"
+                final_add "$row" "$j"
                 unset "CENTRAL[$index]"
                 CENTRAL=("${CENTRAL[@]}")
                 found=1
@@ -323,20 +328,73 @@ print_final
 trim_borders
 print_final
 
+# dragon:
+#    01234567890123456789
+# 0                    #
+# 1  #    ##    ##    ###
+# 2   #  #  #  #  #  #
+find_dragons() {
+    local drag l1 l2 l3
+    local -i found=0 r c len
+    printf "square=%d\n" "$SQUARE"
+    len=${#finalfoo[@]}
+    for ((r=0; r<len-2; ++r)); do
+        l1=${finalfoo[$r]}
+        l2=${finalfoo[$((r+1))]}
+        l3=${finalfoo[$((r+2))]}
+        for ((c=0; c<len-20; ++c)); do
+            drag=${l1:$c+18:1}${l2:$c:1}${l2:$c+5:2}${l2:$c+11:2}${l2:$c+17:3}
+            drag+=${l3:$c+1:1}${l3:$c+4:1}${l3:$c+7:1}${l3:$c+10:1}${l3:$c+13:1}${l3:$c+16:1}
+            printf "dragon=%s len=%d\n" "$drag" "${#drag}"
+            if [[ "$drag" == '###############' ]]; then
+                printf "found dragon at (%d,%d)\n" "$r" "$c"
+                ((found++))
+            fi
+        done
+    done
+    return $found
+}
 
-        # dragon:
-#   01234567890123456789
-#                   #
-#   #    ##    ##    ###
-#   #  #  #  #  #  #
-for ((r=0; r<SQUARE-2; ++r)); do
-    for ((c=18; c<SQUARE-1; ++c)); do
-        :
+printf "\n"
+for k in "${!finalfoo[@]}"; do
+    printf "%s\n" "${finalfoo[$k]}"
+done
+for ((i=0; i<4; ++i)); do
+    find_dragons
+    found=$?
+    ((found>0)) && break
+
+    fliph_final
+    printf "FLIPH_DRAG\n"
+    for k in "${!finalfoo[@]}"; do
+        printf "%s\n" "${finalfoo[$k]}"
+    done
+    find_dragons
+    found=$?
+    ((found>0)) && break
+    fliph_final
+
+    flipv_final
+    printf "FLIPV_DRAG\n"
+    for k in "${!finalfoo[@]}"; do
+        printf "%s\n" "${finalfoo[$k]}"
+    done
+    find_dragons
+    found=$?
+    ((found>0)) && break
+    flipv_final
+
+    rotate_final
+    printf "ROTATE_DRAG\n"
+    for k in "${!finalfoo[@]}"; do
+        printf "%s\n" "${finalfoo[$k]}"
     done
 done
 
-
-printf "%s \n" "${final[@]}"
+fullstr="${finalfoo[*]}"
+fullstr="${fullstr//[. ]}"
+sharp=${#fullstr}
+printf "found=%d \n" $((sharp - found*15))
 
 exit 0
 
