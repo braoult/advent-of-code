@@ -158,7 +158,20 @@ flip() {
         _r+=${str:$i:1}
     done
 }
-
+print_all_borders() {
+    local k str
+    local -i i
+    for ((i=0; i<${#strings[@]}; ++i)); do
+        top str "${strings[$i]}"
+        printf "%s\n" "$str"
+        right str "${strings[$i]}"
+        printf "%s\n" "$str"
+        bottom str "${strings[$i]}"
+        printf "%s\n" "$str"
+        left str "${strings[$i]}"
+        printf "%s\n" "$str"
+    done
+}
 # transform $2 tile to match $1 on left
 attach_left() {
     local _l="$1"
@@ -183,8 +196,7 @@ attach_left() {
             ;;
         1)                                        # right
             printf "match=right\n"
-            r180 "$t"
-            flip_v "$t"
+            flip_h "$t"
             ;;
         2)                                        # bottom
             printf "match=bottom\n"
@@ -241,8 +253,7 @@ attach_top() {
             ;;
         2)                                        # bottom
             printf "match=bottom\n"
-            r180 "$t"
-            flip_h "$t"
+            flip_v "$t"
             ;;
         3)                                        # left
             printf "match=left\n"

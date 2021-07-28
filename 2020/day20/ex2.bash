@@ -68,8 +68,10 @@ for key in "${!nums[@]}"; do
     RL+=("$flipleft")
 
 done
-
-ALL="${T[*]} ${R[*]} ${B[*]} ${L[*]} ${RT[*]} ${RR[*]} ${RB[*]} ${RL[*]}"
+#echo BORDERS:
+#print_all_borders
+#exit 0
+ALL="${T[*]} ${R[*]} ${B[*]} ${L[*]} ${RT[*]} ${RR[*]} ${RB[*]} ${RL[*]} "
 ALLSIZE=${#ALL}
 
 for ((i=0; i<${#nums[@]}; ++i)); do
@@ -99,27 +101,41 @@ done
 printf "CENTRAL[%d]=%s\n" "${#CENTRAL[@]}" "${CENTRAL[*]}"
 printf "EDGE[%d]=%s\n" "${#EDGE[@]}" "${EDGE[*]}"
 printf "CORNER[%d]=%s\n" "${#CORNER[@]}" "${CORNER[*]}"
+for ((i=0; i<${#CORNER[@]}; ++i)); do
+    printf "corner[%d]=%d\n" "$i" "${nums[$i]}"
+done
+
+#printf "ALL=%s\n" "$ALL"
+printf "ALLSIZE=%d\n" "$ALLSIZE"
 printf "%s : count=%d\n" "$CMD" "$count"
 
 for ((row=0; row<SQUARE; ++row)); do
-    echo ZOBI
     for ((col=0; col<SQUARE; ++col)); do
-        for k in ${!FINAL[@]}; do
+        for k in "${!FINAL[@]}"; do
             printf "final[%s]=%d\n" "$k" "${FINAL[$k]}"
         done
+        found=0
         printf "square(%d,%d)\n" "$row" "$col"
         ################################## 1st tile (top left)
         if ((row==0 && col==0)); then
             # Choose one corner for top-left, find the correct orientation
             i=${CORNER[0]}
+            printf "corner[0]=%d\n" "${nums[$i]}"
             unset "CORNER[0]"
             CORNER=("${CORNER[@]}")
 
-            printf "corner[0]=%d\n" "${nums[$i]}"
             print_tile "$i"; echo
+            t=${L[$i]}
+            S=${ALL//$t}
+            printf "left matches=%d\n" $((ALLSIZE-${#S}))
+            t=${T[$i]}
+            S=${ALL//$t}
+            printf "top matches=%d\n" $((ALLSIZE-${#S}))
+
             t=${B[$i]}
             S=${ALL//$t}
             # flip vertical if bottom is a corner side
+            printf "bottom matches=%d\n" $((ALLSIZE-${#S}))
             if (( ALLSIZE-${#S} == 10 )); then
                 echo FLIP_V
                 flip_v "$i"
@@ -127,7 +143,8 @@ for ((row=0; row<SQUARE; ++row)); do
             print_tile "$i"; echo
             t=${R[$i]}
             S=${ALL//$t}
-            # flip horizontal if bottom is a corner side
+            # flip horizontal if right is a corner side
+            printf "right matches=%d\n" $((ALLSIZE-${#S}))
             if (( ALLSIZE-${#S} == 10 )); then
                 echo FLIP_H
                 flip_h "$i"
@@ -145,8 +162,9 @@ for ((row=0; row<SQUARE; ++row)); do
                 list=("${CORNER[@]}")
             fi
             l=${FINAL[0,$((col-1))]}
-            printf "FINAL[0,%d]=%d\n" "$((col-1))" "${FINAL[0,$((col-1))]}"
+            #printf "FINAL[0,%d]=%d\n" "$((col-1))" "${FINAL[0,$((col-1))]}"
             right right "${strings[$l]}"
+            index=0
             for j in "${list[@]}"; do
                 SIDES="${T[$j]} ${R[$j]} ${B[$j]} ${L[$j]} ${RT[$j]} ${RR[$j]} ${RB[$j]} ${RL[$j]}"
                 LENGTH=${#SIDES}
@@ -154,22 +172,32 @@ for ((row=0; row<SQUARE; ++row)); do
                 # 10 is line size
                 ((c = (LENGTH-${#S})/10))
                 if ((c > 0)); then
-                    echo "border tile match: ${nums[$j]}"
+                    echo "border tile match: idx=$index $j [${nums[$j]}]"
                     print_tile "$j"
                     FINAL[$row,$col]="$j"
                     final+=("${nums[$j]}")
                     echo "c=$c"
                     attach_left "$right" "$j"
                     if ((col < SQUARE-1)); then
-                        unset "EDGE[$j]"
+                        unset "EDGE[$index]"
                         EDGE=("${EDGE[@]}")
+                        printf "after removing EDGE $j\n"
+                        printf "EDGE[%d]=%s\n" "${#EDGE[@]}" "${EDGE[*]}"
                     else
-                        unset "CORNER[$j]"
+                        unset "CORNER[$index]"
                         CORNER=("${CORNER[@]}")
+                        printf "after removing CORNER $j\n"
+                        printf "CORNER[%d]=%s\n" "${#CORNER[@]}" "${CORNER[*]}"
                     fi
+                    found=1
                     break
                 fi
+                ((index++))
             done
+            if ((found==0)); then
+                printf "NOT FOUND\n"
+                exit 0
+            fi
             continue
         fi
         ################################## 1st and last col
@@ -185,6 +213,7 @@ for ((row=0; row<SQUARE; ++row)); do
             print_tile "$j"
             bottom bottom "${strings[$l]}"
             printf "UPPER bottom line: %s\n" "$bottom"
+            index=0
             for j in "${list[@]}"; do
                 printf "looking for tile %d [%d]\n" "$j" "${nums[$j]}"
                 SIDES="${T[$j]} ${R[$j]} ${B[$j]} ${L[$j]} ${RT[$j]} ${RR[$j]} ${RB[$j]} ${RL[$j]}"
@@ -200,15 +229,21 @@ for ((row=0; row<SQUARE; ++row)); do
                     echo "c=$c"
                     attach_top "$bottom" "$j"
                     if ((row < SQUARE-1)); then
-                        unset "EDGE[$j]"
+                        unset "EDGE[$index]"
                         EDGE=("${EDGE[@]}")
                     else
-                        unset "CORNER[$j]"
+                        unset "CORNER[$index]"
                         CORNER=("${CORNER[@]}")
                     fi
+                    found=1
                     break
                 fi
+                ((index++))
             done
+            if ((found==0)); then
+                printf "NOT FOUND\n"
+                exit 0
+            fi
             continue
         fi
         ################################## rest of last row
@@ -216,6 +251,7 @@ for ((row=0; row<SQUARE; ++row)); do
             l=${FINAL[$((row-1)),$col]}
             printf "FINAL[%d,%d]=%d\n" "$((row-1))" "$col" "${FINAL[$((row-1)),$col]}"
             bottom bottom "${strings[$l]}"
+            index=0
             for j in "${EDGE[@]}"; do
                 SIDES="${T[$j]} ${R[$j]} ${B[$j]} ${L[$j]} ${RT[$j]} ${RR[$j]} ${RB[$j]} ${RL[$j]}"
                 LENGTH=${#SIDES}
@@ -229,17 +265,24 @@ for ((row=0; row<SQUARE; ++row)); do
                     final+=("${nums[$j]}")
                     echo "c=$c"
                     attach_top "$bottom" "$j"
-                    unset "EDGE[$j]"
+                    unset "EDGE[$index]"
                     EDGE=("${EDGE[@]}")
+                    found=1
                     break
                 fi
+                ((index++))
             done
+            if ((found==0)); then
+                printf "NOT FOUND\n"
+                exit 0
+            fi
             continue
         fi
         ################################## central tiles
         l=${FINAL[$((row-1)),$col]}
         printf "FINAL[%d,%d]=%d\n" "$((col-1))" "${FINAL[$,$((col-1))]}"
         bottom bottom "${strings[$l]}"
+        index=0
         for j in "${CENTRAL[@]}"; do
             SIDES="${T[$j]} ${R[$j]} ${B[$j]} ${L[$j]} ${RT[$j]} ${RR[$j]} ${RB[$j]} ${RL[$j]}"
             LENGTH=${#SIDES}
@@ -253,13 +296,18 @@ for ((row=0; row<SQUARE; ++row)); do
                 final+=("${nums[$j]}")
                 echo "c=$c"
                 attach_top "$bottom" "$j"
-                unset "CENTRAL[$j]"
+                unset "CENTRAL[$index]"
                 CENTRAL=("${CENTRAL[@]}")
+                found=1
                 break
             fi
+            ((index++))
         done
+        if ((found==0)); then
+            printf "NOT FOUND\n"
+            exit 0
+        fi
         continue
-
     done
 done
 
@@ -274,6 +322,20 @@ done
 print_final
 trim_borders
 print_final
+
+
+        # dragon:
+#   01234567890123456789
+#                   #
+#   #    ##    ##    ###
+#   #  #  #  #  #  #
+for ((r=0; r<SQUARE-2; ++r)); do
+    for ((c=18; c<SQUARE-1; ++c)); do
+        :
+    done
+done
+
+
 printf "%s \n" "${final[@]}"
 
 exit 0
