@@ -53,19 +53,6 @@ final_add() {
     done
 }
 
-trim_borders() {
-    local k s
-    for k in "${!strings[@]}"; do
-        s=${strings[$k]}
-        s=${s//? ?/ }
-        s=${s#?}
-        s=${s%?}
-        s=${s#* }
-        s=${s% * }
-        strings[$k]="$s"
-    done
-}
-
 flip_v() {
     local -i t=$1 i
     # shellcheck disable=SC2206
