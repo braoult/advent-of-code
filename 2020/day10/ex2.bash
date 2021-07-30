@@ -5,9 +5,31 @@
 CMD=${0##*/}
 shopt -s extglob
 
+# quicksort implementation (descending)
+qsort() {
+   local pivot i smaller=() larger=()
+   qsort_ret=()
+   (($#==0)) && return 0
+   pivot=$1
+   shift
+   for i; do
+      if (( i > pivot )); then
+         smaller+=( "$i" )
+      else
+         larger+=( "$i" )
+      fi
+   done
+   qsort "${smaller[@]}"
+   smaller=( "${qsort_ret[@]}" )
+   qsort "${larger[@]}"
+   larger=( "${qsort_ret[@]}" )
+   qsort_ret=( "${smaller[@]}" "$pivot" "${larger[@]}" )
+}
+
 declare -a numbers
-readarray -t numbers <<< "$(sort -nr)"
-numbers+=(0)
+readarray -t numbers
+qsort "${numbers[@]}"
+numbers=(${qsort_ret[@]} 0)
 ((last=numbers[0]+3))
 numbers=("$last" "${numbers[@]}")
 size=${#numbers[@]}
