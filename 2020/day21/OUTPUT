@@ -1,4 +1,8 @@
 ex1.bash: res=2211
-	time: 0:01.73 real, 1.72 user, 0.00 sys
-	context-switch:	54+1, page-faults: 0+1089
+	time: 0:01.72 real, 1.71 user, 0.00 sys
+	context-switch:	9+1, page-faults: 0+1090
+
+ex2.bash: res=vv,nlxsmb,rnbhjk,bvnkk,ttxvphb,qmkz,trmzkcfg,jpvz
+	time: 0:01.75 real, 1.74 user, 0.00 sys
+	context-switch:	36+4, page-faults: 0+1388
 

@@ -457,3 +457,17 @@ ex1.bash : res=5966506063747
 ex2.bash res=1714
 	time: 0:02.14 real, 2.05 user, 0.02 sys
 	context-switch:	1146+1, page-faults: 0+605
+
+=========================================
+================= day21 =================
+=========================================
+
++++++++++++++++++ ex1
+ex1.bash: res=2211
+	time: 0:01.72 real, 1.71 user, 0.00 sys
+	context-switch:	9+1, page-faults: 0+1090
+
++++++++++++++++++ ex2
+ex2.bash: res=vv,nlxsmb,rnbhjk,bvnkk,ttxvphb,qmkz,trmzkcfg,jpvz
+	time: 0:01.75 real, 1.74 user, 0.00 sys
+	context-switch:	36+4, page-faults: 0+1388
