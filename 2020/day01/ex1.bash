@@ -2,7 +2,7 @@
 #
 # ex1.bash: Advent2020 game, day 1/game 1
 
-CMD=$(basename "$0")
+CMD=${0##*/}
 
 readarray -t numbers
 

@@ -2,7 +2,7 @@
 #
 # ex2-sort.bash: Advent2020 game, day 1/game 2, with sort.
 
-CMD=$(basename "$0")
+CMD=${0##*/}
 
 readarray -t numbers <<< "$(sort -n)"
 

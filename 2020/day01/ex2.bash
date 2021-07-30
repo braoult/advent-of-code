@@ -2,7 +2,7 @@
 #
 # ex2.bash: Advent2020 game, day 1/game 2
 
-CMD=$(basename "$0")
+CMD=${0##*/}
 
 readarray -t numbers
 
