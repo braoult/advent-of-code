@@ -7,7 +7,7 @@ shopt -s extglob
 set -o noglob
 
 declare -A I_COUNT=()
-declare -A CANBE=() I A_RULES=() FOUND=() ALL_I=()
+declare -A CANBE=() I A_RULES=() FOUND=() ALL_I=() ALL_A=()
 declare -a R
 declare -i count=0
 
@@ -46,29 +46,20 @@ delw() {
     _res="${_res##*( )}"
     _res="${_res%%*( )}"
 }
-# add a word to string $1, if not already present
-addw() {
-    local -n _s="$1"
-    # shellcheck disable=SC2206
-    local _reg="\b$2\b"
-
-    [[ "$_s" =~ $_reg ]] || _s+=" $2"
-    _s="${_s##*( )}"
-}
 
 REGEX="(.*) \(contains(.*)\)"
 while read -r line; do
     [[ "$line" =~ $REGEX ]]
     ingr="${BASH_REMATCH[1]}"
-    all="${BASH_REMATCH[2]}"
-    all=${all//,}
+    allg="${BASH_REMATCH[2]}"
+    allg=${allg//,}
 
     R[$count]="$ingr"
-    for ka in $all; do
+    for ka in $allg; do
         A_RULES[$ka]+=" $count"
+        ALL_A[$ka]=""
         for ki in $ingr; do
-            addw CANBE[$ka] "$ki"
-            ALL_I[$ki]="$ki"
+            ALL_I[$ki]=""
         done
     done
     for ki in $ingr; do
@@ -76,9 +67,12 @@ while read -r line; do
     done
     ((count++))
 done
+all_i="${!ALL_I[@]}"
+for k in "${!ALL_A[@]}"; do
+    CANBE[$k]="$all_i"
+done
 
-declare -i solved=0 count
-declare allerg allerg1 ingred
+solved=0
 while ((solved==0)); do
     solved=1
     for allerg in "${!CANBE[@]}"; do

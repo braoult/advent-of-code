@@ -1,4 +1,4 @@
 ex1.bash: res=2211
-	time: 0:25.09 real, 25.08 user, 0.01 sys
-	context-switch:	144+1, page-faults: 0+1133
+	time: 0:01.73 real, 1.72 user, 0.00 sys
+	context-switch:	54+1, page-faults: 0+1089
 
