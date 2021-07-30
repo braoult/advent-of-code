@@ -6,8 +6,7 @@ CMD=${0##*/}
 shopt -s extglob
 set -o noglob
 
-declare -A I_COUNT=()
-declare -A CANBE=() I A_RULES=() FOUND=() ALL_I=() ALL_A=()
+declare -A CANBE=() A_RULES=() FOUND=() ALL_I=() ALL_A=() I_COUNT=()
 declare -a R
 declare -i count=0
 
@@ -67,7 +66,7 @@ while read -r line; do
     done
     ((count++))
 done
-all_i="${!ALL_I[@]}"
+all_i="${!ALL_I[*]}"
 for k in "${!ALL_A[@]}"; do
     CANBE[$k]="$all_i"
 done
@@ -90,6 +89,7 @@ while ((solved==0)); do
         ((count > 1)) && solved=0
         if ((count==1)); then
             word=$str #{CANBE[$allerg]}
+            # shellcheck disable=SC2034
             FOUND[$allerg]="${CANBE[$allerg]}"
             unset ALL_I["${CANBE[$allerg]}"]
             for allerg1 in "${!CANBE[@]}"; do
