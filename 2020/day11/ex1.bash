@@ -84,8 +84,7 @@ done
 
 NCOLS=${#rowsstr[0]}
 NROWS=${#rowsstr[@]}
-
-printf -v zeroed '%0.s0 ' $(seq 1 $(((NCOLS+2)*(NROWS+2))))
+printf -v zeroed '%0.s0 ' $(eval "echo {1..$(((NCOLS+2)*(NROWS+2)))}")
 
 # split arrays in integers
 for ((r=0; r<NROWS; ++r)); do

@@ -107,7 +107,8 @@ NROWS=${#rowsstr[@]}
 #echo "L=$RLENGTH N=$NROWS"
 
 # add floor rows at beginning and end
-printf -v floor '%0.s0 ' $(seq 1 $((RLENGTH+2)))
+printf -v floor '%0.s0 ' $(eval "echo {1..$((RLENGTH+2))}")
+
 #echo floor="$floor"
 #echo floor="$floor"
 #echo

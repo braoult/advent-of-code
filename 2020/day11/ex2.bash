@@ -162,7 +162,7 @@ NCOLS=${#rowsstr[0]}
 NROWS=${#rowsstr[@]}
 SIZE=$((NCOLS * NROWS))
 
-printf -v zeroed '%0.s0 ' $(seq 1 $SIZE)
+printf -v zeroed '%0.s0 ' $(eval "echo {1.. $SIZE}")
 
 # split arrays in integers
 for ((r=0; r<NROWS; ++r)); do

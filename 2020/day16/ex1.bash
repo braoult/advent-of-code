@@ -10,8 +10,8 @@ declare -i state=0 res=0
 
 while read -r line; do
 	if [[ $line =~ ^([a-z :]+)([0-9]+)-([0-9]+)([a-z ]+)([0-9]+)-([0-9]+)$ ]]; then
-		n1=$(seq "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}")
-		n2=$(seq "${BASH_REMATCH[5]}" "${BASH_REMATCH[6]}")
+		n1=$(eval "echo {${BASH_REMATCH[2]}..${BASH_REMATCH[3]}}")
+		n2=$(eval "echo {${BASH_REMATCH[5]}..${BASH_REMATCH[6]}}")
 		for i in $n1 $n2; do
 			VALID[$i]=1
 		done

@@ -13,9 +13,8 @@ while read -r line; do
 	if [[ $line =~ ^([a-z ]+)\:\ ([0-9]+)-([0-9]+)([a-z ]+)([0-9]+)-([0-9]+)$ ]]; then
 		# valid ranges
 		keys[$curkey]="${BASH_REMATCH[1]}"
-		n1=$(seq -s" " "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}")
-		n2=$(seq -s" " "${BASH_REMATCH[5]}" "${BASH_REMATCH[6]}")
-
+		n1=$(eval "echo {${BASH_REMATCH[2]}..${BASH_REMATCH[3]}}")
+		n2=$(eval "echo {${BASH_REMATCH[5]}..${BASH_REMATCH[6]}}")
 		for i in $n1 $n2; do
 			valid[$i]=1
 		done

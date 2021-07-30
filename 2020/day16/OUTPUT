@@ -1,17 +1,18 @@
 cc -w -O3    ex1-c.c   -o ex1-c
 ex1.bash : res=21996
-	time: 0:00.23 real, 0.16 user, 0.03 sys
-	context-switch:	19+99, page-faults: 0+9381
+	time: 0:00.14 real, 0.11 user, 0.02 sys
+	context-switch:	12+120, page-faults: 0+7974
 
 ex1-c : res=21996
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+71
+	context-switch:	0+1, page-faults: 0+76
 
+cc -w -O3    ex2-c.c   -o ex2-c
 ex2.bash : res=650080463519
 	time: 0:06.58 real, 6.54 user, 0.04 sys
-	context-switch:	662+95, page-faults: 0+10210
+	context-switch:	201+114, page-faults: 0+8893
 
 ex2-c : res=650080463519
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+71
+	context-switch:	0+1, page-faults: 0+74
 
