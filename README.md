@@ -9,4 +9,4 @@ My solutions to the 2 daily exercises in both C and Bash (also Cobol for day 1, 
 #### Done:
  -  Day  1:     Bash, C, and Cobol
  -  Days 2-18:  Bash and C
- -  Days 19-21: Bash
+ -  Days 19-22: Bash
