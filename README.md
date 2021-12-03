@@ -1,4 +1,4 @@
-#### My solutions to the [advent of code](https://adventofcode.com), years 2020 and 2021.
+#### My solutions to the [2020](https://adventofcode.com/2020) and [2021](https://adventofcode.com/2021) [advent of code](https://adventofcode.com).
 
 #### My own rules for 2020 :
  - **C** : Only *standard* libraries (for example, no external sort).
