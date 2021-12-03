@@ -85,7 +85,7 @@ static int usage(char *prg)
 int main(int ac, char **av)
 {
     int opt;
-    u32 exercise = 2, res;
+    u32 exercise = 1, res;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
