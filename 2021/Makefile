@@ -17,7 +17,7 @@ CC       = gcc
 #LIBS   = -lreadline -lncurses
 CFLAGS   += -std=gnu99
 
-#CFLAGS += -O2
+CFLAGS += -O2
 CFLAGS += -g
 CFLAGS += -Wall
 CFLAGS += -Wextra
@@ -39,13 +39,12 @@ LDLIB     := -l$(LIB)
 all: lib $(SUBDIRS)
 
 clean:
-	for dir in $(SUBDIRS) ; do \
-		$(MAKE) -C $$dir clean ; \
+	@for dir in $(SUBDIRS) ; do \
+		$(MAKE) --no-print-directory -C $$dir clean ; \
 	done
 
 cleanall: clean
-	echo AAAAAAAAAAAAAAAAAAAAA
-	$(RM) -f $(SLIB) $(DLIB)
+	@$(RM) -f $(SLIB) $(DLIB)
 
 redo: cleanall all
 
@@ -54,10 +53,10 @@ $(SUBDIRS):
 	@echo "================= $@ ================="
 	@echo "========================================="
 	@echo
-	@echo "+++++++++++++++++ ex1"
-	+$(MAKE) --no-print-directory -C $@ ex1 2>&1
-	@echo "+++++++++++++++++ ex2"
-	+$(MAKE) --no-print-directory -C $@ ex2 2>&1
+	@echo "+++++++++++++++++ part 1"
+	+@$(MAKE) --no-print-directory -C $@ ex1 2>&1
+	@echo "+++++++++++++++++ part 2"
+	+@$(MAKE) --no-print-directory -C $@ ex2 2>&1
 
 output:
 	@$(MAKE) --no-print-directory all >OUTPUT 2>&1
@@ -65,17 +64,17 @@ output:
 lib: $(DLIB) $(SLIB)
 
 $(SLIB): $(LIBOBJ)
-	@#echo ZZZZZZZZZZZZZZZZZZZZ  $(SLIB) $(DLIB)
-	mkdir -p $(LIBDIR)
-	$(AR) $(ARFLAGS) -o $@ $^
+	@echo building $@ static library.
+	@mkdir -p $(LIBDIR)
+	@$(AR) $(ARFLAGS) -o $@ $^
 
 $(DLIB): CFLAGS += -fPIC
 $(DLIB): LDFLAGS += -shared
 $(DLIB): $(LIBOBJ)
-	@#echo YYYYYYYYYYYYYYYYYYYY $(SLIB) $(DLIB)
-	mkdir -p $(LIBDIR)
-	$(CC) $(LDFLAGS) $^ -o $@
+	@echo building $@ shared library.
+	@mkdir -p $(LIBDIR)
+	@$(CC) $(LDFLAGS) $^ -o $@
 
 .c.o:
-	echo TOTO
-	$(CC) -c $(CFLAGS) $(LDFLAGS) -I $(INCDIR) -o $@ $<
+	@echo compiling $<.
+	@$(CC) -c $(CFLAGS) $(LDFLAGS) -I $(INCDIR) -o $@ $<

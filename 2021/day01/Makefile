@@ -50,4 +50,5 @@ clean:
 	@rm -f aoc-c core*
 
 .c:
-	$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+	@echo compiling $<
+	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
