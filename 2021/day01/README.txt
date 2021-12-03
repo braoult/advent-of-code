@@ -84,9 +84,3 @@ Consider sums of a three-measurement sliding window. How many sums are larger th
 Your puzzle answer was 1235.
 
 Both parts of this puzzle are complete! They provide two gold stars: **
-
-At this point, you should return to your Advent calendar and try another puzzle.
-
-If you still want to see it, you can get your puzzle input.
-
-You can also [Shareon Mastodon] this puzzle.
