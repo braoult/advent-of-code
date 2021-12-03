@@ -16,14 +16,6 @@
 
 #include "debug.h"
 #include "bits.h"
-#include "pool.h"
-
-struct ranges {
-    u32 val;
-    struct list_head list;
-};
-
-LIST_HEAD(list_head);
 
 int ex1()
 {
