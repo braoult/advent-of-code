@@ -28,6 +28,8 @@ CFLAGS += -g
 CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -march=native
+CFLAGS += -Wmissing-declarations
+CFLAGS += -Wno-unused-result
 
 CFLAGS += -DDEBUG_POOL              # memory pools management
 
