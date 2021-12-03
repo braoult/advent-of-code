@@ -44,7 +44,7 @@ clean:
 	done
 
 cleanall: clean
-	@$(RM) -f $(SLIB) $(DLIB)
+	@$(RM) -f $(SLIB) $(DLIB) $(LIBOBJ)
 
 redo: cleanall all
 
