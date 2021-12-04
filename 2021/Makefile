@@ -23,6 +23,9 @@ CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -march=native
 
+CFLAGS += -DDEBUG		# activate general debug (debug.c)
+CFLAGS += -DDEBUG_POOL		# memory pools management
+
 INCDIR    := ./include
 LIBSRCDIR := ./libsrc
 LIBDIR    := ./lib

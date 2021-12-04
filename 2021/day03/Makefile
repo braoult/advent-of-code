@@ -31,22 +31,20 @@ CFLAGS += -march=native
 CFLAGS += -Wmissing-declarations
 CFLAGS += -Wno-unused-result
 
-CFLAGS += -DDEBUG_POOL              # memory pools management
-
 TIME   := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile deploy ex1 ex2
+.PHONY: clean all compile ex1 ex2
 
 all: ex1 ex2
 
 compile: aoc-c
 
 ex1: aoc-c
-	@$(TIME) aoc-c -d 5 -p 1 < $(INPUT)
+	@$(TIME) aoc-c -p 1 < $(INPUT)
 
 ex2: aoc-c
-	@$(TIME) aoc-c -d 5 -p 2 < $(INPUT)
+	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 clean:
 	@rm -f aoc-c core*
