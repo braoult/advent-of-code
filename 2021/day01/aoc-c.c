@@ -106,8 +106,7 @@ int main(int ac, char **av)
     if (exercise == 1) {
         res = ex1();
         printf ("%s : res=%d\n", *av, res);
-    }
-    if (exercise == 2) {
+    } else {
         res = ex2();
         printf ("%s : res=%d\n", *av, res);
     }
