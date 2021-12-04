@@ -56,15 +56,90 @@ static int ex1()
 
 static int ex2()
 {
-    /* idea : Given 3 bits input
-     * 101
-     * 010
-     * 110
-     *
-     * we create an ushort array of size 2⁴ initialized at 2⁴
-     *
-     */
-    return 1;
+    u32 length, size, *values, min, max, oxygen, co2;
+    u32 zero, one, lastone, lastzero, bit;
+    char buffer[80];
+    u64 val;
+
+    /* get length of binary number */
+    scanf("%s", buffer);
+    length = strlen(buffer);
+    size = 1 << length;
+
+    values = calloc(size, sizeof(*values));
+
+    do {
+        val = strtoul(buffer, NULL, 2);
+        values[val] = val;
+    } while (scanf("%s", buffer) != EOF);
+
+    min = 0;
+    max = size;
+    bit = size >> 1;
+    while (1) {
+        zero = 0;
+        one = 0;
+        for (u32 i = min; i < max; ++i) {
+            if (values[i]) {
+                if (values[i] & bit) {
+                    one++;
+                    lastone = i;
+                } else {
+                    zero++;
+                    lastzero = i;
+                }
+            }
+        }
+        if (one >= zero) {
+            if (one == 1) {
+                oxygen = lastone;
+                break;
+            }
+            min = (max + min) / 2;
+        } else {
+            if (zero == 1) {
+                oxygen = lastzero;
+                break;
+            }
+            max = (max + min) / 2;
+        }
+        bit >>= 1;
+    }
+
+    min = 0;
+    max = size;
+    bit = size >> 1;
+    while (1) {
+        zero = 0;
+        one = 0;
+        for (u32 i = min; i < max; ++i) {
+            if (values[i]) {
+                if (values[i] & bit) {
+                    one++;
+                    lastone = i;
+                } else {
+                    zero++;
+                    lastzero = i;
+                }
+            }
+        }
+        if (zero <= one) {
+            if (zero == 1) {
+                co2 = lastzero;
+                break;
+            }
+            max = (max + min) / 2;
+        } else {
+            if (one == 1) {
+                co2 = lastone;
+                break;
+            }
+            min = (max + min) / 2;
+        }
+        bit >>= 1;
+    }
+    free(values);
+    return oxygen * co2;
 }
 
 static int usage(char *prg)
@@ -97,8 +172,7 @@ int main(int ac, char **av)
     if (exercise == 1) {
         res = ex1();
         printf ("%s : res=%d\n", *av, res);
-    }
-    if (exercise == 2) {
+    } else {
         res = ex2();
         printf ("%s : res=%d\n", *av, res);
     }
