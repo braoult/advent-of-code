@@ -84,7 +84,7 @@ static struct list_head *read_boards()
     struct board *cur_board = &dummy;
     int row = 0;
 
-    if (!(pool = pool_init("boards", 10, sizeof (struct board))))
+    if (!(pool = pool_init("boards", 128, sizeof (struct board))))
         return NULL;
 
     while ((len = getline(&buf, &alloc, stdin)) >= 0) {
