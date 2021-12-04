@@ -24,9 +24,9 @@ static u32 debug_level=0;
 
 void debug_level_set(u32 level)
 {
-    debug_level = level;;
+    debug_level = level;
 
-    log(0, "debug level set to %u\n", level);
+    log(1, "debug level set to %u\n", level);
 }
 
 void debug_init(u32 level)
