@@ -5,12 +5,12 @@
 +++++++++++++++++ part 1
 aoc-c : res=1195
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+85
+	context-switch:	0+1, page-faults: 0+88
 
 +++++++++++++++++ part 2
 aoc-c : res=1235
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+89
+	context-switch:	0+1, page-faults: 0+85
 
 =========================================
 ================= day02 =================
@@ -19,12 +19,12 @@ aoc-c : res=1235
 +++++++++++++++++ part 1
 aoc-c : res=1636725
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+87
+	context-switch:	0+1, page-faults: 0+86
 
 +++++++++++++++++ part 2
 aoc-c : res=1872757425
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+89
+	context-switch:	0+1, page-faults: 0+87
 
 =========================================
 ================= day03 =================
@@ -33,12 +33,12 @@ aoc-c : res=1872757425
 +++++++++++++++++ part 1
 aoc-c : res=3901196
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+85
+	context-switch:	1+1, page-faults: 0+89
 
 +++++++++++++++++ part 2
 aoc-c : res=4412188
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+92
+	context-switch:	0+1, page-faults: 0+89
 
 =========================================
 ================= day04 =================
@@ -47,10 +47,24 @@ aoc-c : res=4412188
 +++++++++++++++++ part 1
 aoc-c : res=25410
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+91
+	context-switch:	0+1, page-faults: 0+94
 
 +++++++++++++++++ part 2
 aoc-c : res=2730
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+92
+	context-switch:	2+1, page-faults: 0+93
+
+=========================================
+================= day05 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc-c : res=4655
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+1052
+
++++++++++++++++++ part 2
+aoc-c : res=20500
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+1054
 
