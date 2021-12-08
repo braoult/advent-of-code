@@ -18,104 +18,81 @@
 
 #include "debug.h"
 #include "bits.h"
-#include "list.h"
-#include "pool.h"
 
-typedef struct fish {
-    s16 value;
-    struct list_head list;
-} fish_t;
+#define NFISH 9
+static u64 fish[NFISH];
 
-static pool_t *pool;
+inline static u64 fish_count()
+{
+    u64 nfish = 0;
 
-LIST_HEAD(fish_head);
-static int nfish=0;
+    for (int i = 0; i < NFISH; ++i)
+        nfish += fish[i];
+    return nfish;
+}
 
-//#ifdef DEBUG
+#ifdef DEBUG
 static void print_fish()
 {
-    fish_t *fish;
     int i = 0;
 
-    printf("fish # = %d\n", nfish);
-    list_for_each_entry(fish, &fish_head, list) {
-        printf("%s%d", i? ",":"", fish->value);
-        i++;
-    }
+    printf("fish: %lu\n", fish_count());
+    for (i = 0; i < NFISH; ++i)
+        printf("%10d", i);
+    printf("\n");
+    for (i = 0; i < NFISH; ++i)
+        printf("%10lu", fish[i]);
     printf("\n");
 }
-//#endif
+#endif
 
-static struct list_head *read_fish()
+static u64 read_fish()
 {
     char *buf, *token;
     size_t alloc = 0;
-    fish_t *fish;
+    u64 nfish = 0;
 
     if (getline(&buf, &alloc, stdin) < 0)
-        return NULL;
-
-    if (!(pool = pool_init("fish", 1024, sizeof (struct fish))))
-        return NULL;
+        return -1;
 
     token = strtok(buf, ",\n");
     while (token) {
-        //printf("token=[%s]\n", token);
-        if (!(fish = pool_get(pool)))
-            return NULL;
-        fish->value = atoi(token);
-        list_add_tail(&fish->list, &fish_head);
-        nfish ++;
+        fish[atoi(token)]++;
+        nfish++;
         token = strtok(NULL, ",\n");
-        //print_fish();
     }
     free(buf);
-    return &fish_head;
+    return nfish;
 }
 
-static int doit(int part)
+static void doit(int part, int iter)
 {
-    fish_t *fish, *new;
-    int toadd;
-    int iter = part == 1? 80: 256;
+    u64 toadd;
 
-    /* initial algorithm surely does not work for part 2:
-     * Too many memory allocation, nneed to rethink the whole...
-     *
-     */
+    if (!iter)
+        iter = part == 1 ? 80: 256;
+
     for (; iter; --iter) {
-        //printf("iter = %2d: ", iter);
-        toadd = 0;
-        list_for_each_entry(fish, &fish_head, list) {
-            fish->value--;
-            if (fish->value < 0) {            /* was zero: create new fish */
-                fish->value = 6;
-                toadd++;
-                nfish++;
-            }
-        }
-        while (toadd--) {
-            if (!(new = pool_get(pool)))
-                return -1;
-            new->value = 8;
-            list_add_tail(&new->list, &fish_head);
-        }
+        toadd = fish[0];
+        for (int i = 1; i < NFISH; ++i)
+            fish[i - 1] = fish[i];
+        fish[NFISH - 1] = toadd;
+        fish[6] += toadd;
     }
-    return nfish;
 }
 
 static int usage(char *prg)
 {
-    fprintf(stderr, "Usage: %s [-d debug_level] [-p part]\n", prg);
+    fprintf(stderr, "Usage: %s [-d debug_level] [-p part] [-i iter]\n", prg);
     return 1;
 }
 
 int main(int ac, char **av)
 {
-    int opt;
-    u32 exercise = 1, res;
+    int opt, iter = 0;
+    u32 exercise = 1;
 
-    while ((opt = getopt(ac, av, "d:p:")) != -1) {
+    while ((opt = getopt(ac, av, "d:p:i:")) != -1) {
         switch (opt) {
             case 'd':
                 debug_level_set(atoi(optarg));
@@ -125,6 +102,9 @@ int main(int ac, char **av)
                 if (exercise < 1 || exercise > 2)
                     return usage(*av);
                 break;
+            case 'i':                             /* 1 or 2 */
+                iter = atoi(optarg);
+                break;
             default:
                 return usage(*av);
         }
@@ -133,10 +113,7 @@ int main(int ac, char **av)
         return usage(*av);
 
     read_fish();
-    print_fish();
-    res = doit(exercise);
-    //print_fish();
-    printf ("%s : res=%d\n", *av, res);
-    /* TODO: free board/mem pool */
+    doit(exercise, iter);
+    printf ("%s : res=%lu\n", *av, fish_count());
     exit (0);
 }
