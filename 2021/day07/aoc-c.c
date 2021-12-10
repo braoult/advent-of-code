@@ -28,7 +28,7 @@ typedef struct crab {
 
 crab_t *crabs = NULL;
 
-//#ifdef DEBUG
+#ifdef DEBUG
 static void print_crab()
 {
     int i = 0;
@@ -38,7 +38,7 @@ static void print_crab()
         printf("%s%d/%d", i? ", ": "", crabs[i].pos, crabs[i].ncrabs);
     printf("\n");
 }
-//#endif
+#endif
 
 static crab_t *grow_crabs()
 {
@@ -93,19 +93,30 @@ static u64 read_crab()
     return ncrabs;
 }
 
-static int doit(int part)
+static u64 doit(int part)
 {
-    int try, best_dist = 0, best_fuel = crab_max * crab_max;
+    int try;
+    u64 best_fuel = (u64) -1;
 
     if (part == 1) {
         for (try = 0; try < crab_max; ++try) {
-            int fuel = 0;
-            for (int crab = 0; crab < ncrabs; ++crab)
+            u64 fuel = 0;
+            for (int crab = 0; crab < ncrabs; ++crab) {
                 fuel += abs(crabs[crab].pos - try) * crabs[crab].ncrabs;
-            if (fuel < best_fuel) {
-                best_dist = try;
-                best_fuel = fuel;
             }
+            if (fuel < best_fuel)
+                best_fuel = fuel;
+        }
+    } else {
+        for (try = 0; try < crab_max; ++try) {
+            u64 fuel = 0;
+            for (int crab = 0; crab < ncrabs; ++crab) {
+                /* n * (n + 1) / 2 */
+                fuel += abs(crabs[crab].pos - try) *
+                    (abs(crabs[crab].pos - try) + 1) * crabs[crab].ncrabs / 2;
+            }
+            if (fuel < best_fuel)
+                best_fuel = fuel;
         }
     }
     return best_fuel;
@@ -121,7 +132,7 @@ int main(int ac, char **av)
 {
     int opt;
     u32 exercise = 1;
-    int res;
+    u64 res;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -142,6 +153,6 @@ int main(int ac, char **av)
 
     read_crab();
     res = doit(exercise);
-    printf ("%s : res=%d\n", *av, res);
+    printf ("%s : res=%lu\n", *av, res);
     exit (0);
 }
