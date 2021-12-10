@@ -18,7 +18,6 @@
 
 #include "debug.h"
 #include "bits.h"
-#include "list.h"
 
 /* bitmask (last 7 bits): ...  g f e d c b a
  */
