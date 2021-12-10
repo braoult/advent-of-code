@@ -20,17 +20,25 @@
 #include "bits.h"
 #include "list.h"
 
-typedef struct {
-    int len;
-    char *code;
-} token;
+/* bitmask (last 7 bits): ...  g f e d c b a
+ */
+typedef u64 token;
 
 typedef struct {
     token unique[10];
     token output[4];
 } code;
 
-//#ifdef DEBUG
+#ifdef DEBUG
+inline static char *bits_str(u64 c)
+{
+    static char str[9];
+
+    for (int i = 7; i >= 0; --i)
+        str[7 - i] = c & (1 << i) ? '1': '0';
+    return str;
+}
+
 static void print_code(code *code)
 {
     int i = 0;
@@ -38,14 +46,26 @@ static void print_code(code *code)
     //printf("crabs=%d max=%d\n", ncrabs, crab_max);
     printf("unique: ");
     for (i = 0; i < 10; ++i)
-        printf("[%d]%s ", code->unique[i].len, code->unique[i].code);
+        printf("[%d]%s ", popcount64(code->unique[i]), bits_str(code->unique[i]));
     printf("\n");
     printf("output: ");
     for (i = 0; i < 4; ++i)
-        printf("[%d]%s ", code->output[i].len, code->output[i].code);
+        printf("[%d]%s ", popcount64(code->unique[i]), bits_str(code->unique[i]));
     printf("\n");
 }
-//#endif
+#endif
+
+#define BIT(c) (1 << ((c) - 'a'))
+
+inline static u64 a2bit(char *token)
+{
+    u64 res = 0;
+    while (*token) {
+        res |= BIT(*token);
+        token++;
+    }
+    return res;
+}
 
 static code *read_code()
 {
@@ -64,45 +84,125 @@ static code *read_code()
     while (token) {
         if (*token == '|')
             break;
-        code.unique[i].code = token;
-        code.unique[i].len = strlen(token);
+        code.unique[i] = a2bit(token);
         i++;
         token = strtok(NULL, " \n");
     }
-    //printf("cont = %c\n", *token);
-    //print_code(&code);
     i = 0;
     while ((token = strtok(NULL, " \n"))) {
-        //printf("output %d = [%s]\n", i, token);
-        code.output[i].code = token;
-        code.output[i].len = strlen(token);
+        code.output[i] = a2bit(token);
         i++;
     }
-    if (i != 4)
-        printf("output = %d\n", i);
 
     free(buf);
     return &code;
 }
 
-static u64 doit(int part)
+
+static u64 part1()
 {
     code *code;
     int res = 0;
 
     while ((code = read_code())) {
-        if (part == 1) {
-            for (int i = 0; i < 4; ++i) {
-                int len = code->output[i].len;
-                /* digits: 1           4           7           8 */
-                if (len == 2 || len == 4 || len == 3 || len == 7) {
-                    printf("%d : %s\n", len, code->output[i].code);
-                    res++;
-                }
-            }
+        for (int i = 0; i < 4; ++i) {
+            int len = popcount64(code->output[i]);
+            /* digits: 1           4           7           8 */
+            if (len == 2 || len == 4 || len == 3 || len == 7)
+                res++;
         }
     }
     return res;
+}
+
+
+static u64 part2()
+{
+    code *code;
+    u64 bits;
+    int res = 0, tmp;
+
+    while ((code = read_code())) {
+        u64 digits[10] = { 0 };
+
+        /* find digits 1, 4, 7, 8 */
+        for (int i = 0; i < 10; ++i) {
+            bits = code->unique[i];
+            switch (popcount64(bits)) {
+                case 2:
+                    digits[1] = bits;
+                    code->unique[i] = 0;
+                    break;
+                case 3:
+                    digits[7] = bits;
+                    code->unique[i] = 0;
+                    break;
+                case 4:
+                    digits[4] = bits;
+                    code->unique[i] = 0;
+                    break;
+                case 7:
+                    digits[8] = bits;
+                    code->unique[i] = 0;
+                    break;
+            }
+        }
+        /* find digits 3 & 6: 2 and 1 bits in common with 1 */
+        for (int i = 0; i < 10; ++i) {
+            bits = code->unique[i];
+            if (popcount64(bits) == 5) {
+                if (popcount64(bits & digits[1]) == 2) {
+                    digits[3] = bits;
+                    code->unique[i] = 0;
+                }
+            }
+            if (popcount64(bits) == 6) {
+                if (popcount64(bits & digits[1]) == 1) {
+                    digits[6] = bits;
+                    code->unique[i] = 0;
+                }
+            }
+        }
+        /* find digits 9 and 0: 9 has 5 bits in common with 5 */
+        for (int i = 0; i < 10; ++i) {
+            bits = code->unique[i];
+            if (popcount64(bits) == 6) {
+                if (popcount64(bits & digits[3]) == 5)
+                    digits[9] = bits;
+                else
+                    digits[0] = bits;
+                code->unique[i] = 0;
+            }
+        }
+        /* find digits 2 and 5: 2 has 4 bits in common with 9 */
+        for (int i = 0; i < 10; ++i) {
+            bits = code->unique[i];
+            if (popcount64(bits) == 5) {
+                if (popcount64(bits & digits[9]) == 4)
+                    digits[2] = bits;
+                else
+                    digits[5] = bits;
+                code->unique[i] = 0;
+            }
+        }
+        tmp = 0;
+        for (int i = 0; i < 4; ++i) {
+            for (int j = 0; j < 10; ++j) {
+                if (code->output[i] == digits[j]) {
+                    tmp = tmp * 10 + j;
+                    break;
+                }
+            }
+        }
+        res += tmp;
+    }
+
+    return res;
+}
+
+static u64 doit(int part)
+{
+    return part == 1? part1(): part2();
 }
 
 static int usage(char *prg)
