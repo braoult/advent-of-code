@@ -103,8 +103,8 @@ struct stack {
     int c;
     struct list_head list;
 };
-LIST_HEAD(stack_head);
 
+LIST_HEAD(stack_head);
 static pool_t *pool;
 
 static struct stack *push(int l, int c)
