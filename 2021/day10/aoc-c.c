@@ -18,28 +18,9 @@
 
 #include "debug.h"
 #include "bits.h"
-#include "list.h"
 
 static char stack[1024];
 static size_t nstack;
-
-inline static int push(char c)
-{
-    stack[nstack++] = c;
-    printf("push(%c)\n", c);
-    return c;
-}
-
-inline static int pop()
-{
-    int c;
-    if (!nstack)
-        return 0;
-    c = stack[--nstack];
-    printf("pop(%c)\n", c);
-
-    return c;
-}
 
 struct match {
     char open;
@@ -47,62 +28,76 @@ struct match {
     int value_corrupted;
     int value_incomplete;
 } syntax[] = {
-    { '(', ')', 3, 1 },
-    { '[', ']', 57, 2 },
-    { '{', '}', 1197, 3 },
-    { '<', '>', 25137, 4 },
-        };
+    { '(', ')', 3,     1 },
+    { '[', ']', 57,    2 },
+    { '{', '}', 1197,  3 },
+    { '<', '>', 25137, 4 }
+};
 
-inline static int match_corrupted(char c)
+inline static int push(char c)
 {
-    int co;
-    size_t i;
-
-    if (!(co = pop()))
-        return 0;
-    for (i = 0; i < sizeof(syntax); ++i)
-        if (syntax[i].close == c && co != syntax[i].open)
-            return syntax[i].value_corrupted;
-    return 0;
+    return ((stack[nstack++] = c));
 }
 
-static LIST_HEAD(incomplete_head);
+inline static int pop()
+{
+    if (!nstack)
+        return 0;
+    return (stack[--nstack]);
+}
 
-inline static s64 match_incomplete(char c)
+static s64 match_corrupted(char c)
 {
     int co;
-    size_t i;
     s64 res = 0;
 
-    if (c) {
-        if (!(co = pop()))
-            return 0;
-        for (i = 0; i < sizeof(syntax); ++i)
-            if (syntax[i].close == c && co != syntax[i].open)
-                return syntax[i].value_corrupted;
-        return 0;
-    } else {
-        while ((co = pop())) {
-            //printf("zobi = %c\n", co);
-            for (i = 0; i < sizeof(syntax); ++i) {
-                if (co == syntax[i].open) {
-                    res = res * 5 + syntax[i].value_incomplete;
-                    printf("match c=%c res=%ld\n", co, res);
-                    break;
-                }
+    if ((co = pop())) {
+        for (size_t i = 0; i < sizeof(syntax) / sizeof(struct match); ++i) {
+            if (syntax[i].close == c && co != syntax[i].open) {
+                res = syntax[i].value_corrupted;
+                break;
             }
         }
     }
-    printf("incomplete = %ld\n", res);
     return res;
 }
 
-static s64 part1()
+static s64 match_incomplete()
+{
+    int co;
+    s64 res = 0;
+
+    while ((co = pop())) {
+        for (size_t i = 0; i < sizeof(syntax); ++i) {
+            if (co == syntax[i].open) {
+                res = res * 5 + syntax[i].value_incomplete;
+                break;
+            }
+        }
+    }
+    return res;
+}
+
+static s64 *ins_sort(s64 *array, int n)
+{
+    for (int i = 1, j = 0; i < n; i++, j = i - 1) {
+        s64 cur = array[i];
+        while (j >= 0 && array[j] > cur) {
+            array[j + 1] = array[j];
+            j = j - 1;
+        }
+        array[j + 1] = cur;
+    }
+    return array;
+}
+
+static s64 doit(int part)
 {
     char *buf = NULL, *p;
     size_t alloc;
     ssize_t len;
-    u64 res = 0, tmp;
+    s64 res_corrupted = 0, inc[1024], tmp;
+    int ninc = 0;
 
     while ((len = getline(&buf, &alloc, stdin)) > 0) {
         nstack = 0;
@@ -121,81 +116,7 @@ static s64 part1()
                 case ']':
                 case '>':
                     if ((tmp = match_corrupted(*p))) {
-                        res += tmp;
-                        goto next;
-                    }
-            }
-            p++;
-        }
-    next:
-    }
-    return res;
-}
-
-static void ins_sort(s64 *array, int n)
-{
-    int i, j;
-    s64 cur;
-
-    for (i = 1; i < n; i++) {
-        cur = array[i]; j = i - 1;
-        while (j >= 0 && array[j] > cur) {
-            array[j + 1] = array[j];
-            j = j - 1;
-        }
-        array[j + 1] = cur;
-    }
-}
-
-static void bubble(s64 *array, int n)
-{
-    int i, j, flag = 0;;
-    s64 swap;
-
-    for (i = 0 ; i < n - 1; i++) {
-        flag = 0;
-        for (j = 0 ; j < n - i - 1; j++) {
-            if (array[j] > array[j + 1]) {
-                swap = array[j];
-                array[j] = array[j + 1];
-                array[j + 1] = swap;
-                flag = 1;
-            }
-            if (!flag) {
-                break;
-            }
-        }
-    }
-}
-
-static s64 part2()
-{
-    char *buf = NULL, *p;
-    size_t alloc;
-    ssize_t len;
-    u64 res = 0;
-    s64 inc[1024];
-    int ninc = 0;
-
-    while ((len = getline(&buf, &alloc, stdin)) > 0) {
-        nstack = 0;
-        buf[len - 1] = 0;
-        printf("line=%s p=%d\n", buf, *buf);
-        p = buf;
-        while (*p) {
-            switch (*p) {
-                case '{':
-                case '(':
-                case '[':
-                case '<':
-                    push(*p);
-                    break;
-                case '}':
-                case ')':
-                case ']':
-                case '>':
-                    if (match_corrupted(*p)) {
-                        printf("corrupted\n");
+                        res_corrupted += tmp;
                         goto next;
                     }
             }
@@ -204,22 +125,8 @@ static s64 part2()
         inc[ninc++] = match_incomplete(0);
     next:
     }
-    printf("results = ");
-    for (int i=0; i<ninc; ++i) {
-        printf("%ld ", inc[i]);
-    }
-    ins_sort(inc, ninc);
-    printf("\nsorted = ");
-    for (int i=0; i<ninc; ++i) {
-        printf("%ld ", inc[i]);
-    }
-    printf("\n");
-    return inc[ninc / 2];
-}
-
-static u64 doit(int part)
-{
-    return part == 1? part1(): part2();
+    free(buf);
+    return part == 1? res_corrupted : ins_sort(inc, ninc)[ninc / 2];
 }
 
 static int usage(char *prg)
@@ -232,7 +139,7 @@ int main(int ac, char **av)
 {
     int opt;
     u32 exercise = 1;
-    u64 res;
+    s64 res;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
