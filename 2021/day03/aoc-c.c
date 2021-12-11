@@ -1,4 +1,4 @@
-/* aoc-c: Advent2021 game, day 3 parts 1 & 2
+/* aoc-c: Advent of Code 2021, day 3 parts 1 & 2
  *
  * Copyright (C) 2021 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
