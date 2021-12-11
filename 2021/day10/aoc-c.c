@@ -68,7 +68,7 @@ static s64 match_incomplete()
     s64 res = 0;
 
     while ((co = pop())) {
-        for (size_t i = 0; i < sizeof(syntax); ++i) {
+        for (size_t i = 0; i < sizeof(syntax) / sizeof(struct match); ++i) {
             if (co == syntax[i].open) {
                 res = res * 5 + syntax[i].value_incomplete;
                 break;
