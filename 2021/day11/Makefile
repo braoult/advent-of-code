@@ -24,13 +24,16 @@ LDLIB   := -l$(LIB)
 export LD_LIBRARY_PATH = $(LIBDIR)
 
 CFLAGS += -std=gnu99
-CFLAGS += -O2
+#CFLAGS += -O2
 CFLAGS += -g
 CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -march=native
 CFLAGS += -Wmissing-declarations
 CFLAGS += -Wno-unused-result
+
+CFLAGS += -DDEBUG_DEBUG 	# activate general debug (debug.c)
+CFLAGS += -DDEBUG_POOL		# memory pools management
 
 TIME   := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
@@ -52,4 +55,4 @@ clean:
 
 .c:
 	@echo compiling $<
-	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@

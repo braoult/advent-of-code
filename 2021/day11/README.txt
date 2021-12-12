@@ -297,3 +297,7 @@ After step 100:
 After 100 steps, there have been a total of 1656 flashes.
 
 Given the starting energy levels of the dumbo octopuses in your cavern, simulate 100 steps. How many total flashes are there after 100 steps?
+
+Your puzzle answer was 1739.
+
+The first half of this puzzle is complete! It provides one gold star: *
