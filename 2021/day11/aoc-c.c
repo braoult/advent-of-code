@@ -46,6 +46,7 @@ inline static int pop()
     return stack[--nstack];
 }
 
+#ifdef DEBUG
 static void print_grid(int (*arr)[MAX_GRID], int step)
 {
     log_f(3, "step = %d\n", step);
@@ -56,8 +57,9 @@ static void print_grid(int (*arr)[MAX_GRID], int step)
         log(3, "\n");
     }
 }
+#endif
 
-inline static int inc_cell(int l, int c)
+inline static int flash_cell_maybe(int l, int c)
 {
     if (VALID(l, c) && ++grid[l][c] == 10) {
         push(l, c);
@@ -66,57 +68,57 @@ inline static int inc_cell(int l, int c)
     return 0;
 }
 
-void flash_grid(int (*arr)[MAX_GRID], int step)
-{
-    log_f(3, "step = %d\n", step);
-    for (int l = 1; l <= gsize; ++l) {
-        for (int c = 1; c <= gsize; ++c) {
-            log(3, "%2d ", arr[l][c]);
-        }
-        log(3, "\n");
-    }
-}
-
 /* run 1 step */
-static void step(int nsteps)
+static int do_step()
 {
-    int vpop;
-    int flash = 0;
-    //int flashed[MAX_GRID][MAX_GRID];
+    int vpop, flash = 0;
 
-    //init_grid(flashed);
-    /* create an empty grid */
-
-    for (int step = 1; step <= nsteps; ++step) {
-        /* 1) increase all energy levels */
-        for (int l = 0; l < gsize; ++l) {
-            for (int c = 0; c < gsize; ++c) {
-                flash += inc_cell(l, c);
-            }
+    /* 1) increase all energy levels */
+    for (int l = 0; l < gsize; ++l) {
+        for (int c = 0; c < gsize; ++c) {
+            flash += flash_cell_maybe(l, c);
         }
-
-        /* 2) perform BFS until stack is empty */
-        while ((vpop = pop()) !=  -1) {
-            int pl = vpop / gsize, pc = vpop % gsize;
-            for (int l = -1; l <= 1; ++l)
-                for (int c = -1; c <= 1; ++c)
-                    flash += inc_cell(pl + l, pc + c);
-        }
-        //print_grid(grid, 1);
-
-        /* 3) cleanup flashed cells */
-        for (int l = 0; l < gsize; ++l) {
-            for (int c = 0; c < gsize; ++c) {
-                if (grid[l][c] > 9)
-                    grid[l][c] = 0;
-            }
-        }
-        print_grid(grid, step);
-        printf("step = %d flashed = %d\n", step, flash);
     }
+
+    /* 2) perform BFS until stack is empty */
+    while ((vpop = pop()) !=  -1) {
+        int pl = vpop / gsize, pc = vpop % gsize;
+        for (int l = -1; l <= 1; ++l) {
+            for (int c = -1; c <= 1; ++c) {
+                flash += flash_cell_maybe(pl + l, pc + c);
+            }
+        }
+    }
+
+    /* 3) cleanup flashed cells */
+    for (int l = 0; l < gsize; ++l) {
+        for (int c = 0; c < gsize; ++c) {
+            if (grid[l][c] > 9)
+                grid[l][c] = 0;
+        }
+    }
+    return flash;
 }
 
-static s64 doit(int part)
+static int part1(int nsteps)
+{
+    int flash = 0;
+
+    for (int step = 1; step <= nsteps; ++step)
+        flash += do_step();
+    return flash;
+}
+
+static int part2()
+{
+    int flash = 0, step;
+
+    for (step = 0; flash != 100; ++step)
+        flash = do_step(step);
+    return step;
+}
+
+static int doit(int part)
 {
     int l = 0, c;
     ssize_t len;
@@ -127,16 +129,12 @@ static s64 doit(int part)
     gsize = len - 1;
     for (l = 0; l < gsize; ++l) {
         buf[gsize] = 0;
-        log_f(10, "len = %d str = [%s]\n", grid, buf);
         for (c = 0, p = buf; c < gsize; c++, p++)
             grid[l][c] = *p - '0';
         getline(&buf, &alloc, stdin);
     }
     free(buf);
-    print_grid(grid, 0);
-    step(100);
-    print_grid(grid, 1);
-    return part;
+    return part == 1? part1(100): part2();
 }
 
 static int usage(char *prg)
@@ -147,9 +145,7 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt;
-    u32 exercise = 1, debug = 1;
-    s64 res;
+    int opt, res, part = 1, debug = 0;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -157,8 +153,8 @@ int main(int ac, char **av)
                 debug = atoi(optarg);
                 break;
             case 'p':                             /* 1 or 2 */
-                exercise = atoi(optarg);
-                if (exercise < 1 || exercise > 2)
+                part = atoi(optarg);
+                if (part < 1 || part > 2)
                     return usage(*av);
                 break;
             default:
@@ -169,8 +165,7 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    //init_borders();
-    res = doit(exercise);
-    printf("%s : res=%lu\n", *av, res);
+    res = doit(part);
+    printf("%s : res=%d\n", *av, res);
     exit (0);
 }
