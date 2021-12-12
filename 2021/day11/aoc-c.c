@@ -22,15 +22,10 @@
 #define MAX_GRID 10
 
 static int grid[MAX_GRID][MAX_GRID];
-static int gsize;                                 /* grid size */
+static int gsize;                                 /* real grid size */
 
 static int stack[MAX_GRID * MAX_GRID];            /* flashing stack */
 static int nstack;                                /* current stack size */
-
-#define loop_for_grid(l, c, val)                \
-    for (l = 1; l <= gsize; ++l)                \
-        for (c = 1; c <= gsize; ++c)            \
-            val = grid[l][c];
 
 #define VALID(x, y)    ((x) >= 0 && (y) >= 0 && (x) < gsize && (y) < gsize)
 
@@ -41,9 +36,7 @@ inline static int push(int l, int c)
 
 inline static int pop()
 {
-    if (!nstack)
-        return -1;
-    return stack[--nstack];
+    return nstack? stack[--nstack]: -1;
 }
 
 #ifdef DEBUG
@@ -74,47 +67,39 @@ static int do_step()
     int vpop, flash = 0;
 
     /* 1) increase all energy levels */
-    for (int l = 0; l < gsize; ++l) {
-        for (int c = 0; c < gsize; ++c) {
+    for (int l = 0; l < gsize; ++l)
+        for (int c = 0; c < gsize; ++c)
             flash += flash_cell_maybe(l, c);
-        }
-    }
 
     /* 2) perform BFS until stack is empty */
-    while ((vpop = pop()) !=  -1) {
-        int pl = vpop / gsize, pc = vpop % gsize;
-        for (int l = -1; l <= 1; ++l) {
-            for (int c = -1; c <= 1; ++c) {
+    while ((vpop = pop()) !=  -1)
+        for (int l = -1, pl = vpop / gsize, pc = vpop % gsize; l <= 1; ++l)
+            for (int c = -1; c <= 1; ++c)
                 flash += flash_cell_maybe(pl + l, pc + c);
-            }
-        }
-    }
 
     /* 3) cleanup flashed cells */
-    for (int l = 0; l < gsize; ++l) {
-        for (int c = 0; c < gsize; ++c) {
+    for (int l = 0; l < gsize; ++l)
+        for (int c = 0; c < gsize; ++c)
             if (grid[l][c] > 9)
                 grid[l][c] = 0;
-        }
-    }
     return flash;
 }
 
-static int part1(int nsteps)
+static int part1()
 {
     int flash = 0;
 
-    for (int step = 1; step <= nsteps; ++step)
+    for (int step = 0; step < 100; ++step)
         flash += do_step();
     return flash;
 }
 
 static int part2()
 {
-    int flash = 0, step;
+    int step = 1;
 
-    for (step = 0; flash != 100; ++step)
-        flash = do_step(step);
+    while (do_step() != 100)
+        step++;
     return step;
 }
 
@@ -134,7 +119,7 @@ static int doit(int part)
         getline(&buf, &alloc, stdin);
     }
     free(buf);
-    return part == 1? part1(100): part2();
+    return part == 1? part1(): part2();
 }
 
 static int usage(char *prg)
@@ -145,12 +130,12 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, res, part = 1, debug = 0;
+    int opt, part = 1;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
             case 'd':
-                debug = atoi(optarg);
+                debug_level_set(atoi(optarg));
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
@@ -161,11 +146,9 @@ int main(int ac, char **av)
                 return usage(*av);
         }
     }
-    debug_level_set(debug);
     if (optind < ac)
         return usage(*av);
 
-    res = doit(part);
-    printf("%s : res=%d\n", *av, res);
+    printf("%s : res=%d\n", *av, doit(part));
     exit (0);
 }
