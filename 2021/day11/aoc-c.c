@@ -24,20 +24,8 @@
 static int grid[MAX_GRID][MAX_GRID];
 static int gsize;                                 /* real grid size */
 
-static int stack[MAX_GRID * MAX_GRID];            /* flashing stack */
+static int stack[MAX_GRID * MAX_GRID];            /* flashing BFS stack */
 static int nstack;                                /* current stack size */
-
-#define VALID(x, y)    ((x) >= 0 && (y) >= 0 && (x) < gsize && (y) < gsize)
-
-inline static int push(int l, int c)
-{
-    return ((stack[nstack++] = l * gsize + c));
-}
-
-inline static int pop()
-{
-    return nstack? stack[--nstack]: -1;
-}
 
 #ifdef DEBUG
 static void print_grid(int (*arr)[MAX_GRID], int step)
@@ -52,7 +40,25 @@ static void print_grid(int (*arr)[MAX_GRID], int step)
 }
 #endif
 
-inline static int flash_cell_maybe(int l, int c)
+/* is a cell within limits ? */
+#define VALID(x, y)    ((x) >= 0 && (y) >= 0 && (x) < gsize && (y) < gsize)
+
+/* push cell to BFS stack */
+inline static int push(int l, int c)
+{
+    return ((stack[nstack++] = l * gsize + c));
+}
+
+/* pop cell from BFS stack */
+inline static int pop()
+{
+    return nstack? stack[--nstack]: -1;
+}
+
+/* increase octopuss energy value, possibly flash it (= push to BFS stack)
+ * return 1 if flashed.
+ */
+inline static int inc_cell_value(int l, int c)
 {
     if (VALID(l, c) && ++grid[l][c] == 10) {
         push(l, c);
@@ -61,7 +67,9 @@ inline static int flash_cell_maybe(int l, int c)
     return 0;
 }
 
-/* run 1 step */
+/* run 1 full step.
+ * return number of flashed octopuses
+ */
 static int do_step()
 {
     int vpop, flash = 0;
@@ -69,13 +77,16 @@ static int do_step()
     /* 1) increase all energy levels */
     for (int l = 0; l < gsize; ++l)
         for (int c = 0; c < gsize; ++c)
-            flash += flash_cell_maybe(l, c);
+            flash += inc_cell_value(l, c);
 
     /* 2) perform BFS until stack is empty */
-    while ((vpop = pop()) !=  -1)
-        for (int l = -1, pl = vpop / gsize, pc = vpop % gsize; l <= 1; ++l)
+    while ((vpop = pop()) !=  -1) {
+        int popl = vpop / gsize, popc = vpop %gsize;
+        for (int l = -1; l <= 1; ++l)
             for (int c = -1; c <= 1; ++c)
-                flash += flash_cell_maybe(pl + l, pc + c);
+                if (l || c)                       /* avoid popped cell */
+                    flash += inc_cell_value(popl + l, popc + c);
+    }
 
     /* 3) cleanup flashed cells */
     for (int l = 0; l < gsize; ++l)
@@ -87,9 +98,9 @@ static int do_step()
 
 static int part1()
 {
-    int flash = 0;
+    int flash = 0, step;
 
-    for (int step = 0; step < 100; ++step)
+    for (step = 0; step < 100; ++step)
         flash += do_step();
     return flash;
 }
