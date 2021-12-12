@@ -19,13 +19,22 @@
 
 #include "bits.h"
 
+#ifdef DEBUG_DEBUG
 void debug_init(u32 level);
 void debug_level_set(u32 level);
 void debug_devel_set(u32 level);
 void debug(u32 level, bool timestamp, u32 indent,
            const char *src, u32 line, const char *, ...);
-
-#ifdef DEBUG
+#else  /* DEBUG_DEBUG */
+#define _unused __attribute__((__unused__))
+static inline void debug_init(_unused u32 level) {}
+static inline void debug_level_set(_unused u32 level) {}
+static inline void debug_devel_set(_unused u32 level) {}
+static inline void debug(_unused u32 level, _unused bool timestamp,
+                         _unused u32 indent, _unused const char *src,
+                         _unused u32 line, const char *, ...) {}
+#undef _unused
+#endif  /* DEBUG_DEBUG */
 
 /* format: only printf
  */
@@ -62,7 +71,5 @@ void debug(u32 level, bool timestamp, u32 indent,
 #define log_i(...)
 #define log_it(...)
 #define log_f(...)
-
-#endif  /* DEBUG */
 
 #endif  /* DEBUG_H */

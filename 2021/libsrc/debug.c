@@ -14,6 +14,11 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
+
+#ifndef DEBUG_DEBUG
+#define DEBUG_DEBUG
+#endif
+
 #include "debug.h"
 
 #define NANOSEC  1000000000                       /* nano sec in sec */
