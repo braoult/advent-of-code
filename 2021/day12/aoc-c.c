@@ -46,21 +46,18 @@
 #define MAX_LINKS 10
 #define MAX_NODES 128
 
-#define START 0                                   /* start is always nodes[0] */
-#define END   1                                   /* end is always nodes[1] */
+#define START (&nodes[0])                         /* start is always nodes[0] */
+#define END   (&nodes[1])                         /* end is always nodes[1] */
 
 typedef struct node {
     char token[16];                               /* node name */
-    int val;                                      /* unused ? */
     int passed;                                   /* number of passages */
     int multiple;                                 /* can pass multiple times ? */
-    int nlinks;                                   /* number of links */
     struct list_head list;                        /* links list */
 } node_t;
 
 typedef struct link {                             /* links between nodes */
     node_t *node;                                 /* linked node */
-    int val;                                      /* unused ? */
     struct list_head list;                        /* next/prev link */
 } link_t;
 
@@ -69,47 +66,14 @@ static int nnodes;                                /* ... and size */
 
 static pool_t *links_pool;                        /* links memory pool */
 
-static node_t* stack[1024];                       /* moves stack */
-static int nstack;                                /* ... and size */
-static int npaths;                                /* number of solutions */
-
-static void print_tokens()
-{
-    log_f(3, "nodes = %d\n", nnodes);
-    for (int i = 0; i < nnodes; ++i) {
-        log(3, "%2d: %6s mult=%d passed=%d\n", i, nodes[i].token,
-            nodes[i].multiple, nodes[i].passed);
-    }
-}
-
-static void print_links()
-{
-    struct link *link;
-    node_t *node;
-
-    log_f(3, "links = %d\n", nnodes);
-    for (int i = 0; i < nnodes; ++i) {
-        node = nodes+i;
-        log(3, "[%6s]", node->token);
-        list_for_each_entry(link, &node->list, list) {
-            log(3, " --> %s", link->node->token);
-        }
-        log(3, "\n");
-    }
-}
-
 /* find node from token value
  * return @node or NULL
  */
 static node_t *find_token(char *token)
 {
-    log_f(2, "token=[%s]\n", token);
-    for (int i = 0; i < nnodes; ++i) {
-        log_i(4, "compare=[%s]\n", nodes[i].token);
-        if (!strcmp(nodes[i].token, token)) {
+    for (int i = 0; i < nnodes; ++i)
+        if (!strcmp(nodes[i].token, token))
             return nodes+i;
-        }
-    }
     return NULL;
 }
 
@@ -125,21 +89,10 @@ static node_t *add_token_maybe(char *token)
         strcpy(node->token, token);
         node->multiple = isupper(*token)? 1: 0;
         node->passed = 0;
-        node->nlinks = 0;
         INIT_LIST_HEAD(&node->list);
         nnodes++;
     }
     return node;
-}
-
-/* set all nodes with passed > pass (-1: all) "passed" value to zero
- */
-static void clean_node_passed(int pass)
-{
-    for (int i = 0; i < nnodes; ++i) {
-        if (pass == -1 || nodes[i].passed >= pass)
-            nodes[i].passed = 0;
-    }
 }
 
 /* create a link between two nodes
@@ -147,136 +100,79 @@ static void clean_node_passed(int pass)
  */
 static int link_nodes(node_t *n1, node_t *n2)
 {
-    struct link *link1, *link2;
+    struct link *link;
 
-    if (!((link1 = pool_get(links_pool)) && (link2 = pool_get(links_pool))))
-        return 0;
-    link1->node = n2;
-    list_add_tail(&link1->list, &n1->list);
-    link2->node = n1;
-    list_add_tail(&link2->list, &n2->list);
+    /* link from n1 to n2 */
+    if (n1 != END && n2 != START) {               /* cannot link from END or to START */
+        if (!(link = pool_get(links_pool)))
+            return 0;
+        link->node = n2;
+        list_add_tail(&link->list, &n1->list);
+    }
+    /* link from n2 to n1 */
+    if (n1 != START && n2 != END) {               /* cannot link from END or to START */
+        if (!(link = pool_get(links_pool)))
+            return 0;
+        link->node = n1;
+        list_add_tail(&link->list, &n2->list);
+    }
     return 1;
 }
 
-/* read data and create tree.
+/* read data and create graph.
  */
-static int read_graph()
+inline static int create_graph()
 {
     ssize_t len;
     size_t alloc = 0;
-    char *buf = NULL, *token1, *token2;
-    node_t *node1, *node2;
+    char *buf;
 
-    if (!(links_pool = pool_init("links", 128, sizeof (struct link))))
-        return -1;
-
-    add_token_maybe("start");
-    add_token_maybe("end");
-    print_tokens();
+    add_token_maybe("start");                     /* position 0 */
+    add_token_maybe("end");                       /* position 1 */
     while ((len = getline(&buf, &alloc, stdin)) > 0) {
-        token1 = strtok(buf, "-\n");
-        token2 = strtok(NULL, "-\n");
-        node1 = add_token_maybe(token1);
-        node2 = add_token_maybe(token2);
-        link_nodes(node1, node2);
-        //log_f(2, "token1=[%s] token2=[%s]\n", token1, token2);
+        node_t *n1 = add_token_maybe(strtok(buf, "-\n"));
+        node_t *n2 = add_token_maybe(strtok(NULL, "-\n"));
+        link_nodes(n1, n2);
     }
     free(buf);
 
-    print_tokens();
-    clean_node_passed(-1);
-    print_tokens();
-    print_links();
     return nnodes;
 }
 
-/* push link ptr to stack
+/* recursively traverse graph (DFS) from a node
+ * return solutions found
  */
-inline static node_t *push(node_t *node)
+static int dfs_run(node_t *node, int part, int svisited)
 {
-    return ((stack[nstack++] = node));
-}
-
-/* pop link ptr from stack
- */
-inline static node_t *pop()
-{
-    return nstack? stack[--nstack]: NULL;
-}
-
-/* traverse graph from a node, return
- */
-static int bfs_run(node_t *node, int part, int svisited)
-{
-    int i, res = 0;
+    int res = 0;
     struct link *link;
 
-    log_f(3, "node=%s npaths=%d\n", node->token, npaths);
-    //log_f(3, "node=%p nodes=%p start=%p end=%p end1=%p\n",
-    //      node, nodes, nodes+START, nodes+END, &nodes[END]);
-    /* we found a path */
-    if (node == nodes+END) {
-        npaths++;
-        log(3, "solution :");
-        for (i = 0; i < nstack; ++i)
-            log(3, " -> %s", stack[i]->token);
-        log(3, "\n");
+    if (node == END)
         return 1;
-    }
 
-    if (list_empty(&node->list))
-        return 0;
-
-    i = 0;
     list_for_each_entry(link, &node->list, list) {
-        if (link->node != nodes+START) {
-            if (link->node->multiple || !link->node->passed || (part == 2 &&
-                                                                !svisited)) {
-                int inc = 0;
-                link->node->passed++;
-                if (!link->node->multiple && link->node->passed == 2) {
-                    log_i(3, "visited = 1\n");
-                    svisited = 1;
-                    inc = 1;
-                }
-                push(link->node);
-                res += bfs_run(link->node, part, svisited);
-                pop();
-                link->node->passed--;
-                if (inc) {
-                    log_i(3, "visited = 0\n");
-                    svisited = 0;
-                }
+        if (link->node->multiple || !link->node->passed || (part == 2 &&
+                                                            !svisited)) {
+            int inc = 0;
+            link->node->passed++;
+            if (!link->node->multiple && link->node->passed == 2) {
+                svisited = 1;
+                inc = 1;
+            }
+            res += dfs_run(link->node, part, svisited);
+            link->node->passed--;
+            if (inc) {
+                svisited = 0;
             }
         }
     }
     return res;
 }
 
-/* run 1 full step.
- * return number of flashed octopuses
- */
-
-static int part1()
-{
-    nodes[START].passed = 1;
-    push(nodes + START);
-    return bfs_run(nodes, 1, 0);
-    pop();
-}
-
-static int part2()
-{
-    nodes[START].passed = 1;
-    push(nodes + START);
-    return bfs_run(nodes, 2, 0);
-    pop();
-}
-
 static int doit(int part)
 {
-    read_graph();
-    return part == 1? part1(): part2();
+    create_graph();
+    return part == 1? dfs_run(nodes, 1, 0): dfs_run(nodes, 2, 0);
 }
 
 static int usage(char *prg)
@@ -306,6 +202,9 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    printf("%s : res=%d npaths=%d\n", *av, doit(part), npaths);
+    if (!(links_pool = pool_init("links", 128, sizeof (struct link))))
+        return -1;
+
+    printf("%s : res=%d\n", *av, doit(part));
     exit (0);
 }
