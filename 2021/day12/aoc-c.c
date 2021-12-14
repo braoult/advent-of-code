@@ -92,7 +92,7 @@ static void print_links()
         node = nodes+i;
         log(3, "[%6s]", node->token);
         list_for_each_entry(link, &node->list, list) {
-            printf(" --> %s", link->node->token);
+            log(3, " --> %s", link->node->token);
         }
         log(3, "\n");
     }
@@ -206,7 +206,7 @@ inline static node_t *pop()
 
 /* traverse graph from a node, return
  */
-static int bfs_run(node_t *node)
+static int bfs_run(node_t *node, int part, int svisited)
 {
     int i, res = 0;
     struct link *link;
@@ -229,12 +229,25 @@ static int bfs_run(node_t *node)
 
     i = 0;
     list_for_each_entry(link, &node->list, list) {
-        if (link->node->multiple || !link->node->passed) {
-            link->node->passed++;
-            push(link->node);
-            res += bfs_run(link->node);
-            pop();
-            link->node->passed--;
+        if (link->node != nodes+START) {
+            if (link->node->multiple || !link->node->passed || (part == 2 &&
+                                                                !svisited)) {
+                int inc = 0;
+                link->node->passed++;
+                if (!link->node->multiple && link->node->passed == 2) {
+                    log_i(3, "visited = 1\n");
+                    svisited = 1;
+                    inc = 1;
+                }
+                push(link->node);
+                res += bfs_run(link->node, part, svisited);
+                pop();
+                link->node->passed--;
+                if (inc) {
+                    log_i(3, "visited = 0\n");
+                    svisited = 0;
+                }
+            }
         }
     }
     return res;
@@ -248,13 +261,16 @@ static int part1()
 {
     nodes[START].passed = 1;
     push(nodes + START);
-    return bfs_run(nodes);
+    return bfs_run(nodes, 1, 0);
     pop();
 }
 
 static int part2()
 {
-    return 2;
+    nodes[START].passed = 1;
+    push(nodes + START);
+    return bfs_run(nodes, 2, 0);
+    pop();
 }
 
 static int doit(int part)
