@@ -41,20 +41,26 @@ static inline void debug(_unused u32 level, _unused bool timestamp,
 #define log(level, fmt, args...) \
     debug((level), false, 0, NULL, 0, fmt, ##args)
 
-/* format: func name, no line number, no indent, no timestamp
- * foo:15 val=2
+/* format : indent, no func name, no timestamp
+ * >>>>val=2
+ */
+#define log_i(level, fmt, args...) \
+    debug((level), false, (level), NULL, 0, fmt, ##args)
+
+/* format : func name, no indent, no timestamp
+ * [foo] val=2
  */
 #define log_f(level, fmt, args...) \
     debug((level), false, 0, __func__, 0, fmt, ##args)
 
-/* format : func name, indent, no timestamp
- *   foo:15 val=2
+/* format : func name, no indent, no timestamp
+ * >>>> [foo:15] val=2
  */
-#define log_i(level, fmt, args...) \
+#define log_if(level, fmt, args...) \
     debug((level), false, (level), __func__, __LINE__, fmt, ##args)
 
 /* format : func name, indent, timestamp
- *   []foo:15 val=2
+ * >>>>foo:15 val=2
  */
 #define log_it(level, fmt, args...) \
     debug((level), true, (level), __func__, __LINE__, fmt, ##args)
@@ -69,6 +75,8 @@ static inline void debug(_unused u32 level, _unused bool timestamp,
 #else
 #define log(level, fmt, args...)
 #define log_i(...)
+#define log_f(...)
+#define log_if(...)
 #define log_it(...)
 #define log_f(...)
 
