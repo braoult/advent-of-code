@@ -41,49 +41,31 @@ static int npoints;                               /* ... and size */
 static flip_t flips[MAX_FLIPS];                   /* flips list */
 static int nflips;                                /* ... and size */
 
-static void print_points()
-{
-    int i;
-
-    log(2, "points (%d) :\n", npoints);
-    for (i = 0; i < npoints; ++i)
-        log(2, "x=%d y=%d\n", points[i].x, points[i].y);
-}
-
 static void print_dots()
 {
-    int prevx = 0, prevy = 0, x = 0, y = 0;
-    log(2, "points (%d) :\n", npoints);
+    int prevy = 0, x = 0, y = 0;
+
     for (int i = 0; i < npoints; ++i) {
         y = points[i].y;
         if (y != prevy) {
-            printf("\n");
+            putchar('\n');
             prevy = y;
             x = 0;
         }
         /* print spaces before next point */
         while(x < points[i].x) {
-            printf(".");
+            putchar(' ');
             x++;
         }
         x++;
-        printf("#");
+        putchar('#');
     }
-    printf("\n");
-}
-
-static void print_flips()
-{
-    int i;
-
-    log(2, "flips (%d) :\n", nflips);
-    for (i = 0; i < nflips; ++i)
-        log_i(2, "xy=%c val=%d\n", flips[i].xy, flips[i].val);
+    putchar('\n');
 }
 
 /* sort array and pack it (remove duplicates). sort by y first, then x.
  */
-static void ins_sort_points()
+static int ins_sort_points()
 {
     for (int i = 1, j = 0; i < npoints; i++, j = i - 1) {
         square_t cur = points[i];
@@ -96,8 +78,6 @@ static void ins_sort_points()
         points[j + 1] = cur;
     }
     int cur = 0;
-    //if array is empty
-    // or contains a single element
     if (npoints > 1) {
         for (int i = 0; i < npoints - 1; ++i) {
             if (points[i].x != points[i + 1].x || points[i].y != points[i + 1].y) {
@@ -108,7 +88,7 @@ static void ins_sort_points()
     }
     npoints = cur;
 
-    return;
+    return npoints;
 }
 
 static void flipx(int n)
@@ -116,9 +96,7 @@ static void flipx(int n)
     for (int i = 0; i < npoints; ++i) {
         square_t *p = points+i;
         if (points[i].x > n) {
-            log(3, "flipping %d,%d -> ", p->x, p->y);
             p->x = 2 * n - p->x;
-            log(3, "%d,%d\n", p->x, p->y);
         }
     }
 }
@@ -128,9 +106,7 @@ static void flipy(int n)
     for (int i = 0; i < npoints; ++i) {
         square_t *p = points+i;
         if (points[i].y > n) {
-            log(3, "flipping %d,%d -> ", p->x, p->y);
             p->y = 2 * n - p->y;
-            log(3, "%d,%d\n", p->x, p->y);
         }
     }
 }
@@ -147,13 +123,11 @@ static int read_input()
     while ((len = getline(&buf, &alloc, stdin)) > 1) {
         sscanf(buf, "%d,%d", &points[npoints].x, &points[npoints].y);
         npoints++;
-        //log(1, "len=%d x=%d, y=%d ss=%d\n", len, x, y, ss);
     }
     /* get flip list */
     while ((len = getline(&buf, &alloc, stdin)) > 1) {
         sscanf(buf, "fold along %c=%d", &flips[nflips].xy, &flips[nflips].val);
         nflips++;
-        //log(1, "len=%d x=%d, y=%d ss=%d\n", len, x, y, ss);
     }
     free(buf);
     return 1;
@@ -161,28 +135,16 @@ static int read_input()
 
 static int part1()
 {
-    print_points();
-    print_flips();
-    ins_sort_points();
-    print_points();
-
-    if (flips[0].xy == 'x') {
+    if (flips[0].xy == 'x')
         flipx(flips[0].val);
-    } else {
+    else
         flipy(flips[0].val);
-    }
     ins_sort_points();
-    print_points();
     return npoints;
 }
 
 static int part2()
 {
-    print_points();
-    print_flips();
-    ins_sort_points();
-    print_points();
-
     for (int i = 0; i < nflips; ++i) {
         if (flips[i].xy == 'x') {
             flipx(flips[i].val);
@@ -191,7 +153,6 @@ static int part2()
         }
     }
     ins_sort_points();
-    print_points();
     print_dots();
     return npoints;
 }
