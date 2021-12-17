@@ -15,58 +15,78 @@
 #include <unistd.h>
 #include <string.h>
 #include <malloc.h>
+#include <stdint.h>
 
 #include "debug.h"
 #include "bits.h"
-//#include "list.h"
 
-/* possible 10 letters: B, C, F, H, K, N, O, P, S, V */
-int weight[] =  {  ['B'] = 0, ['C'] = 1, ['F'] =  2,
-        ['H'] =  3, ['K'] =  4, ['N'] =  5, ['O'] =  6,
-        ['P'] =  7, ['S'] =  8, ['V'] =  9
-        };
+#define NPOLYMERS   10                     /* max number of polymers */
 
-int count[26];
-/*struct weigth {
-    char key;
-    int val;
-} weight1[] = {
-    { 'A', -1 },
-    { 'B',  0 },
-    { 'C',  1 },
-    { 'D', -1 },
-    { 'E', -1 },
-    { 'F',  2 },
-    { 'G', -1 },
-    { 'H',  3 },
-    { 'I', -1 },
-    { 'J', -1 },
-    { 'K',  4 },
-    { 'L', -1 },
-    { 'M', -1 },
-    { 'N',  5 },
-    { 'O',  6 },
-    { 'P',  7 },
-    { 'Q', -1 },
-    { 'R', -1 },
-    { 'S',  8 },
-    { 'T', -1 },
-    { 'U', -1 },
-    { 'V',  9 },
-    { 'W', -1 },
-    { 'X', -1 },
-    { 'Y', -1 },
-    { 'Z', -1 }
+/* possible 10 letters: B, C, F, H, K, N, O, P, S, V, reduced to 10 integers */
+static int cindex[] =  {
+    ['B'] = 0, ['C'] = 1, ['F'] = 2, ['H'] = 3, ['K'] = 4,
+    ['N'] = 5, ['O'] = 6, ['P'] = 7, ['S'] = 8, ['V'] = 9
 };
-*/
-#define MAX_RUN    10
-#define MAX_SIZE   1024 * 10 * 2                        /* max resulting string size */
+static int rev_index[] =  {
+    'B', 'C', 'F', 'H', 'K', 'N', 'O', 'P', 'S', 'V'
+};
 
+#define INDEX(c) cindex[(int)c]
+
+static u64 polymers[NPOLYMERS][NPOLYMERS];
+static u64 rules[NPOLYMERS][NPOLYMERS];
+
+#define MAX_SIZE 10000
 char seq[MAX_SIZE], seq2[MAX_SIZE];
 int nseq;
 
-int rules[10 * 10];
+//int rules[NPOLYMERS * NPOLYMERS];
 int nrules;
+
+u64 count[NPOLYMERS] = {0};
+
+static void print_polymers(int step)
+{
+    //log(3, "   B C F C D E F G H I J K")
+    log_f(3, "polymers(%d):\n  ", step);
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        log(3, "%10c", rev_index[i]);
+    }
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        log(3, "\n%c ", rev_index[i]);
+        for (int j = 0; j < NPOLYMERS; ++j) {
+            if (polymers[i][j])
+                log(3, "%10lu", polymers[i][j]);
+            else
+                log(3, "%10s", "");
+        }
+    }
+    log(3, "\n");
+}
+static void print_rules()
+{
+    //log(3, "   B C F C D E F G H I J K")
+    log_f(3, "rules:\n  ");
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        log(3, "%10c", rev_index[i]);
+    }
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        log(3, "\n%c ", rev_index[i]);
+        for (int j = 0; j < NPOLYMERS; ++j) {
+            log(3, "%10c", rules[i][j]? rules[i][j]: ' ');
+        }
+    }
+    log(3, "\n");
+}
+static void print_count()
+{
+    //log(3, "   B C F C D E F G H I J K")
+    log_f(3, "count:\n  ");
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        log(3, "%1c=%d ", rev_index[i], count[i]);
+    }
+    log(3, "\n");
+}
 
 /* read data and create graph.
  */
@@ -75,93 +95,86 @@ static int read_input()
     ssize_t len;
     size_t alloc = 0;
     char *buf;
-    char val[10] = { 0 };
-    int pos;//, ins;
+    char x, y, z;
 
     nseq = getline(&buf, &alloc, stdin) - 1;
+    print_polymers(0);
     buf[nseq] = 0;
+    count[INDEX(*buf)]++;
+    count[INDEX(*(buf + nseq - 1))]++;
+    print_count();
+    for (int i = 0; i < nseq - 1; ++i) {
+        polymers[INDEX(buf[i])][INDEX(buf[i+1])]++;
+    }
+    log(3, "buf=[%s]\n", buf);
+    print_polymers(0);
     strcpy(seq, buf);
     printf("str = %d [%s]\n", nseq, seq);
     printf("empt = %ld\n", getline(&buf, &alloc, stdin));
 
-    /* get rules */
-    while ((len = getline(&buf, &alloc, stdin)) > 1) {
-        //log(3, "len = %d [%s]\n", len, buf);
-        sscanf(buf, "%c%c -> %c", val, val+1, val+2);
-        //*val -= 'A';
-        //*(val + 1) -= 'A';
-        //*(val + 2) -= 'A';
 
-        pos = weight[(int)*val] * 10 + weight[(int)*(val + 1)];
-        //ins = weight[(int)*(val + 2)];
-        rules[pos] = *(val + 2);
-        //log(3, val);
-        //log(3, "%s : %c %d %c %d %d %d pos=%d\n", val, *val, (int) *val - 'A', val[1], val[1] - 'A',
-        //    weight[(int)*val] * 10, weight[(int)*(val + 1)], pos);
-        log(3, "%.2s : array[%d]=%c\n", val, pos, rules[pos]);
+    /* get rules */
+    while ((len = getline(&buf, &alloc, stdin)) >= 0) {
+        if (sscanf(buf, "%c%c -> %c", &x, &y, &z) == 3)
+            rules[INDEX(x)][INDEX(y)] = z;
         nrules++;
     }
     free(buf);
+    print_rules();
     return nrules;
 }
 
-static int part1()
+static u64 diff()
 {
-    char *src, *dst;
-    int key;//, last;
-    unsigned int count[26] = {0};
-    unsigned min, max;
+    u64 min = UINT64_MAX, max = 0;
 
+    //for (unsigned i = 0; i < NPOLYMERS; ++i)
+    //    for (unsigned i = 0; i < NPOLYMERS; ++i)
+    //        log(5, "count[%c%c]=%d\n", rev_index[i] i + 'A', count[i]);
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        for (int j = 0; j < NPOLYMERS; ++j) {
+            count[i] += polymers[i][j];
+            count[j] += polymers[i][j];
+        }
+    }
+    print_count();
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        if (count[i] && count[i] < min)
+            min = count[i];
+        if (count[i] > max)
+            max = count[i];
+    }
+    log(3, "min = %lu max=%lu\n", min, max);
+    return (max - min) / 2;
+}
+
+static u64 part1(int steps)
+{
+    //int step;
     read_input();
-    for (int i = 0; i < 10; ++i) {
-        int j, k;
+    for (int step = 0; step < steps; ++step) {
+        int new;
+        u64 new_polymers[NPOLYMERS][NPOLYMERS];
 
-        src = i % 2? seq2: seq;
-        dst = i % 2? seq: seq2;
-        //savedst = dst;
-        //savesrc = dst;
-        //last = strlen(src) - 1;
-        for (j = 0, k = 0; src[j+1]; ++j, k += 2) {
-            key = weight[(int) src[j]] * 10 + weight[(int) src[j+1]];
-            //(*src - 'A') * 10 + *(src+1) -'A';
-            //log(3, "%d/%d: src=%s dst=%s s1=%c s2=%c key=%d\n", i, j, src, dst, *src, *(src + 1), key);
-            dst[k] = src[j];
-            dst[k+1] = rules[key];
-            dst[k+2] = src[j+1];
-            //src++;
-            //dst += 3;
-            //log_i(3, "j=%d k=%d dst=%s\n", j, k, dst);
+        memset(new_polymers, 0, sizeof(new_polymers));
+        for (int i = 0; i < NPOLYMERS; ++i) {
+            for (int j = 0; j < NPOLYMERS; ++j) {
+                new = INDEX(rules[i][j]);
+                new_polymers[i][new] += polymers[i][j];
+                new_polymers[new][j] += polymers[i][j];
+            }
         }
-        log(3, "i = %d len=%d dst = %s\n", i, strlen(dst), dst);
-        //log(3, "%d: src=%p dst=%p seq=%p seq2=%p\n", src, dst, seq, seq2);
+        memcpy(polymers, new_polymers, sizeof(polymers));
+        print_polymers(step);
     }
-    for (int i=0; dst[i]; ++i)
-        count[dst[i] - 'A']++;
-    min = ~0;
-    max = 0;
-    for (unsigned i = 0; i < sizeof(count)/sizeof(*count); ++i)
-        printf("count[%c]=%d\n", i + 'A', count[i]);
-    for (unsigned i = 0; i < sizeof(count)/sizeof(*count); ++i) {
-        if (count[i]) {
-            if (count[i] < min)
-                min = count[i];
-            if (count[i] > max)
-                max = count[i];
-        }
-    }
-    printf("min = %i max=%u\n", min, max);
-    return max - min;
+    return diff();
+    //print_polymers(step);
 }
 
-static int part2()
-{
-    return 2;
-}
-
-static int doit(int part)
+static u64 doit(int part)
 {
     //read_input();
-    return part == 1? part1(): part2();
+    return part == 1? part1(10): part1(40);
 }
 
 static int usage(char *prg)
@@ -191,6 +204,6 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    printf("%s : res=%d\n", *av, doit(part));
+    printf("%s : res=%lu\n", *av, doit(part));
     exit (0);
 }
