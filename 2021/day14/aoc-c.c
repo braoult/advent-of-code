@@ -27,9 +27,6 @@ static int cindex[] =  {
     ['B'] = 0, ['C'] = 1, ['F'] = 2, ['H'] = 3, ['K'] = 4,
     ['N'] = 5, ['O'] = 6, ['P'] = 7, ['S'] = 8, ['V'] = 9
 };
-static int rev_index[] =  {
-    'B', 'C', 'F', 'H', 'K', 'N', 'O', 'P', 'S', 'V'
-};
 
 #define INDEX(c) cindex[(int)c]
 
@@ -37,120 +34,55 @@ static u64 polymers[NPOLYMERS][NPOLYMERS];
 static u64 rules[NPOLYMERS][NPOLYMERS];
 
 #define MAX_SIZE 10000
-char seq[MAX_SIZE], seq2[MAX_SIZE];
-int nseq;
 
-//int rules[NPOLYMERS * NPOLYMERS];
-int nrules;
 
 u64 count[NPOLYMERS] = {0};
 
-static void print_polymers(int step)
-{
-    //log(3, "   B C F C D E F G H I J K")
-    log_f(3, "polymers(%d):\n  ", step);
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        log(3, "%10c", rev_index[i]);
-    }
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        log(3, "\n%c ", rev_index[i]);
-        for (int j = 0; j < NPOLYMERS; ++j) {
-            if (polymers[i][j])
-                log(3, "%10lu", polymers[i][j]);
-            else
-                log(3, "%10s", "");
-        }
-    }
-    log(3, "\n");
-}
-static void print_rules()
-{
-    //log(3, "   B C F C D E F G H I J K")
-    log_f(3, "rules:\n  ");
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        log(3, "%10c", rev_index[i]);
-    }
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        log(3, "\n%c ", rev_index[i]);
-        for (int j = 0; j < NPOLYMERS; ++j) {
-            log(3, "%10c", rules[i][j]? rules[i][j]: ' ');
-        }
-    }
-    log(3, "\n");
-}
-static void print_count()
-{
-    //log(3, "   B C F C D E F G H I J K")
-    log_f(3, "count:\n  ");
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        log(3, "%1c=%d ", rev_index[i], count[i]);
-    }
-    log(3, "\n");
-}
-
 /* read data and create graph.
  */
-static int read_input()
+static void read_input()
 {
     ssize_t len;
     size_t alloc = 0;
     char *buf;
     char x, y, z;
 
-    nseq = getline(&buf, &alloc, stdin) - 1;
-    print_polymers(0);
-    buf[nseq] = 0;
+    len = getline(&buf, &alloc, stdin) - 1;
+    buf[len] = 0;
     count[INDEX(*buf)]++;
-    count[INDEX(*(buf + nseq - 1))]++;
-    print_count();
-    for (int i = 0; i < nseq - 1; ++i) {
+    count[INDEX(*(buf + len - 1))]++;
+    for (int i = 0; i < len - 1; ++i)
         polymers[INDEX(buf[i])][INDEX(buf[i+1])]++;
-    }
-    log(3, "buf=[%s]\n", buf);
-    print_polymers(0);
-    strcpy(seq, buf);
-    printf("str = %d [%s]\n", nseq, seq);
-    printf("empt = %ld\n", getline(&buf, &alloc, stdin));
-
 
     /* get rules */
     while ((len = getline(&buf, &alloc, stdin)) >= 0) {
         if (sscanf(buf, "%c%c -> %c", &x, &y, &z) == 3)
             rules[INDEX(x)][INDEX(y)] = z;
-        nrules++;
     }
     free(buf);
-    print_rules();
-    return nrules;
 }
 
 static u64 diff()
 {
     u64 min = UINT64_MAX, max = 0;
 
-    //for (unsigned i = 0; i < NPOLYMERS; ++i)
-    //    for (unsigned i = 0; i < NPOLYMERS; ++i)
-    //        log(5, "count[%c%c]=%d\n", rev_index[i] i + 'A', count[i]);
     for (int i = 0; i < NPOLYMERS; ++i) {
         for (int j = 0; j < NPOLYMERS; ++j) {
             count[i] += polymers[i][j];
             count[j] += polymers[i][j];
         }
     }
-    print_count();
     for (int i = 0; i < NPOLYMERS; ++i) {
         if (count[i] && count[i] < min)
             min = count[i];
         if (count[i] > max)
             max = count[i];
     }
-    log(3, "min = %lu max=%lu\n", min, max);
     return (max - min) / 2;
 }
 
-static u64 part1(int steps)
+static u64 doit(int steps)
 {
-    //int step;
     read_input();
     for (int step = 0; step < steps; ++step) {
         int new;
@@ -165,17 +97,15 @@ static u64 part1(int steps)
             }
         }
         memcpy(polymers, new_polymers, sizeof(polymers));
-        print_polymers(step);
     }
     return diff();
-    //print_polymers(step);
 }
 
-static u64 doit(int part)
-{
-    //read_input();
-    return part == 1? part1(10): part1(40);
-}
+//static u64 doit(int part)
+//{
+//    //read_input();
+//    return part == 1? part1(10): part1(40);
+//}
 
 static int usage(char *prg)
 {
@@ -204,6 +134,6 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    printf("%s : res=%lu\n", *av, doit(part));
+    printf("%s : res=%lu\n", *av, doit(part == 1? 10: 40));
     exit (0);
 }
