@@ -32,11 +32,7 @@ static int cindex[] =  {
 
 static u64 polymers[NPOLYMERS][NPOLYMERS];
 static u64 rules[NPOLYMERS][NPOLYMERS];
-
-#define MAX_SIZE 10000
-
-
-u64 count[NPOLYMERS] = {0};
+static u64 count[NPOLYMERS] = {0};
 
 /* read data and create graph.
  */
@@ -48,7 +44,10 @@ static void read_input()
     char x, y, z;
 
     len = getline(&buf, &alloc, stdin) - 1;
-    buf[len] = 0;
+
+    /* first and last characters need to be counted, as they will not appear
+     * in final count
+     */
     count[INDEX(*buf)]++;
     count[INDEX(*(buf + len - 1))]++;
     for (int i = 0; i < len - 1; ++i)
@@ -62,27 +61,10 @@ static void read_input()
     free(buf);
 }
 
-static u64 diff()
+static u64 doit(int steps)
 {
     u64 min = UINT64_MAX, max = 0;
 
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        for (int j = 0; j < NPOLYMERS; ++j) {
-            count[i] += polymers[i][j];
-            count[j] += polymers[i][j];
-        }
-    }
-    for (int i = 0; i < NPOLYMERS; ++i) {
-        if (count[i] && count[i] < min)
-            min = count[i];
-        if (count[i] > max)
-            max = count[i];
-    }
-    return (max - min) / 2;
-}
-
-static u64 doit(int steps)
-{
     read_input();
     for (int step = 0; step < steps; ++step) {
         int new;
@@ -98,14 +80,22 @@ static u64 doit(int steps)
         }
         memcpy(polymers, new_polymers, sizeof(polymers));
     }
-    return diff();
+    /* attention here: polymers are counted twice.
+     */
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        for (int j = 0; j < NPOLYMERS; ++j) {
+            count[i] += polymers[i][j];
+            count[j] += polymers[i][j];
+        }
+    }
+    for (int i = 0; i < NPOLYMERS; ++i) {
+        if (count[i] && count[i] < min)
+            min = count[i];
+        if (count[i] > max)
+            max = count[i];
+    }
+    return (max - min) / 2;
 }
-
-//static u64 doit(int part)
-//{
-//    //read_input();
-//    return part == 1? part1(10): part1(40);
-//}
 
 static int usage(char *prg)
 {
