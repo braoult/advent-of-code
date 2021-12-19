@@ -35,8 +35,6 @@ The total risk of this path is 40 (the starting position is never entered, so it
 What is the lowest total risk of any path from the top left to the bottom right?
 
 Your puzzle answer was 435.
-
-The first half of this puzzle is complete! It provides one gold star: *
 --- Part Two ---
 
 Now that you know how to find low-risk paths in the cave, you can try to find your way out.
@@ -160,3 +158,7 @@ Equipped with the full map, you can now find a path from the top left corner to 
 The total risk of this path is 315 (the starting position is still never entered, so its risk is not counted).
 
 Using the full map, what is the lowest total risk of any path from the top left to the bottom right?
+
+Your puzzle answer was 2842.
+
+Both parts of this puzzle are complete! They provide two gold stars: **

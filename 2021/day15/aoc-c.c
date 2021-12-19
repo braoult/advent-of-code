@@ -23,7 +23,7 @@
 #include "bits.h"
 #include "list.h"
 
-#define MAX_SIZE 128
+#define MAX_SIZE 100
 
 int a[] = {
     ['a'] = 0,
@@ -33,19 +33,18 @@ int a[] = {
 
 typedef struct square {
     uchar cost;
-    u32   totcost;;
     uchar visited;
+    u64   totcost;;
 } square_t;
 
 typedef struct priority_queue {
     int l;
     int c;
-    u32 cost;
     struct list_head list;
 } pqueue_t;
 
 static LIST_HEAD(plist_head);
-static struct square array[MAX_SIZE][MAX_SIZE];
+static struct square array[MAX_SIZE*5][MAX_SIZE*5];
 static int asize;
 static pool_t *pool;
 
@@ -56,7 +55,18 @@ static void print_array()
     log(3, "array (%dx%d):\n", asize, asize);
     for (int i = 0; i < asize; ++i) {
         for (int j = 0; j < asize; ++j)
-            log(3, "%1d/%2d ", array[i][j].cost, array[i][j].totcost);
+            log(3, "%1d ", array[i][j].cost);
+        //log(3, "%1d/%2d ", array[i][j].cost, array[i][j].totcost);
+        log(3, "\n");
+    }
+}
+static void print_array_total()
+{
+    log(3, "array (%dx%d):\n", asize, asize);
+    for (int i = 0; i < asize; ++i) {
+        for (int j = 0; j < asize; ++j)
+            log(3, "%4d ", array[i][j].totcost);
+        //log(3, "%1d/%2d ", array[i][j].cost, array[i][j].totcost);
         log(3, "\n");
     }
 }
@@ -69,52 +79,11 @@ static void print_queue()
 
     list_for_each_entry(tmp, &plist_head, list) {
         int l = tmp->l, c = tmp->c;
-        u32 cost = array[l][c].cost;
-        u32 acc = array[l][c].totcost;
-        log(3, "%d: (%d,%d): cost=%u acc=%lu\n", i, l, c, cost, acc);
+        u64 cost = array[l][c].cost;
+        u64 acc = array[l][c].totcost;
+        log(3, "%d: (%d,%d): cost=%lu acc=%lu\n", i, l, c, cost, acc);
         i++;
     }
-}
-
-/* insert l,c in queue, keeping cost sorted */
-static pqueue_t *push(int l, int c, u32 parentcost)
-{
-    pqueue_t *queue;
-    u32 newcost;
-
-    if (l >= asize || c >= asize || array[l][c].visited)
-        return NULL;
-    newcost = parentcost + array[l][c].cost;
-    if (newcost > array[l][c].totcost)
-        return NULL;
-
-    queue = pool_get(pool);
-    queue->l = l;
-    queue->c = c;
-    queue->cost = newcost;
-    array[l][c].totcost = newcost;
-
-    log_f(3, "(%d,%d) pcost=%u\n", l, c, newcost);
-    list_add_tail(&queue->list, &plist_head);
-    return queue;
-}
-
-static pqueue_t *pop()
-{
-    pqueue_t *tmp, *cur;
-
-    list_for_each_entry_safe(cur, tmp, &plist_head, list) {
-        int l = cur->l, c = cur->c;
-
-        list_del(&cur->list);
-        if (array[l][c].visited) {
-            pool_add(pool, cur);
-            continue;
-        }
-        log_f(3, "(%d,%d) cost=%u\n", l, c, array[l][c].totcost);
-        return cur;
-    }
-    return NULL;
 }
 
 /* read data and create graph.
@@ -133,7 +102,7 @@ static int read_input()
         //printf("%d: size=%d [%s]\n", l, asize, buf);
         for (c = 0; buf[c]; ++c) {
             array[l][c].cost = buf[c] - '0';
-            array[l][c].totcost = UINT32_MAX;
+            array[l][c].totcost = UINT64_MAX;
             array[l][c].visited = 0;
         }
         l++;
@@ -144,43 +113,118 @@ static int read_input()
     return asize;
 }
 
+/* insert l,c in queue, keeping cost sorted */
+inline static pqueue_t *push(int l, int c, u32 parentcost)
+{
+    pqueue_t *queue;
+    u64 newcost;
 
-static u32 part1()
+    if (l < 0 || c < 0 || l >= asize || c >= asize)
+        return NULL;
+    newcost = parentcost + array[l][c].cost;
+    if (newcost > array[l][c].totcost)
+        return NULL;
+
+    queue = pool_get(pool);
+    queue->l = l;
+    queue->c = c;
+    array[l][c].totcost = newcost;
+
+    log_f(3, "(%d,%d) pcost=%u\n", l, c, newcost);
+    list_add_tail(&queue->list, &plist_head);
+    return queue;
+}
+
+inline static pqueue_t *pop()
+{
+    pqueue_t *min;
+    pqueue_t *tmp, *cur;
+
+    if (!(min = list_first_entry_or_null(&plist_head, pqueue_t, list)))
+        return NULL;
+    list_for_each_entry_safe(cur, tmp, &plist_head, list) {
+        int l = cur->l, c = cur->c;
+        if (array[l][c].totcost < array[min->l][min->c].totcost)
+            min = cur;
+    }
+    list_del(&min->list);
+    //if (array[l][c].visited) {
+    //    pool_add(pool, cur);
+    //    continue;
+    //}
+    log_f(3, "(%d,%d) cost=%u\n", min->l, min->c, array[min->l][min->c].totcost);
+    return min;
+//    if ((p = list_first_entry_or_null(&plist_head, pqueue_t, list)))
+    //      list_del(&p->list);
+    //return p;
+}
+
+
+static u64 part1()
 {
     pqueue_t *pqueue;
-    u32 best = UINT32_MAX;
 
     push(0, 0, 0);
-
+    print_array();
     while ((pqueue = pop())) {
         int l = pqueue->l, c = pqueue->c;
-        u32 acc = array[l][c].totcost;
+        u64 acc = array[l][c].totcost;
+        bool stop = true;
 
-        if (l == (asize - 1) && c == (asize - 1)) {
-            if (acc < best) {
-                best = acc;
-                log_f(3, "New best: %u\n", best);
-            }
-        }
-        push(l, c + 1, acc);
-        push(l + 1, c, acc);
+        if (array[l][c].visited)
+            goto free_pqueue;
+        if (push(l, c - 1, acc))
+            stop = false;
+        if (push(l, c + 1, acc))
+            stop = false;
+        if (push(l - 1, c, acc))
+            stop = false;
+        if (push(l + 1, c, acc))
+            stop = false;
         array[l][c].visited = 1;
-
+        //if (stop)
+        //    break;
+    free_pqueue:
         pool_add(pool, pqueue);                   /* recycle pqueue in memory pool */
     }
 
     /* as we accounted [0][0] cost, we must substract it */
-    return best - array[0][0].cost;
+    print_array();
+    print_array_total();
+    return array[asize - 1][asize - 1].totcost - array[0][0].cost;
 }
 
-static u32 part2()
+static u64 part2()
 {
-    return 2;
+    int l, c;
+
+    /* initialize the rest of array */
+    for (int i = 0; i < 5; ++i) {
+        for (int j = 0; j < 5; ++j) {
+            if (i || j) {
+                for (l = 0; l < asize; ++l) {
+                    for (c = 0; c < asize; ++c) {
+                        int newl = l + i * asize;
+                        int newc = c + j * asize;
+                        array[newl][newc] = array[l][c];
+                        array[newl][newc].cost += i + j;
+                        if (array[newl][newc].cost > 9) {
+                            array[newl][newc].cost -= 9;
+                        }
+                        //log(3, "new(%d, %d) = %u\n", newl, newc, array[newl][newc].cost);
+                    }
+                }
+            }
+        }
+    }
+    asize *= 5;
+    return part1();
 }
 
-static u32 doit(int part)
+static u64 doit(int part)
 {
     read_input();
+
     return part == 1? part1(): part2();
 }
 
@@ -214,6 +258,6 @@ int main(int ac, char **av)
     if (!(pool = pool_init("stack", 1024, sizeof (pqueue_t))))
         return -1;
 
-    printf("%s : res=%d\n", *av, doit(part));
+    printf("%s : res=%lu\n", *av, doit(part));
     exit (0);
 }
