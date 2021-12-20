@@ -199,5 +199,7 @@ int main(int ac, char **av)
 
     read_input();
     printf("%s : res=%u\n", *av, part == 1? part1(): part2());
+    /* pool_stats(pool); */
+    pool_destroy(pool);
     exit (0);
 }

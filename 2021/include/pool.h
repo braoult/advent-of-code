@@ -20,17 +20,25 @@
 #include "bits.h"
 
 typedef struct {
+    struct list_head list_blocks;
+    char data[];
+} block_t;
+
+typedef struct {
     char *name;
     u32 available;
     u32 allocated;
     u32 growsize;
     size_t eltsize;
-    struct list_head head;
+    u32 nblocks;
+    struct list_head list_available;              /* available nodes */
+    struct list_head list_blocks;                 /* allocated blocks */
 } pool_t;
 
 void pool_stats(pool_t *pool);
 pool_t *pool_init(const char *name, u32 grow, size_t size);
 void *pool_get(pool_t *pool);
 u32 pool_add(pool_t *pool, void *elt);
+void pool_destroy(pool_t *pool);
 
 #endif

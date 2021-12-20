@@ -11,11 +11,6 @@
  *
  */
 
-/*
-#include <stdbool.h>
-#include <ctype.h>
-*/
-
 #include <stddef.h>
 #include <malloc.h>
 #include <string.h>
@@ -29,9 +24,16 @@ void pool_stats(pool_t *pool)
 {
     if (pool) {
 #       ifdef DEBUG_POOL
-        log_f(1, "[%s] pool [%p]: avail:%u alloc:%u grow:%u eltsize:%lu\n",
-              pool->name, (void *)pool, pool->available, pool->allocated,
+        block_t *block;
+
+        log_f(1, "[%s] pool [%p]: blocks:%u avail:%u alloc:%u grow:%u eltsize:%lu\n",
+              pool->name, (void *)pool, pool->nblocks, pool->available, pool->allocated,
               pool->growsize, pool->eltsize);
+        log(5, "\tblocks: ");
+        list_for_each_entry(block, &pool->list_blocks, list_blocks) {
+            log(5, "%p ", block);
+        }
+        log(5, "\n");
 #       endif
     }
 }
@@ -53,7 +55,9 @@ pool_t *pool_init(const char *name, u32 growsize, size_t eltsize)
         pool->eltsize = eltsize;
         pool->available = 0;
         pool->allocated = 0;
-        INIT_LIST_HEAD(&pool->head);
+        pool->nblocks = 0;
+        INIT_LIST_HEAD(&pool->list_available);
+        INIT_LIST_HEAD(&pool->list_blocks);
     }
     return pool;
 }
@@ -61,15 +65,15 @@ pool_t *pool_init(const char *name, u32 growsize, size_t eltsize)
 static u32 _pool_add(pool_t *pool, struct list_head *elt)
 {
 #   ifdef DEBUG_POOL
-    log_f(10, "pool=%p &head=%p elt=%p off1=%lu off2=%lu\n",
+    log_f(6, "pool=%p &head=%p elt=%p off1=%lu off2=%lu\n",
            (void *)pool,
-           (void *)&pool->head,
+           (void *)&pool->list_available,
            (void *)elt,
-           (void *)&pool->head-(void *)pool,
-           offsetof(pool_t, head));
+           (void *)&pool->list_available-(void *)pool,
+           offsetof(pool_t, list_available));
 #   endif
 
-    list_add(elt, &pool->head);
+    list_add(elt, &pool->list_available);
     return ++pool->available;
 }
 
@@ -80,7 +84,7 @@ u32 pool_add(pool_t *pool, void *elt)
 
 static struct list_head *_pool_get(pool_t *pool)
 {
-    struct list_head *res = pool->head.next;
+    struct list_head *res = pool->list_available.next;
     pool->available--;
     list_del(res);
     return res;
@@ -91,37 +95,69 @@ void *pool_get(pool_t *pool)
     if (!pool)
         return NULL;
     if (!pool->available) {
-        void *alloc = malloc(pool->eltsize * pool->growsize);
+        block_t *block = malloc(sizeof(block_t) + pool->eltsize * pool->growsize);
         void *cur;
         u32 i;
-#       ifdef DEBUG_POOL
-        log_f(1, "[%s]: growing pool from %u to %u elements.\n",
-               pool->name,
-               pool->allocated,
-               pool->allocated + pool->growsize);
-#       endif
-        if (!alloc)
-            return NULL;
-#       ifdef DEBUG_POOL
-        log_f(5, "       (old=%u)\n", pool->allocated);
-#       endif
-        pool->allocated += pool->growsize;
-#       ifdef DEBUG_POOL
-        log_f(5, "       (new=%u)\n", pool->allocated);
-#       endif
-        for (i = 0; i < pool->growsize; ++i) {
-            cur = alloc + i * pool->eltsize;
+
+        if (!block) {
 #           ifdef DEBUG_POOL
-            log_f(5, "alloc=%p cur=%p\n", alloc, cur);
+            log_f(1, "[%s]: failed block allocation\n");
+#           endif
+            return NULL;
+        }
+
+        /* maintain list of allocated blocks
+         */
+        list_add(&block->list_blocks, &pool->list_blocks);
+        pool->nblocks++;
+
+#       ifdef DEBUG_POOL
+        log_f(1, "[%s]: growing pool from %u to %u elements. block=%p nblocks=%u\n",
+              pool->name,
+              pool->allocated,
+              pool->allocated + pool->growsize,
+              block,
+              pool->nblocks);
+#       endif
+
+        pool->allocated += pool->growsize;
+        for (i = 0; i < pool->growsize; ++i) {
+            cur = block->data + i * pool->eltsize;
+#           ifdef DEBUG_POOL
+            log_f(7, "alloc=%p cur=%p\n", block, cur);
 #           endif
             _pool_add(pool, (struct list_head *)cur);
         }
-        pool_stats(pool);
+        //pool_stats(pool);
     }
     /* this is the effective address if the object (and also the
      * pool list_head address)
      */
     return _pool_get(pool);
+}
+
+void pool_destroy(pool_t *pool)
+{
+    block_t *block, *tmp;
+    if (!pool)
+        return;
+    /* release memory blocks */
+#   ifdef DEBUG_POOL
+    log_f(1, "[%s]: releasing %d blocks and main structure\n", pool->name, pool->nblocks);
+    log(5, "blocks:");
+#   endif
+    list_for_each_entry_safe(block, tmp, &pool->list_blocks, list_blocks) {
+        list_del(&block->list_blocks);
+        free(block);
+#       ifdef DEBUG_POOL
+        log(5, " %p", block);
+#       endif
+    }
+#   ifdef DEBUG_POOL
+    log(5, "\n");
+#   endif
+    free(pool->name);
+    free(pool);
 }
 
 #ifdef BIN_pool
