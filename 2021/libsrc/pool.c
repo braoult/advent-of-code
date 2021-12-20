@@ -50,7 +50,8 @@ pool_t *pool_create(const char *name, u32 growsize, size_t eltsize)
     if (eltsize < sizeof (struct list_head))
         return NULL;
     if ((pool = malloc(sizeof (*pool)))) {
-        pool->name = strdup(name);
+        strncpy(pool->name, name, POOL_NAME_LENGTH - 1);
+        pool->name[POOL_NAME_LENGTH - 1] = 0;
         pool->growsize = growsize;
         pool->eltsize = eltsize;
         pool->available = 0;
@@ -156,7 +157,6 @@ void pool_destroy(pool_t *pool)
 #   ifdef DEBUG_POOL
     log(5, "\n");
 #   endif
-    free(pool->name);
     free(pool);
 }
 

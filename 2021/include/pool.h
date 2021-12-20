@@ -19,13 +19,15 @@
 #include "list.h"
 #include "bits.h"
 
+#define POOL_NAME_LENGTH (16)                     /* max name length including trailing \0 */
+
 typedef struct {
     struct list_head list_blocks;                 /* list of allocated blocks in pool */
     char data[];                                  /* objects block */
 } block_t;
 
 typedef struct {
-    char *name;                                   /* pool name */
+    char name[POOL_NAME_LENGTH];                  /* pool name */
     u32 available;                                /* current available elements */
     u32 allocated;                                /* total objects allocated */
     u32 growsize;                                 /* number of objects per block allocated */
