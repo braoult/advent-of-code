@@ -52,7 +52,7 @@ ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 clean:
-	@rm -f aoc-c core*
+	@rm -f aoc-c core* gmon.out
 
 .c:
 	@echo compiling $<
