@@ -20,6 +20,7 @@ CFLAGS   += -std=gnu99
 
 CFLAGS += -O2
 CFLAGS += -g
+#CFLAGS += -pg
 CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -march=native
@@ -38,7 +39,7 @@ LIBOBJ    := $(patsubst %.c,%.o,$(LIBSRC))
 LDFLAGS   := -L$(LIBDIR)
 LDLIB     := -l$(LIB)
 
-.PHONY: clean cleanall all redo output lib $(SUBDIRS)
+.PHONY: clean cleanlib cleanall all redo output lib $(SUBDIRS)
 
 all: lib $(SUBDIRS)
 
@@ -47,8 +48,10 @@ clean:
 		$(MAKE) --no-print-directory -C $$dir clean ; \
 	done
 
-cleanall: clean
+cleanlib: clean
 	@$(RM) -f $(SLIB) $(DLIB) $(LIBOBJ)
+
+cleanall: clean cleanlib
 
 redo: cleanall all
 

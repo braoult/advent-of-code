@@ -25,21 +25,15 @@
 
 #define MAX_SIZE 100
 
-int a[] = {
-    ['a'] = 0,
-    ['b'] = 1,
-    ['c'] = 2
-};
-
 typedef struct square {
     uchar cost;
     uchar visited;
-    u64   totcost;;
+    u32   totcost;;
 } square_t;
 
 typedef struct priority_queue {
-    int l;
-    int c;
+    u16 l;
+    u16 c;
     struct list_head list;
 } pqueue_t;
 
@@ -47,44 +41,6 @@ static LIST_HEAD(plist_head);
 static struct square array[MAX_SIZE*5][MAX_SIZE*5];
 static int asize;
 static pool_t *pool;
-
-#define VALID(x, y) ((x) >= 0 && (x) < size && (y) >= 0 && (y) < size )
-
-static void print_array()
-{
-    log(3, "array (%dx%d):\n", asize, asize);
-    for (int i = 0; i < asize; ++i) {
-        for (int j = 0; j < asize; ++j)
-            log(3, "%1d ", array[i][j].cost);
-        //log(3, "%1d/%2d ", array[i][j].cost, array[i][j].totcost);
-        log(3, "\n");
-    }
-}
-static void print_array_total()
-{
-    log(3, "array (%dx%d):\n", asize, asize);
-    for (int i = 0; i < asize; ++i) {
-        for (int j = 0; j < asize; ++j)
-            log(3, "%4d ", array[i][j].totcost);
-        //log(3, "%1d/%2d ", array[i][j].cost, array[i][j].totcost);
-        log(3, "\n");
-    }
-}
-
-static void print_queue()
-{
-    log(3, "queue:\n", asize, asize);
-    pqueue_t *tmp;
-    int i = 1;
-
-    list_for_each_entry(tmp, &plist_head, list) {
-        int l = tmp->l, c = tmp->c;
-        u64 cost = array[l][c].cost;
-        u64 acc = array[l][c].totcost;
-        log(3, "%d: (%d,%d): cost=%lu acc=%lu\n", i, l, c, cost, acc);
-        i++;
-    }
-}
 
 /* read data and create graph.
  */
@@ -99,102 +55,89 @@ static int read_input()
     while ((len = getline(&buf, &alloc, stdin)) > 0) {
         buf[--len] = 0;
 
-        //printf("%d: size=%d [%s]\n", l, asize, buf);
         for (c = 0; buf[c]; ++c) {
             array[l][c].cost = buf[c] - '0';
-            array[l][c].totcost = UINT64_MAX;
+            array[l][c].totcost = UINT32_MAX;
             array[l][c].visited = 0;
         }
         l++;
     }
     free(buf);
     asize = l;
-    //print_array();
     return asize;
 }
 
-/* insert l,c in queue, keeping cost sorted */
+/* insert l,c in queue */
 inline static pqueue_t *push(int l, int c, u32 parentcost)
 {
-    pqueue_t *queue;
-    u64 newcost;
+    pqueue_t *queue = NULL;
+    u32 newcost;
 
-    if (l < 0 || c < 0 || l >= asize || c >= asize)
+    if (array[l][c].visited)
         return NULL;
     newcost = parentcost + array[l][c].cost;
     if (newcost > array[l][c].totcost)
         return NULL;
-
+    array[l][c].totcost = newcost;
     queue = pool_get(pool);
     queue->l = l;
     queue->c = c;
-    array[l][c].totcost = newcost;
-
-    log_f(3, "(%d,%d) pcost=%u\n", l, c, newcost);
     list_add_tail(&queue->list, &plist_head);
     return queue;
 }
 
 inline static pqueue_t *pop()
 {
-    pqueue_t *min;
-    pqueue_t *tmp, *cur;
+    pqueue_t *pmin, *tmp, *cur;
+    u32 min = UINT32_MAX;
 
-    if (!(min = list_first_entry_or_null(&plist_head, pqueue_t, list)))
+    if (!(pmin = list_first_entry_or_null(&plist_head, pqueue_t, list)))
         return NULL;
     list_for_each_entry_safe(cur, tmp, &plist_head, list) {
-        int l = cur->l, c = cur->c;
-        if (array[l][c].totcost < array[min->l][min->c].totcost)
-            min = cur;
+        if (array[cur->l][cur->c].totcost < min) {
+            pmin = cur;
+            min = array[cur->l][cur->c].totcost;
+        }
     }
-    list_del(&min->list);
-    //if (array[l][c].visited) {
-    //    pool_add(pool, cur);
-    //    continue;
-    //}
-    log_f(3, "(%d,%d) cost=%u\n", min->l, min->c, array[min->l][min->c].totcost);
-    return min;
-//    if ((p = list_first_entry_or_null(&plist_head, pqueue_t, list)))
-    //      list_del(&p->list);
-    //return p;
+    list_del(&pmin->list);
+    return pmin;
 }
 
 
-static u64 part1()
+static u32 doit()
 {
     pqueue_t *pqueue;
 
     push(0, 0, 0);
-    print_array();
     while ((pqueue = pop())) {
         int l = pqueue->l, c = pqueue->c;
-        u64 acc = array[l][c].totcost;
-        bool stop = true;
+        u32 acc = array[l][c].totcost;
 
         if (array[l][c].visited)
             goto free_pqueue;
-        if (push(l, c - 1, acc))
-            stop = false;
-        if (push(l, c + 1, acc))
-            stop = false;
-        if (push(l - 1, c, acc))
-            stop = false;
-        if (push(l + 1, c, acc))
-            stop = false;
+        if (c > 0)
+            push(l, c - 1, acc);
+        if (c < asize - 1)
+            push(l, c + 1, acc);
+        if (l > 0)
+            push(l - 1, c, acc);
+        if (l < asize - 1)
+            push(l + 1, c, acc);
         array[l][c].visited = 1;
-        //if (stop)
-        //    break;
     free_pqueue:
         pool_add(pool, pqueue);                   /* recycle pqueue in memory pool */
     }
 
     /* as we accounted [0][0] cost, we must substract it */
-    print_array();
-    print_array_total();
     return array[asize - 1][asize - 1].totcost - array[0][0].cost;
 }
 
-static u64 part2()
+static u32 part1()
+{
+    return doit();
+}
+
+static u32 part2()
 {
     int l, c;
 
@@ -211,21 +154,17 @@ static u64 part2()
                         if (array[newl][newc].cost > 9) {
                             array[newl][newc].cost -= 9;
                         }
-                        //log(3, "new(%d, %d) = %u\n", newl, newc, array[newl][newc].cost);
+                        /* invalid, but it works with 75% gain
+                         * if (j < i)
+                         *     array[newl][newc].visited = 1;
+                         */
                     }
                 }
             }
         }
     }
     asize *= 5;
-    return part1();
-}
-
-static u64 doit(int part)
-{
-    read_input();
-
-    return part == 1? part1(): part2();
+    return doit();
 }
 
 static int usage(char *prg)
@@ -258,6 +197,7 @@ int main(int ac, char **av)
     if (!(pool = pool_init("stack", 1024, sizeof (pqueue_t))))
         return -1;
 
-    printf("%s : res=%lu\n", *av, doit(part));
+    read_input();
+    printf("%s : res=%u\n", *av, part == 1? part1(): part2());
     exit (0);
 }
