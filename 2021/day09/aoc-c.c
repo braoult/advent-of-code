@@ -174,7 +174,7 @@ static u64 part2()
 
     data = read_file();
 
-    if (!(pool = pool_init("stack", 128, sizeof (struct stack))))
+    if (!(pool = pool_create("stack", 128, sizeof (struct stack))))
         return -1;
     for (l = 0; l < data->nlines; ++l) {
         for (c = 0; c < data->length; ++c) {

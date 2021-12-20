@@ -202,7 +202,7 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    if (!(links_pool = pool_init("links", 128, sizeof (struct link))))
+    if (!(links_pool = pool_create("links", 128, sizeof (struct link))))
         return -1;
 
     printf("%s : res=%d\n", *av, doit(part));

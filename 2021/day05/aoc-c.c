@@ -96,7 +96,7 @@ static struct list_head *read_moves()
     static pool_t *pool;
     move_t *move;
 
-    if (!(pool = pool_init("moves", 1024, sizeof (struct move))))
+    if (!(pool = pool_create("moves", 1024, sizeof (struct move))))
         return NULL;
 
     while ((len = getline(&buf, &alloc, stdin)) >= 0) {

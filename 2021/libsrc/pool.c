@@ -38,7 +38,7 @@ void pool_stats(pool_t *pool)
     }
 }
 
-pool_t *pool_init(const char *name, u32 growsize, size_t eltsize)
+pool_t *pool_create(const char *name, u32 growsize, size_t eltsize)
 {
     pool_t *pool;
 
@@ -182,7 +182,7 @@ int main(int ac, char**av)
     log_f(1, "%s: sizeof(d)=%lu sizeof(*d)=%lu off=%lu\n", *av, sizeof(elt),
            sizeof(*elt), offsetof(struct d, list));
 
-    if ((pool = pool_init("dummy", 3, sizeof(*elt)))) {
+    if ((pool = pool_create("dummy", 3, sizeof(*elt)))) {
         pool_stats(pool);
         for (int cur=1; cur<ac; ++cur) {
             total = atoi(av[cur]);

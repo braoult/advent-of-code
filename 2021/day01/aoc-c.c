@@ -46,7 +46,7 @@ int ex2()
     struct ranges *input;
     struct ranges *list_cur;
 
-    if (!(pool = pool_init("pool", 10, sizeof (struct ranges))))
+    if (!(pool = pool_create("pool", 10, sizeof (struct ranges))))
         return -1;
 
     while (scanf("%d", &val) != EOF) {

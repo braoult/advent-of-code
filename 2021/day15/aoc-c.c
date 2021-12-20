@@ -194,7 +194,7 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    if (!(pool = pool_init("stack", 1024, sizeof (pqueue_t))))
+    if (!(pool = pool_create("stack", 1024, sizeof (pqueue_t))))
         return -1;
 
     read_input();
