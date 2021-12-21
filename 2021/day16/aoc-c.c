@@ -33,7 +33,7 @@
 #define TYPE_EQUAL   7
 
 #define MAX_STACK 128                             /* max stack for operators input */
-static u64 totversions;                           /* sum of versions */
+static s64 totversions;                           /* sum of versions */
 
 static u64 bitval(char *p, int length)
 {
@@ -72,68 +72,52 @@ static s64 decode(char *start, char **end)
         return decode_value(start, end);
 
     switch (*start++) {
-        case '0':
+        case '0':                                 /* we decode count bits */
             count = bitval(start, 15);
             start += 15;
             *end = start;
-            log(3, "nbits = %lu\n", count);
-            while ((*end - start) < count) {
+            while ((*end - start) < count)
                 stack[nstack++] = decode(*end, end);
-                //log(3, "  end - start = %lu\n", *end - start);
-                log(3, "  stack %d = %ld\n", nstack - 1, stack[nstack - 1]);
-            }
             break;
-        case '1':
+        case '1':                                 /* we decode count packets */
             count = bitval(start, 11);
-            start += 11;
-            *end = start;
-            log(3, "npackets = %ld\n", count);
-            while (count--) {
+            *end = start + 11;
+            while (count--)
                 stack[nstack++] = decode(*end, end);
-                log(3, "  stack %d = %ld\n", nstack - 1, stack[nstack - 1]);
-            }
-
+            break;
     }
+
     switch (type) {
         case TYPE_SUM:
-            log(3, "OP=sum\n");
             while (--nstack > -1)
                 result += stack[nstack];
             break;
         case TYPE_PRODUCT:
-            result = 1;                           /* forgot this one ;-) */
-            log(3, "OP=mult\n");
+            result = 1;
             while (--nstack > -1)
                 result *= stack[nstack];
             break;
         case TYPE_MIN:
             result = INT64_MAX;
-            log(3, "OP=min\n");
             while (--nstack > -1)
                 if (stack[nstack] < result)
                     result = stack[nstack];
             break;
         case TYPE_MAX:
-            log(3, "OP=max\n");
             while (--nstack > -1)
                 if (stack[nstack] > result)
                     result = stack[nstack];
             break;
         case TYPE_GREATER:
-            log(3, "OP=gt\n");
-            result = stack[0] > stack[1]? 1: 0;
+            result = stack[0] > stack[1];
             break;
         case TYPE_LESS:
-            log(3, "OP=le\n");
-            result = stack[0] < stack[1]? 1: 0;
+            result = stack[0] < stack[1];
             break;
         case TYPE_EQUAL:
-            log(3, "OP=eq\n");
-            result = stack[0] == stack[1]? 1: 0;
+            result = stack[0] == stack[1];
+            break;
     }
-
-    //log_f(3, "bin=[%s] version=%d type=%d\n", bits, version, type);
-    //log_f(3, "[%s] version=%d type=%d\n", start, version, type);
     return result;
 }
 
@@ -191,10 +175,9 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-
     buf = read_input();
     s64 result = decode(buf, &end);
-    printf("END: end=%lu sum_versions=%lu result=%ld\n", end - buf, totversions, result);
-    //printf("%s : res=%u\n", *av, part == 1? part1(): part2());
+    free(buf);
+    printf("%s : res=%ld\n", *av, part == 1? totversions: result);
     exit (0);
 }
