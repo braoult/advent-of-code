@@ -23,17 +23,17 @@
 #include "bits.h"
 #include "list.h"
 
-#define MAX_SUBPACKETS 1024
+#define TYPE_SUM     0
+#define TYPE_PRODUCT 1
+#define TYPE_MIN     2
+#define TYPE_MAX     3
+#define TYPE_VALUE   4
+#define TYPE_GREATER 5
+#define TYPE_LESS    6
+#define TYPE_EQUAL   7
 
-#define TYPE_VAL 4
-
-struct packet {
-    u8 version;
-    u8 type;
-    u64 value;
-};
-
-static u64 totversions;
+#define MAX_STACK 128                             /* max stack for operators input */
+static u64 totversions;                           /* sum of versions */
 
 static u64 bitval(char *p, int length)
 {
@@ -41,9 +41,7 @@ static u64 bitval(char *p, int length)
     for (; length; length--, p++) {
         u8 b = *p -'0';
         val += b << (length - 1);
-        //printf("%c -> %d, %lu\n", *p, b, val);
     }
-    //printf("%lu\n", val);
     return val;
 }
 
@@ -54,63 +52,89 @@ static u64 decode_value(char *bits, char **end)
     for (u64 tmp = 16; tmp & 16; bits += 5) {
         tmp = bitval(bits, 5);
         val = val << 4 | (tmp & 15);
-        //printf("bits =%5s  tmp=%lu xor=%lu val=%lu\n", bits, tmp, tmp & 15, val);
     }
     *end = bits;
     return val;
 }
 
-int weight[] =  {
-    ['B'] = 0, ['C'] = 1, ['F'] =  2,
-    ['H'] =  3, ['K'] =  4, ['N'] =  5, ['O'] =  6,
-    ['P'] =  7, ['S'] =  8, ['V'] =  9
-};
-
-static struct packet decode(char *start, char **end)
+static s64 decode(char *start, char **end)
 {
-    struct packet packet;
-    char *cur;
-    s64 count;
+    u8 type;
+    s64 count, result = 0;
+    s64 stack[MAX_STACK];
+    int nstack = 0;
 
-    //printf("decode(%.4s...)\n", start);
-    packet.version = bitval(start, 3);
-    totversions += packet.version;
-    packet.type = bitval(start + 3, 3);
-    log_f(3, "[%.6s...] version=%d type=%d\n", start, packet.version, packet.type);
-    cur = start + 6;
-    switch (packet.type) {
-        case TYPE_VAL:
-            packet.value = decode_value(cur, end);
-            printf("val = %lu len=%lu\n", packet.value, *end - cur);
+    totversions += bitval(start, 3);              /* decode version & type */
+    type = bitval(start + 3, 3);
+    start += 6;
+
+    if (type == TYPE_VALUE)
+        return decode_value(start, end);
+
+    switch (*start++) {
+        case '0':
+            count = bitval(start, 15);
+            start += 15;
+            *end = start;
+            log(3, "nbits = %lu\n", count);
+            while ((*end - start) < count) {
+                stack[nstack++] = decode(*end, end);
+                //log(3, "  end - start = %lu\n", *end - start);
+                log(3, "  stack %d = %ld\n", nstack - 1, stack[nstack - 1]);
+            }
             break;
-        default:
-            switch (*cur++) {
-                case '0':
-                    count = bitval(cur, 15);
-                    cur += 15;
-                    *end = cur;
-                    printf("nbits = %lu\n", count);
-                    while ((*end - cur) < count) {
-                        decode(*end, end);
-                        printf("  end - cur = %lu\n", *end - cur);
-                    }
-                    break;
-                case '1':
-                    count = bitval(cur, 11);
-                    cur += 11;
-                    *end = cur;
-                    printf("npackets = %ld\n", count);
-                    while (count--) {
-                        decode(*end, end);
-                        printf("  count = %ld\n", count);
-                    }
-
+        case '1':
+            count = bitval(start, 11);
+            start += 11;
+            *end = start;
+            log(3, "npackets = %ld\n", count);
+            while (count--) {
+                stack[nstack++] = decode(*end, end);
+                log(3, "  stack %d = %ld\n", nstack - 1, stack[nstack - 1]);
             }
 
     }
+    switch (type) {
+        case TYPE_SUM:
+            log(3, "OP=sum\n");
+            while (--nstack > -1)
+                result += stack[nstack];
+            break;
+        case TYPE_PRODUCT:
+            result = 1;                           /* forgot this one ;-) */
+            log(3, "OP=mult\n");
+            while (--nstack > -1)
+                result *= stack[nstack];
+            break;
+        case TYPE_MIN:
+            result = INT64_MAX;
+            log(3, "OP=min\n");
+            while (--nstack > -1)
+                if (stack[nstack] < result)
+                    result = stack[nstack];
+            break;
+        case TYPE_MAX:
+            log(3, "OP=max\n");
+            while (--nstack > -1)
+                if (stack[nstack] > result)
+                    result = stack[nstack];
+            break;
+        case TYPE_GREATER:
+            log(3, "OP=gt\n");
+            result = stack[0] > stack[1]? 1: 0;
+            break;
+        case TYPE_LESS:
+            log(3, "OP=le\n");
+            result = stack[0] < stack[1]? 1: 0;
+            break;
+        case TYPE_EQUAL:
+            log(3, "OP=eq\n");
+            result = stack[0] == stack[1]? 1: 0;
+    }
+
     //log_f(3, "bin=[%s] version=%d type=%d\n", bits, version, type);
-    //log_f(3, "[%s] version=%d type=%d\n", start, packet.version, packet.type);
-    return packet;
+    //log_f(3, "[%s] version=%d type=%d\n", start, version, type);
+    return result;
 }
 
 /* read BITS data
@@ -138,24 +162,6 @@ free:
     free(buf);
     return bits;
 }
-
-/*
-static u32 doit()
-{
-    return 1;
-}
-
-
-static u32 part1()
-{
-    return doit();
-}
-
-static u32 part2()
-{
-    return doit();
-}
-*/
 
 static int usage(char *prg)
 {
@@ -187,8 +193,8 @@ int main(int ac, char **av)
 
 
     buf = read_input();
-    decode(buf, &end);
-    printf("END: end=%lu sum_versions=%lu\n", end - buf, totversions);
+    s64 result = decode(buf, &end);
+    printf("END: end=%lu sum_versions=%lu result=%ld\n", end - buf, totversions, result);
     //printf("%s : res=%u\n", *av, part == 1? part1(): part2());
     exit (0);
 }
