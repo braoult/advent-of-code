@@ -19,7 +19,7 @@ LIB     := aoc_$(shell uname -m)
 INCDIR  := ../include
 LIBDIR  := ../lib
 LDFLAGS := -L$(LIBDIR)
-LDLIB   := -l$(LIB)
+LDLIB   := -l$(LIB) -lm
 
 export LD_LIBRARY_PATH = $(LIBDIR)
 
