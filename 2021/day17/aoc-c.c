@@ -24,13 +24,6 @@
 #include "bits.h"
 #include "list.h"
 
-typedef struct vector {
-    s64 x, y;
-} vector_t;
-
-#define TMIN 0
-#define TMAX 1
-
 struct target {
     s64 x1, y1;
     s64 x2, y2;
@@ -39,7 +32,6 @@ struct target {
 struct bounds {
     s64 dx_min, dx_max;
     s64 dy_min, dy_max;
-    s64 steps_min;
 } bounds;
 
 inline static int hit(s64 x, s64 y)
@@ -57,26 +49,11 @@ static s64 nth(s64 x, s64 n)
     return ((2 * x) + -1 * (n - 1)) * n / 2;
 }
 
+/* nth_x will stop after initial velocity steps
+ */
 static s64 nth_x(s64 x0, s64 n)
 {
     return n >= x0? nth(x0, x0): nth(x0, n);
-}
-
-/* determine max possible initial dx :
- * ( dx )(dx + 1) <= minx * 2
- * <=> dx² + dx - minx * 2 <= 0
- * solution is x = (-b ± sqrt(b² - 4 * a * c)) / 2 * b, with a = 1, b = 1, c = -2 * minx
- * => (-1 ± sqrt(1 + 8 * minx)) / 2 <= 0
- */
-static s64 dx_min(s64 xmin)
-{
-    s64 res = (s64) ((-1) + sqrt((double)(1 + 8 * xmin))) / 2;
-
-    bounds.steps_min = 1;
-    bounds.dx_min = res;
-
-    //printf("xmin=%ld res=%ld nmin=%ld\n", xmin, res, nmin);
-    return res;
 }
 
 /* The highest solution is the solution of:
@@ -150,7 +127,14 @@ int main(int ac, char **av)
 
     read_input();
 
-    dx_min(target.x1);
+    /* determine min possible initial dx :
+     * ( dx )(dx + 1) <= minx * 2
+     * <=> dx² + dx - minx * 2 <= 0
+     * solution is :
+     *   x = (-b ± sqrt(b² - 4 * a * c)) / 2 * b, with a = 1, b = 1, c = -2 * minx
+     * => (-1 ± sqrt(1 + 8 * minx)) / 2 <= 0
+     */
+    bounds.dx_min = (s64) ((-1) + sqrt((double)(1 + 8 * target.x1))) / 2;
     bounds.dx_max = target.x2;
     bounds.dy_min = target.y1;
     bounds.dy_max = -target.y1;
