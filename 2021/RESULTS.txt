@@ -217,3 +217,15 @@ aoc-c : res=2850
 aoc-c : res=1117
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	1+1, page-faults: 0+95
+
+=========================================
+================= day18 =================
+=========================================
+
+aoc-c : res=3987
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+98
+
+aoc-c : res=4500
+	time: 0:00.04 real, 0.03 user, 0.00 sys
+	context-switch:	1+1, page-faults: 0+97
