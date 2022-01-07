@@ -162,8 +162,6 @@ The magnitude of this final sum is 4140.
 Add up all of the snailfish numbers from the homework assignment in the order they appear. What is the magnitude of the final sum?
 
 Your puzzle answer was 3987.
-
-The first half of this puzzle is complete! It provides one gold star: *
 --- Part Two ---
 
 You notice a second question on the back of the homework assignment:
@@ -188,3 +186,9 @@ Again considering the last example homework assignment above:
 The largest magnitude of the sum of any two snailfish numbers in this list is 3993. This is the magnitude of [[2,[[7,7],7]],[[5,8],[[9,3],[0,2]]]] + [[[0,[5,8]],[[1,7],[9,6]]],[[4,[1,2]],[[1,4],2]]], which reduces to [[[[7,8],[6,6]],[[6,0],[7,7]]],[[[7,8],[8,8]],[[7,9],[0,6]]]].
 
 What is the largest magnitude of any sum of two different snailfish numbers from the homework assignment?
+
+Your puzzle answer was 4500.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
+
+At this point, you should return to your Advent calendar and try another puzzle.

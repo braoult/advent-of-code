@@ -155,7 +155,6 @@ static int node_explode(node_t *node)
     }
     if (depth == 4) {
         node_t *left = node->tree[LEFT], *right = node->tree[RIGHT];
-        node_t *tmp;
         //struct list_head *tmp;
 
         /* skip leaves */
@@ -287,8 +286,10 @@ static node_t *node_read(char **p, int depth)//, node_t *parent)
 
     node->depth = depth;
 
-    if (!depth)                                   /* root node */
+    if (!depth) {                                 /* root node */
         root = node;
+        //log_f(1, "%s\n", *p);
+    }
 
     //log_f(2, "str=%s depth=%d\n", *p, depth);
     switch (**p) {
@@ -308,6 +309,9 @@ static node_t *node_read(char **p, int depth)//, node_t *parent)
             list_add_tail(&node->leaf_list, &root->leaf_list);
     }
     (*p)++;
+    //if (!depth) {                                 /* root node */
+    //    log_f(1, "%s\n", *p);
+    //}
     return node;
 }
 
@@ -363,7 +367,6 @@ static s64 node_magnitude(node_t *node)
 static s64 part1()
 {
     node_t *head = NULL, *next = NULL;
-    s64 res = 1;
 
     head = node_read(lines + 0, 0);
     for (int i = 1; i < nlines; ++i) {
@@ -376,8 +379,26 @@ static s64 part1()
 
 static s64 part2()
 {
-    s64 res = 2;
-    return res;
+    node_t *l1 = NULL, *l2 = NULL;
+    s64 max = 0, cur;
+    char *tmp;
+
+    for (int i = 0; i < nlines; ++i) {
+        for (int j = 0; j < nlines; ++j) {
+            if (j == i)
+                continue;
+            tmp = lines[i];
+            l1 = node_read(&tmp, 0);
+            tmp = lines[j];
+            l2 = node_read(&tmp, 0);
+            cur = node_magnitude(node_reduce(node_add(l1, l2)));
+            if (cur > max) {
+                log(2, "NEW BEST: %s + %s\n", lines[i], lines[j]);
+                max = cur;
+            }
+        }
+    }
+    return max;
 }
 
 static int usage(char *prg)
