@@ -19,12 +19,13 @@ LIB     := aoc_$(shell uname -m)
 INCDIR  := ../include
 LIBDIR  := ../lib
 LDFLAGS := -L$(LIBDIR)
-LDLIB   := -l$(LIB) -lm
+#LDLIB   := -l$(LIB) -lm
+LDLIB   := -l$(LIB)
 
 export LD_LIBRARY_PATH = $(LIBDIR)
 
 CFLAGS += -std=gnu99
-CFLAGS += -O2
+#CFLAGS += -O2
 CFLAGS += -g
 #CFLAGS += -pg
 CFLAGS += -Wall
