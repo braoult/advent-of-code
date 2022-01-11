@@ -16,59 +16,26 @@
 
 #include "pool.h"
 #include "debug.h"
-#include "bits.h"
 #include "list.h"
-
-#define LEFT   0
-#define RIGHT  1
 
 static pool_t *pool_nodes;
 
-#define MAX_LINES 128
+#define MAX_LINES 128                             /* I know, I know... */
 static char *lines[MAX_LINES];
 static int nlines;
 
+#define LEFT   0
+#define RIGHT  1
+#define IS_LEAF(node) (!(node)->tree[LEFT])
+
 typedef struct node {
-    s64 val;
-    struct node *tree[2];                         /* left & right */
-    struct list_head leaf_list;                   /* head is tree root */
+    int val;
+    struct node *tree[2];                         /* left & right subtrees */
+    struct list_head leaf_list;                   /* tree root is list head */
 } node_t;
 
-#ifdef DEBUG
-/* print leaves list
+/* get a node from memory pool
  */
-static void leaves_print(node_t *root)
-{
-    node_t *list_cur;
-    log_i(2, "leaves:");
-    list_for_each_entry(list_cur, &root->leaf_list, leaf_list) {
-        log_i(2, " %d", list_cur->val);
-    }
-    log_i(2, "\n");
-}
-
-/* print node tree
- */
-static void node_print(node_t *node, int depth)
-{
-    if (!depth)
-        log_f(1, "");
-    if (!node->tree[LEFT]) {                      /* leaf */
-        log(1, "%ld", node->val);
-    } else {
-        log(1, "[");
-        node_print(node->tree[LEFT], depth + 1);
-        log(1, ",");
-        node_print(node->tree[RIGHT], depth + 1);
-        log(1, "]");
-    }
-    if (!depth) {
-        log(1, "\n");
-        leaves_print(node);
-    }
-}
-#endif
-
 static inline node_t *node_get()
 {
     node_t *node = pool_get(pool_nodes);
@@ -78,9 +45,11 @@ static inline node_t *node_get()
     return node;
 }
 
+/* recursive cleanup of node
+ */
 static inline void node_free(node_t *node)
 {
-    if (node->tree[LEFT]) {
+    if (!IS_LEAF(node)) {
         node_free(node->tree[LEFT]);
         node_free(node->tree[RIGHT]);
     }
@@ -92,11 +61,8 @@ static inline void node_free(node_t *node)
  */
 static int node_split(node_t *node)
 {
-    if (node->tree[LEFT]) {
-        if (node_split(node->tree[LEFT]) || node_split(node->tree[RIGHT]))
-            return 1;
-    } else {
-        if (node->val >= 10) {   /* eligible leaf */
+    if (IS_LEAF(node)) {
+        if (node->val >= 10) {                    /* eligible leaf */
             node_t *left, *right;
 
             /* create and populate new nodes */
@@ -115,6 +81,8 @@ static int node_split(node_t *node)
             list_del(&node->leaf_list);
             return 1;
         }
+    } else {
+        return node_split(node->tree[LEFT]) || node_split(node->tree[RIGHT]);
     }
     return 0;
 }
@@ -125,61 +93,50 @@ static int node_split(node_t *node)
 static int node_explode(node_t *node, int depth)
 {
     static node_t *root;
+    node_t *left, *right;
 
+    if (!(left = node->tree[LEFT]))
+        return 0;
+    right = node->tree[RIGHT];
+
+    /* Need to keep leaves list head */
     if (depth == 0)
         root = node;
 
     if (depth == 4) {
-        node_t *left = node->tree[LEFT], *right = node->tree[RIGHT];
+        /* increment left and right leaves values */
+        if (!list_is_first(&left->leaf_list, &root->leaf_list))
+            list_prev_entry(left, leaf_list)->val += left->val;
+        if (!list_is_last(&right->leaf_list, &root->leaf_list))
+            list_next_entry(right, leaf_list)->val += right->val;
 
-        /* skip leaves */
-        if (!left)
-            return 0;
-
-        /* increment left leaf */
-        if (!list_is_first(&left->leaf_list, &root->leaf_list)) {
-            node_t *tmpnode = list_prev_entry(left, leaf_list);
-            tmpnode->val += left->val;
-        }
-        /* increment right leaf */
-        if (!list_is_last(&right->leaf_list, &root->leaf_list)) {
-            node_t *tmpnode = list_next_entry(right, leaf_list);
-            tmpnode->val += right->val;
-        }
-
+        /* node becomes a leaf */
         node->val = 0;
-
-        list_add(&node->leaf_list, &left->leaf_list);
-        list_del(&left->leaf_list);
-        pool_add(pool_nodes, left);
-        list_del(&right->leaf_list);
-        pool_add(pool_nodes, right);
-
-        /* remove childs links */
         node->tree[LEFT] = NULL;
         node->tree[RIGHT] = NULL;
+        list_add(&node->leaf_list, &left->leaf_list);
+
+        /* remove children from leaves list, and put back in mem pool */
+        list_del(&left->leaf_list);
+        list_del(&right->leaf_list);
+        pool_add(pool_nodes, left);
+        pool_add(pool_nodes, right);
 
         return 1;
     } else {
-        if (node->tree[LEFT]) {
-            if (node_explode(node->tree[LEFT], depth + 1) ||
-                node_explode(node->tree[RIGHT], depth + 1))
-                return 1;
-        }
+        return node_explode(left, depth + 1) ||
+            node_explode(right, depth + 1);
     }
-    return 0;
 }
 
+/* node reduce:
+ */
 static node_t *node_reduce(node_t *node)
 {
     while (1) {
-        if (node_explode(node, 0))
-            continue;
-        if (node_split(node))
-            continue;
-        break;
+        if (!node_explode(node, 0) && !node_split(node))
+            return node;
     }
-    return node;
 }
 
 /* add 2 nodes
@@ -216,12 +173,12 @@ static inline node_t *_node_read(char **p, int depth)
 
     switch (**p) {
         case '[':
-            (*p)++;
+            (*p)++;                               /* skip left bracket */
             node->tree[LEFT] = _node_read(p, depth + 1);
-            (*p)++;
+            (*p)++;                               /* skip comma */
             node->tree[RIGHT] = _node_read(p, depth + 1);
             break;
-        default:                                  /* number */
+        default:                                  /* number: add to tail list */
             node->val = **p - '0';
             list_add_tail(&node->leaf_list, &root->leaf_list);
     }
@@ -229,6 +186,8 @@ static inline node_t *_node_read(char **p, int depth)
     return node;
 }
 
+/* wrapper for recursive function
+ */
 static inline node_t *node_read(char *p)
 {
     char *tmp = p;
@@ -237,7 +196,7 @@ static inline node_t *node_read(char *p)
 
 /* read input
  */
-static int read_lines()
+static void read_lines()
 {
     size_t alloc = 0;
     ssize_t buflen;
@@ -246,8 +205,7 @@ static int read_lines()
         lines[nlines][--buflen] = 0;
         nlines++;
     }
-    free(lines[nlines]);                          /* EOF */
-    return nlines;
+    free(lines[nlines]);                          /* EOF, need to be freed */
 }
 
 /* free lines memory
@@ -258,7 +216,7 @@ static void free_lines()
         free(lines[i]);
 }
 
-static inline s64 node_magnitude(node_t *node)
+static inline int node_magnitude(node_t *node)
 {
     if (!node->tree[LEFT])
         return node->val;
@@ -266,10 +224,10 @@ static inline s64 node_magnitude(node_t *node)
         2 * node_magnitude(node->tree[RIGHT]);
 }
 
-static s64 part1()
+static int part1()
 {
-    node_t *head = NULL, *next = NULL;
-    s64 res;
+    node_t *head, *next;
+    int res;
 
     head = node_read(lines[0]);
     for (int i = 1; i < nlines; ++i) {
@@ -281,21 +239,21 @@ static s64 part1()
     return res;
 }
 
-static s64 part2()
+static int part2()
 {
     node_t *list;
-    s64 max = 0, cur;
+    int max = 0, cur;
 
+    /* calculate magnitude for any combination of two snailfish numbers */
     for (int i = 0; i < nlines; ++i) {
         for (int j = 0; j < nlines; ++j) {
-            if (j == i)
-                continue;
-            list = node_reduce(node_add(node_read(lines[i]),
-                                        node_read(lines[j])));
-            cur = node_magnitude(list);
-            if (cur > max)
-                max = cur;
-            node_free(list);
+            if (j != i) {
+                list = node_reduce(node_add(node_read(lines[i]),
+                                            node_read(lines[j])));
+                if ((cur = node_magnitude(list)) > max)
+                    max = cur;
+                node_free(list);
+            }
         }
     }
     return max;
@@ -331,7 +289,7 @@ int main(int ac, char **av)
     if (!(pool_nodes = pool_create("nodes", 1024, sizeof(node_t))))
         exit(1);
     read_lines();
-    printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
+    printf("%s : res=%d\n", *av, part == 1? part1(): part2());
     free_lines();
     pool_destroy(pool_nodes);
     exit(0);
