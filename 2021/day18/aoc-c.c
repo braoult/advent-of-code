@@ -107,7 +107,9 @@ static int node_split(node_t *node)
 }
 
 /* explode node - explode first node with level == 4
- * return: 1: finished
+ * return:
+ *    0: nothing done
+ *    1: an explode operation was done
  */
 static int node_explode(node_t *node, int depth)
 {
@@ -148,7 +150,7 @@ static int node_explode(node_t *node, int depth)
     }
 }
 
-/* node reduce:
+/* node reduce
  */
 static node_t *node_reduce(node_t *node)
 {
