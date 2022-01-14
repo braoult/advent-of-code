@@ -35,13 +35,14 @@
 #define MAX_DISTANCES  ((MAX_BEACONS - 1) * MAX_BEACONS)
 
 typedef struct beacon {
-    int x, y, z;
-    struct list_head list_beacons;
+    int x, y, z;                                  /* beacon coordinates */
+    uint count;                                   /* common scanner distance count */
+    //struct list_head list_beacons;
 } beacon_t;
 
 typedef struct dist {
-    u64 dist;
-    int b1, b2;
+    uint dist;                                    /* square distance */
+    int b1, b2;                                   /* beacons */
 } dist_t;
 
 typedef struct scanner {
@@ -65,7 +66,7 @@ static void scanners_print_dists()
         log(1, "scanner %d:\n", i);
         for (int j = 0; j < scanners[i].ndists; ++j) {
             cur = &scanners[i].dists[j];
-            log(1, "\t%d : %d,%d\n", cur->dist, cur->b1, cur->b2);
+            log(1, "\t%u : %d,%d\n", cur->dist, cur->b1, cur->b2);
         }
         log(1, "\n");
     }
@@ -131,13 +132,25 @@ static void mergesort(array, left, right)
 static int count_common_distances(scanner_t *s1, scanner_t *s2)
 {
     dist_t *d1 = s1->dists, *d2 = s2->dists;
-    int cur1 = 0, cur2 = 0;
+    int cur1 = 0, cur2 = 0, i;
     uint count = 0;
+    beacon_t *beacon1 = s1->beacons, *beacon2 = s2->beacons;
 
-    log_f(1, "(%d, %d): ", s1 - scanners, s2 - scanners);
+    /* initialize s1 and s2 beacons count
+     */
+    for (i = 0; i < s1->nbeacons; ++i)
+        beacon1[i].count = 0;
+    for (i = 0; i < s2->nbeacons; ++i)
+        beacon2[i].count = 0;
+
+    log_f(1, "(%ld, %ld): ", s1 - scanners, s2 - scanners);
     while (cur1 < s1->ndists && cur2 < s2->ndists) {
         if (d1[cur1].dist == d2[cur2].dist) {
-            log_i(3, " %ld", d1[cur1].dist);
+            log(1, " (%d,%d)=%u", cur1, cur2, d1[cur1].dist);
+            ++beacon1[d1[cur1].b1].count;
+            ++beacon1[d1[cur1].b2].count;
+            ++beacon2[d2[cur2].b1].count;
+            ++beacon2[d2[cur2].b2].count;
             ++count;
             ++cur1;
             ++cur2;
@@ -173,7 +186,7 @@ static void calc_square_distances()
                     (b1->z - b2->z) * (b1->z - b2->z);
                 scanner->dists[scanner->ndists].dist = dist;
                 scanner->ndists++;
-                log(5, "\tdist(%d/%d) = %lu\n",
+                log(5, "\tdist(%d/%d) = %u\n",
                     j, k,
                     dist);
             }
@@ -225,10 +238,26 @@ static int read_lines()
     free(buf);
     scanners_print();
     calc_square_distances();
-    for (int i = 0; i < nscanners - 1; ++i)
-        for (int j = i + 1; j < nscanners; ++j)
-            log(1, "common(%d, %d) = %d\n", i, j,
-                count_common_distances(scanners + i, scanners + j));
+    for (int i = 0; i < nscanners - 1; ++i) {
+        for (int j = i + 1; j < nscanners; ++j) {
+            int count = count_common_distances(scanners + i, scanners + j);
+            if (count >= 66) {
+                log(1, "common(%d, %d) = %d\n", i, j, count);
+                for (int k = 0; k < scanners[i].nbeacons; ++k) {
+                    beacon_t *beacon = scanners[i].beacons + k;
+                    if (beacon->count >= 11)
+                        log(1, "s1(%d, %d, %d): %d\n", beacon->x, beacon->y,
+                            beacon->z, beacon->count);
+                }
+                for (int k = 0; k < scanners[j].nbeacons; ++k) {
+                    beacon_t *beacon = scanners[j].beacons + k;
+                    if (beacon->count >= 11)
+                        log(1, "s2(%d, %d, %d): %d\n", beacon->x, beacon->y,
+                            beacon->z, beacon->count);
+                }
+            }
+        }
+    }
     return nscanners;
 }
 
