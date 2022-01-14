@@ -40,9 +40,17 @@ CFLAGS += -DDEBUG_POOL		# memory pools management
 TIME   := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile ex1 ex2
+.PHONY: clean all compile memcheck memcheck1 memcheck2 ex1 ex2
 
 all: ex1 ex2
+
+memcheck: memcheck1 memcheck2
+
+memcheck1:
+	@valgrind -q -s --track-origins=yes aoc-c -p 1 < $(INPUT)
+
+memcheck2:
+	@valgrind -q -s --track-origins=yes aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
 
