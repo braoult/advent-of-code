@@ -24,15 +24,16 @@
  *
  * Example, [1,[4,2]] is represented as :
  *
- *         ------> SN root <--------------        Depth: 0
- *         |      /       \              |
- *       LL|     /         \             |
- *         |    /           \            |LL
- *         --> 1 <---       SN node      |        Depth: 1
- *                  |      /       \     |
- *                  |     /         \    |
- *                LL---> 4 <-------> 2 <--        Depth: 2
- *                           LL
+ *         +-------> SN root <---------------+        Depth: 0
+ *         |        /       \                |
+ *         |LL     /         \               |
+ *         |      /           \              |LL
+ *         +---> 1 <--+       SN node        |        Depth: 1
+ *                    |       /     \        |
+ *                    |LL    /       \       |
+ *                    |     /         \      |
+ *                    +--> 4 <-------> 2 <---+        Depth: 2
+ *                             LL
  */
 
 static pool_t *pool_nodes;
