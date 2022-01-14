@@ -26,9 +26,9 @@
 void debug_init(u32 level);
 void debug_level_set(u32 level);
 void debug_devel_set(u32 level);
-void _printf ((format (printf, 6, 7))) debug(u32 level, bool timestamp,
-                                             u32 indent, const char *src,
-                                             u32 line, const char *, ...);
+void _printf debug(u32 level, bool timestamp,
+                   u32 indent, const char *src,
+                   u32 line, const char *, ...);
 #else  /* DEBUG_DEBUG */
 static inline void debug_init(_unused u32 level) {}
 static inline void debug_level_set(_unused u32 level) {}
