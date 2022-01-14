@@ -50,6 +50,7 @@ typedef struct scanner {
     int nbeacons, ndists;
     beacon_t beacons[MAX_BEACONS];
     dist_t dists[MAX_DISTANCES];                  /* sorted */
+    int reference[3];                             /* reference beacons */
 } scanner_t;
 
 static pool_t *pool_beacon;
@@ -68,8 +69,24 @@ static void scanners_print_dists()
             cur = &scanners[i].dists[j];
             log(1, "\t%u : %d,%d\n", cur->dist, cur->b1, cur->b2);
         }
-        log(1, "\n");
+        // log(1, "zobi\n");
     }
+}
+
+static void scanners_print_refs(scanner_t *s1, scanner_t *s2)
+{
+    log_f(1, "s1:%ld s2:%ld\n", s1 - scanners, s2 - scanners);
+    log(1, "scanner %ld:", s1 - scanners);
+    for (int i = 0; i < 3; ++i) {
+        beacon_t *beacon = s1->beacons + s1->reference[i];
+        log(1, " (%d,%d,%d)", beacon->x, beacon->y, beacon->z);
+    }
+    log(1, "\nscanner %ld:", s2 - scanners);
+    for (int i = 0; i < 3; ++i) {
+        beacon_t *beacon = s2->beacons + s2->reference[i];
+        log(1, " (%d,%d,%d)", beacon->x, beacon->y, beacon->z);
+    }
+    log(1, "\n");
 }
 
 static void scanners_print()
@@ -133,20 +150,61 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
 {
     dist_t *d1 = s1->dists, *d2 = s2->dists;
     int cur1 = 0, cur2 = 0, i;
+    int ref_triangle = 0;
     uint count = 0;
     beacon_t *beacon1 = s1->beacons, *beacon2 = s2->beacons;
 
     /* initialize s1 and s2 beacons count
      */
-    for (i = 0; i < s1->nbeacons; ++i)
+    for (i = 0; i < MAX_BEACONS; ++i) {
         beacon1[i].count = 0;
-    for (i = 0; i < s2->nbeacons; ++i)
         beacon2[i].count = 0;
+    }
 
     log_f(1, "(%ld, %ld): ", s1 - scanners, s2 - scanners);
     while (cur1 < s1->ndists && cur2 < s2->ndists) {
         if (d1[cur1].dist == d2[cur2].dist) {
             log(1, " (%d,%d)=%u", cur1, cur2, d1[cur1].dist);
+            if (ref_triangle == 0) {
+                s1->reference[0] = d1[cur1].b1;
+                s1->reference[1] = d1[cur1].b2;
+                s2->reference[0] = d2[cur2].b1;
+                s2->reference[1] = d2[cur2].b2;
+                ref_triangle += 2;
+            } else if (ref_triangle == 2) {
+                if (d1[cur1].b1 == s1->reference[0] ||
+                    d1[cur1].b1 == s1->reference[1]) {
+                    s1->reference[2] = d2[cur1].b2;
+                    if (d2[cur2].b1 == s1->reference[0] ||
+                        d2[cur2].b1 == s1->reference[1]) {
+                        s2->reference[2] = d2[cur2].b2;
+                    } else {
+                        s2->reference[2] = d2[cur2].b1;
+                    }
+                    ref_triangle++;
+                } else if (d1[cur1].b2 == s1->reference[0] ||
+                           d1[cur1].b2 == s1->reference[1]) {
+                    s1->reference[2] = d1[cur1].b1;
+                    if (d2[cur2].b1 == s1->reference[0] ||
+                        d2[cur2].b1 == s1->reference[1]) {
+                        s2->reference[2] = d2[cur2].b2;
+                    } else {
+                        s2->reference[2] = d2[cur2].b1;
+                    }
+                    ref_triangle++;
+                }
+                if (ref_triangle == 3) {
+                    if (d1[cur1].b1 == s1->reference[0] ||
+                        d1[cur1].b1 == s1->reference[1]) {
+                        s1->reference[2] = d2[cur1].b2;
+                        ref_triangle++;
+                    } else if (d1[cur1].b2 == s1->reference[0] ||
+                               d1[cur1].b2 == s1->reference[1]) {
+                        s1->reference[2] = d1[cur1].b1;
+                        ref_triangle++;
+                    }
+                }
+            }
             ++beacon1[d1[cur1].b1].count;
             ++beacon1[d1[cur1].b2].count;
             ++beacon2[d2[cur2].b1].count;
@@ -161,7 +219,7 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
             ++cur2;
         }
     }
-    log_i(3, "\n");
+    log_i(1, "\n");
     return count;
 }
 
@@ -192,11 +250,11 @@ static void calc_square_distances()
             }
 
         }
-        scanners_print_dists();
+        //scanners_print_dists();
         mergesort(scanner->dists, 0, scanner->ndists - 1);
     }
     scanners_print_dists();
-    log(1, "\n");
+    //log(1, "\n");
 }
 
 /* read input
@@ -236,7 +294,7 @@ static int read_lines()
         }
     }
     free(buf);
-    scanners_print();
+    //scanners_print();
     calc_square_distances();
     for (int i = 0; i < nscanners - 1; ++i) {
         for (int j = i + 1; j < nscanners; ++j) {
@@ -245,16 +303,18 @@ static int read_lines()
                 log(1, "common(%d, %d) = %d\n", i, j, count);
                 for (int k = 0; k < scanners[i].nbeacons; ++k) {
                     beacon_t *beacon = scanners[i].beacons + k;
-                    if (beacon->count >= 11)
+                    //if (beacon->count >= 11)
                         log(1, "s1(%d, %d, %d): %d\n", beacon->x, beacon->y,
                             beacon->z, beacon->count);
                 }
                 for (int k = 0; k < scanners[j].nbeacons; ++k) {
                     beacon_t *beacon = scanners[j].beacons + k;
-                    if (beacon->count >= 11)
+                    //if (beacon->count >= 11)
                         log(1, "s2(%d, %d, %d): %d\n", beacon->x, beacon->y,
                             beacon->z, beacon->count);
                 }
+                scanners_print_refs(scanners + i, scanners + j);
+
             }
         }
     }
