@@ -18,7 +18,7 @@
 #include "pool.h"
 #include "debug.h"
 #include "bits.h"
-// #include "list.h"
+#include "list.h"
 
 /*
   typedef struct beacon {
@@ -31,17 +31,23 @@
   } scanner_t;
 */
 
+// #define SQUARE(x)      ((x) * (x))
+
 #define MAX_SCANNERS   32                         /* I know, I know... */
 #define MAX_BEACONS    32
 #define MAX_DISTANCES  ((MAX_BEACONS - 1) * MAX_BEACONS)
 
+typedef struct vector {
+    int x, y, z;                                  /* beacon coordinates */
+} vector_t;
+
 typedef struct beacon {
     int x, y, z;                                  /* beacon coordinates */
-    //int count;
+    int count;
 } beacon_t;
 
 typedef struct rotmatrix {
-    beacon_t a, b, c;
+    vector_t a, b, c;
 } rotmatrix_t;
 
 typedef struct dist {
@@ -235,8 +241,8 @@ static int adjust_scanner(scanner_t *ref, scanner_t *s)
                 goto next_rot;
             }
         }
-        log(2, "Got it: beacon 2 is (%d,%d,%d) from reference\n",
-            diff[0].x, diff[0].y, diff[0].z);
+        log(2, "Got it: scanner %lu is (%d,%d,%d) from reference\n",
+            s - scanners, diff[0].x, diff[0].y, diff[0].z);
         /* adjust all beacons */
         for (int b = 0; b < s->nbeacons; ++ b) {
             beacon_rotate(s->beacons + b, rot, rotations + i);
@@ -270,63 +276,136 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
         s2->beacons_count[i] = 0;
     }
 
-    log_f(1, "(%ld, %ld): ", s1 - scanners, s2 - scanners);
+    log_f(1, "(%ld, %ld): \n", s1 - scanners, s2 - scanners);
     /* We need to find common references A, B, C such as:
      *
      *                     d1
      *             A------------------B
      *              \                /
      *             d2\   +----------/
-     *                \ /    d3
+     *                \ /    (d3)
      *                 C
-     *
-     *
+     * To do so, we find common d1 and d2 such as both have
+     * a common A point.
      */
     while (cur1 < s1->ndists && cur2 < s2->ndists) {
         if (d1[cur1].dist == d2[cur2].dist) {
-            log(1, " (%d,%d)=%u", cur1, cur2, d1[cur1].dist);
+            log(1, " %u: (%d,%d)= %d-%d %d-%d triangle=%d\n",
+                d1[cur1].dist, cur1, cur2,
+                d1[cur1].beacon1, d1[cur1].beacon2,
+                d2[cur2].beacon1, d2[cur2].beacon2,
+                ref_triangle);
             if (ref_triangle == 0) {
+                /* both s1 s2 refs may be reversed */
                 s1->reference[0] = d1[cur1].beacon1;
                 s1->reference[1] = d1[cur1].beacon2;
 
-                s2->reference[0] = d2[cur2].beacon1; /* s2 refs may be reversed */
+                s2->reference[0] = d2[cur2].beacon1;
                 s2->reference[1] = d2[cur2].beacon2;
-                ref_triangle += 2;
+                ref_triangle = 2;
+                log(2, "\ts1_ref=%d,%d,%d s2_ref=%d,%d,%d\n",
+                    s1->reference[0], s1->reference[1], s1->reference[2],
+                    s2->reference[0], s2->reference[1], s2->reference[2]);
             } else if (ref_triangle == 2) {
-                /* wrong: FIX possible reverse ref[0] */
+                int beacon1 , beacon2;
+
+                /* we need to adjust references for the two pairs of
+                 * 2 beacons having same distance, for scanner 1.
+                 */
+                beacon1 = d1[cur1].beacon1;
+                beacon2 = d1[cur1].beacon2;
+                log(2, "\ts1 bea1=%d bea2=%d\n\t   ref0=%d ref1=%d\n",
+                    beacon1, beacon2, s1->reference[0], s1->reference[1]);
+
+                if (beacon1 == s1->reference[0]) {
+                    /* ref0----------ref1
+                     * ref0----------ref2
+                     */
+                    s1->reference[2] = beacon2;
+                    ref_triangle++;
+                } else if (beacon1 == s1->reference[1]) {
+                    /* ref1----------ref0
+                     * ref0----------ref2
+                     * first & second reference beacons must be reversed,
+                     * second is ok
+                     */
+                    int tmp = s1->reference[0];
+                    s1->reference[0] = s1->reference[1];
+                    s1->reference[1] = tmp;
+                    s1->reference[2] = beacon2;
+                    ref_triangle++;
+                } else if (beacon2 == s1->reference[0]) {
+                    /* ref0----------ref1
+                     * ref2----------ref0
+                     */
+                    s1->reference[2] = beacon1;
+                    ref_triangle++;
+                } else if (beacon2 == s1->reference[1]) {
+                    /* ref1----------ref0
+                     * ref2----------ref0
+                     */
+                    int tmp = s1->reference[0];
+                    s1->reference[0] = s1->reference[1];
+                    s1->reference[1] = tmp;
+                    s1->reference[2] = beacon1;
+                    ref_triangle++;
+                }
+
+                /* we do the same for second scanner */
+                beacon1 = d2[cur2].beacon1;
+                beacon2 = d2[cur2].beacon2;
+                if (beacon1 == s2->reference[0]) {
+                    /* ref0----------ref1
+                     * ref0----------ref2
+                     */
+                    s2->reference[2] = beacon2;
+                    ref_triangle++;
+                } else if (beacon1 == s2->reference[1]) {
+                    /* ref1----------ref0
+                     * ref0----------ref2
+                     * first & second reference beacons must be reversed,
+                     * second is ok
+                     */
+                    int tmp = s2->reference[0];
+                    s2->reference[0] = s2->reference[1];
+                    s2->reference[1] = tmp;
+                    s2->reference[2] = beacon2;
+                    ref_triangle++;
+                } else if (beacon2 == s2->reference[0]) {
+                    /* ref0----------ref1
+                     * ref2----------ref0
+                     */
+                    s2->reference[2] = beacon1;
+                    ref_triangle++;
+                } else if (beacon2 == s2->reference[1]) {
+                    /* ref1----------ref0
+                     * ref2----------ref0
+                     */
+                    int tmp = s2->reference[0];
+                    s2->reference[0] = s2->reference[1];
+                    s2->reference[1] = tmp;
+                    s2->reference[2] = beacon1;
+                    ref_triangle++;
+                }
+
+                log(2, "\ttriangle=%d s1_ref=%d,%d,%d s2_ref=%d,%d,%d\n",
+                    ref_triangle,
+                    s1->reference[0], s1->reference[1], s1->reference[2],
+                    s2->reference[0], s2->reference[1], s2->reference[2]);
+            }
+            /*
+            if (ref_triangle == 3) {
                 if (d1[cur1].beacon1 == s1->reference[0] ||
                     d1[cur1].beacon1 == s1->reference[1]) {
                     s1->reference[2] = d2[cur1].beacon2;
-                    if (d2[cur2].beacon1 == s1->reference[0] ||
-                        d2[cur2].beacon1 == s1->reference[1]) {
-                        s2->reference[2] = d2[cur2].beacon2;
-                    } else {
-                        s2->reference[2] = d2[cur2].beacon1;
-                    }
                     ref_triangle++;
                 } else if (d1[cur1].beacon2 == s1->reference[0] ||
                            d1[cur1].beacon2 == s1->reference[1]) {
                     s1->reference[2] = d1[cur1].beacon1;
-                    if (d2[cur2].beacon1 == s1->reference[0] ||
-                        d2[cur2].beacon1 == s1->reference[1]) {
-                        s2->reference[2] = d2[cur2].beacon2;
-                    } else {
-                        s2->reference[2] = d2[cur2].beacon1;
-                    }
                     ref_triangle++;
                 }
-                if (ref_triangle == 3) {
-                    if (d1[cur1].beacon1 == s1->reference[0] ||
-                        d1[cur1].beacon1 == s1->reference[1]) {
-                        s1->reference[2] = d2[cur1].beacon2;
-                        ref_triangle++;
-                    } else if (d1[cur1].beacon2 == s1->reference[0] ||
-                               d1[cur1].beacon2 == s1->reference[1]) {
-                        s1->reference[2] = d1[cur1].beacon1;
-                        ref_triangle++;
-                    }
-                }
             }
+            */
             ++s1->beacons_count[d1[cur1].beacon1];
             ++s1->beacons_count[d1[cur1].beacon2];
 
@@ -399,8 +478,8 @@ static void match_scanners()
                     continue;
 
                 int count = count_common_distances(scanners + i, scanners + j);
+                log(1, "common(%d, %d) = %d\n", i, j, count);
                 if (count >= 66) {
-                    log(1, "common(%d, %d) = %d\n", i, j, count);
                     /*
                     beacon_t *beacon;
                     for (int k = 0; k < scanners[i].nbeacons; ++k) {
