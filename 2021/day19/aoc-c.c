@@ -56,61 +56,6 @@ static pool_t *pool_dist;
 static scanner_t scanners[MAX_SCANNERS];
 static int nscanners;
 
-static void scanners_print_dists()
-{
-    dist_t *cur;
-    beacon_t *beacon1, *beacon2;
-
-    log_f(1, "nscanners: %d\n", nscanners);
-    for (int i = 0; i < nscanners; ++i) {
-        log(1, "scanner %d: %d dists\n", i, scanners[i].ndists);
-        list_for_each_entry(cur, &scanners[i].list_dists, list_dists) {
-            beacon1 = cur->beacon1;
-            beacon2 = cur->beacon2;
-            log_i(3, "%lu : %d-%d (%ld,%ld,%ld)-(%ld,%ld,%ld)\n", cur->dist,
-                  beacon1->num, beacon2->num,
-                  beacon1->vec.x, beacon1->vec.y, beacon1->vec.z,
-                  beacon2->vec.x, beacon2->vec.y, beacon2->vec.z);
-        }
-    }
-}
-
-static void scanners_print_refs(scanner_t *s1, scanner_t *s2)
-{
-    log_f(1, "s1:%ld s2:%ld\n", s1 - scanners, s2 - scanners);
-    log_i(2, "scanner %ld:", s1 - scanners);
-    for (int i = 0; i < 3; ++i) {
-        beacon_t *beacon = s1->ref[i];
-        log(1, " (%ld,%ld,%ld)", beacon->vec.x, beacon->vec.y, beacon->vec.z);
-    }
-    log(1, "\n");
-    log_i(2, "\nscanner %ld:", s2 - scanners);
-    for (int i = 0; i < 3; ++i) {
-        beacon_t *beacon = s2->ref[i];
-        log(1, " (%ld,%ld,%ld)", beacon->vec.x, beacon->vec.y, beacon->vec.z);
-    }
-    log(1, "\n");
-}
-
-static void scanner_print(scanner_t *s)
-{
-    beacon_t *cur;
-
-    log(1, "scanner %ld: %d beacons\n", s - scanners, s->nbeacons);
-    list_for_each_entry(cur, &s->list_beacons, list_beacons) {
-        log_i(3, "%ld/%ld/%ld\n", cur->vec.x, cur->vec.y, cur->vec.z);
-    }
-    //log(1, "\n");
-}
-
-static void scanners_print()
-{
-    log_f(1, "nscanners: %d\n", nscanners);
-    for (int i = 0; i < nscanners; ++i) {
-        scanner_print(scanners + i);
-    }
-}
-
 /* Thanks to:
  * http://www.euclideanspace.com/maths/algebra/matrix/transforms/examples/index.htm
  */
@@ -192,27 +137,21 @@ static int insert_dist(scanner_t *scanner, dist_t *dist)
     dist_t *cur;
     uint newdist = dist->dist;
 
-    log_f(7, "dist=%u\n", newdist);
-
     cur = list_first_entry_or_null(&scanner->list_dists, dist_t, list_dists);
     /* special case: first distance or new dist lower than first dist */
     if (!cur || newdist < cur->dist) {
         list_add(&dist->list_dists, &scanner->list_dists);
-        log_i(7, "first entry\n");
         goto end;
     }
     /* normal case: insert before current when new dist is lower than current dist */
     list_for_each_entry(cur, &scanner->list_dists, list_dists) {
-        log_i(7, "comp=%lu\n", cur->dist);
         if (newdist < cur->dist) {
             list_add_tail(&dist->list_dists, &cur->list_dists);
-            log_i(7, "add before\n");
             goto end;
         }
     }
     /* special case: we went to end, insert at list's tail */
     list_add_tail(&dist->list_dists, &scanner->list_dists);
-    log_i(7, "add end\n");
 end:
     return ++scanner->ndists;
 }
@@ -235,19 +174,13 @@ static int add_beacon_dists1(scanner_t *scanner, beacon_t *beacon)
             (beacon->vec.z - cur->vec.z) * (beacon->vec.z - cur->vec.z);
         dist->beacon1 = beacon;
         dist->beacon2 = cur;
-        log_f(7, "scanner %lu new dist : %lu (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
-              scanner - scanners,
-              dist->dist,
-              beacon->vec.x, beacon->vec.y, beacon->vec.z,
-              cur->vec.x, cur->vec.y, cur->vec.z);
         insert_dist(scanner, dist);
         count++;
     }
-    log_f(3, "scanner %lu : %d new dists\n", scanner - scanners, count);
     return count;
 }
 
-/* compare two beacons by manhattan distance, then x, y, and z.
+/* compare two beacons by x, y, and z.
  */
 static inline int compare_beacons(beacon_t *b1, beacon_t *b2)
 {
@@ -255,8 +188,8 @@ static inline int compare_beacons(beacon_t *b1, beacon_t *b2)
     //u64 m1 = b1->manhattan, m2 = b2->manhattan;
 
     if (v1->x < v2->x ||
-        (v1->x == v2->x && v1->y < v2->y) ||
-        ((v1->x == v2->x && v1->y == v2->y) && v1->z < v2->z)) {
+        (v1->x == v2->x && (v1->y < v2->y ||
+                            (v1->y == v2->y && v1->z < v2->z)))) {
         return -1;
     } else if (v1->x == v2->x && v1->y == v2->y && v1->z == v2->z) {
         return 0;
@@ -277,7 +210,6 @@ static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
     /* special case: first beacon or new beacon lower than first beacon */
     if (!cur || compare_beacons(beacon, cur) < 0) {
         list_add(&beacon->list_beacons, &scanner->list_beacons);
-        log_i(7, "first entry\n");
         goto end;
     }
     /* normal case: insert before current when new dist is lower than current dist */
@@ -285,7 +217,6 @@ static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
         switch (compare_beacons(beacon, cur)) {
             case -1:
                 list_add_tail(&beacon->list_beacons, &cur->list_beacons);
-                log_i(7, "add before\n");
                 goto end;
             case 0:
                 return -1;
@@ -293,7 +224,6 @@ static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
     }
     /* special case: we went to end, insert at list's tail */
     list_add_tail(&beacon->list_beacons, &scanner->list_beacons);
-    log_i(7, "add end\n");
 end:
     return ++scanner->nbeacons;
 }
@@ -305,7 +235,6 @@ static int adjust_scanner(scanner_t *ref, scanner_t *s)
     beacon_t *beacon_ref[3], *beacon[3], *cur;
     int error = -1;
 
-    //log_f(1, "sizeof(rotations)=%lu\n", NROTATIONS);
     for (uint i = 0; i < 3; ++i) {
         beacon_ref[i] = ref->ref[i];
         beacon[i] = s->ref[i];
@@ -313,48 +242,31 @@ static int adjust_scanner(scanner_t *ref, scanner_t *s)
 
     for (uint rotnum = 0; rotnum < NROTATIONS; ++rotnum) {
         vector_t rot[3], diff[3];
-        //int match = 1;
         /* rotate the first beacon and translate to match ref's (x, y, z)
          */
         for (int bref = 0; bref < 3; ++bref) {
             rot[bref] = vector_rotate(&beacon[bref]->vec, rotnum);
             diff[bref] = vector_diff(&beacon_ref[bref]->vec, rot + bref);
 
-            log(2, "ref %d diff=(%ld,%ld,%ld)\n", bref,
-                diff[bref].x, diff[bref].y, diff[bref].z);
             /* check that rotation/translation works for the 3 reference points
              */
             if (bref > 0 && (diff[bref].x != diff[0].x ||
                              diff[bref].y != diff[0].y ||
                              diff[bref].z != diff[0].z)) {
-                log(2, "skipping this translation\n");
                 goto next_rot;
             }
         }
         s->rel = diff[0];
-        log(2, "Got it: scanner %lu is (%ld,%ld,%ld) from reference\n",
-            s - scanners, diff[0].x, diff[0].y, diff[0].z);
         error = 0;
         /* adjust all beacons */
         list_for_each_entry(cur, &s->list_beacons, list_beacons) {
-            //vector_t tmp;
-            log(2, "translating beacon: (%ld,%ld,%ld) ->", cur->vec.x,
-                cur->vec.y, cur->vec.z);
             cur->vec = vector_rotate(&cur->vec, rotnum);
             cur->vec = vector_add(&cur->vec, &diff[0]);
-            //cur->vec.y = tmp.y + diff[0].y;
-            //cur->vec.z = tmp.z + diff[0].z;
-            log(2, " (%ld,%ld,%ld)\n", cur->vec.x, cur->vec.y, cur->vec.z);
         }
-        scanner_print(s);
         s->adjusted = 1;
 
         break;
     next_rot:
-        log(2, "\n");
-    }
-    if (error) {
-        log_f(1, "BUG!!\n");
     }
     return error;
 }
@@ -371,11 +283,6 @@ static int merge_scanner(scanner_t *s1, scanner_t *s2)
     dist_t *dist;
     int count = 0;
 
-    //log_f(1, "merging scanner %lu into %lu\n", s2 - scanners, s1 - scanners);
-    log_f(3, "before(%lu -> %lu): count1=%d count2=%d dist1=%d dist2=%d\n\n",
-          s2 - scanners, s1 - scanners,
-          s1->nbeacons, s2->nbeacons, s1->ndists, s2->ndists);
-
     list_for_each_safe(cur, tmp, &s2->list_beacons) {
         beacon = list_entry(cur, beacon_t, list_beacons);
         list_del(cur);
@@ -390,9 +297,6 @@ static int merge_scanner(scanner_t *s1, scanner_t *s2)
         s2->ndists--;
         pool_add(pool_dist, dist);
     }
-    log_f(3, "after(%lu -> %lu):  count1=%d count2=%d dist1=%d dist2=%d added=%d\n",
-          s2 - scanners, s1 - scanners,
-          s1->nbeacons, s2->nbeacons, s1->ndists, s2->ndists, count);
     return count;
 }
 
@@ -410,10 +314,9 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
     beacon_t *tmpbeacon;
     int cur1 = 0, cur2 = 0;
     u64 dist1, dist2;
-    int ref_triangle = 0, nref = 0;
+    int nref = 0;
     uint count = 0;
 
-    log_f(1, "(%ld, %ld): \n", s1 - scanners, s2 - scanners);
     /* We need to find common references A, B, C such as:
      *
      *                     d1
@@ -443,12 +346,6 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
         dist2 = pdist2->dist;
 
         if (dist1 == dist2) {
-            log(1, " %lu: (%d,%d)= %d-%d %d-%d triangle=%d\n",
-                dist1,
-                cur1, cur2,
-                pdist1->beacon1->num, pdist1->beacon2->num,
-                pdist2->beacon1->num, pdist2->beacon2->num,
-                ref_triangle);
             plist1 = plist1->next;
             plist2 = plist2->next;
             cur1++;
@@ -466,9 +363,6 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
                     s2->ref[0] = pdist2->beacon1;
                     s2->ref[1] = pdist2->beacon2;
                     nref = 2;
-                    log_i(3, "s1_ref=%d,%d,-1 s2_ref=%d,%d,-1\n",
-                          s1->ref[0]->num, s1->ref[1]->num,
-                          s2->ref[0]->num, s2->ref[1]->num);
                     break;
 
                 case 2:                           /* third reference point */
@@ -488,11 +382,6 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
                             beacon2 = pdist2->beacon2;
                             scanner = s2;
                         }
-
-                        log(1, "s%c: beacon1=%p beacon2=%p\n",
-                            i + '1', beacon1, beacon2);
-                        log(1, "     ref1   =%p ref2   =%p\n",
-                            scanner->ref[0], scanner->ref[1]);
 
                         if (beacon1 == scanner->ref[0]) {
                             /* ref0----------ref1
@@ -527,40 +416,16 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
                             scanner->ref[2] = beacon1;
                             nref++;
                         }
-                        /*else {
-                            log_f(1, "BUG!!\n");
-                        }
-                        */
                     }
 
-                    log_i(3, "nref=%d s1_ref=%d,%d,%d s2_ref=%d,%d,%d\n",
-                          nref,
-                          s1->ref[0]->num,
-                          s1->ref[1]->num,
-                          s1->ref[2]? s1->ref[2]->num: -1,
-                          s2->ref[0]->num,
-                          s2->ref[1]->num,
-                          s2->ref[2]? s2->ref[2]->num: -1);
                     break;
             }
 
 
         } else if (dist1 < dist2) {
-            log(7, "    dist1=%lu < dist2=%lu : (%d,%d)= %d-%d %d-%d triangle=%d\n",
-                dist1, dist2,
-                cur1, cur2,
-                pdist1->beacon1->num, pdist1->beacon2->num,
-                pdist2->beacon1->num, pdist2->beacon2->num,
-                ref_triangle);
             plist1 = plist1->next;
             cur1++;
         } else {                                  /* dist1 > dist2 */
-            log(7, "    dist1=%lu > dist2=%lu : (%d,%d)= %d-%d %d-%d triangle=%d\n",
-                dist1, dist2,
-                cur1, cur2,
-                pdist1->beacon1->num, pdist1->beacon2->num,
-                pdist2->beacon1->num, pdist2->beacon2->num,
-                ref_triangle);
             plist2 = plist2->next;
             cur2++;
         }
@@ -576,7 +441,6 @@ static void match_scanners()
     int finished = 0;
 
     scanners[0].adjusted = 1;
-    log_f(1, "nscanners=%d\n", nscanners);
     while (!finished) {
         finished = 1;
         for (int j = 1; j < nscanners; ++j) {
@@ -584,17 +448,13 @@ static void match_scanners()
                 continue;
 
             int count = count_common_distances(scanners, scanners + j);
-            log(1, "common(%d, %d) = %d\n\n", 0, j, count);
             if (count >= 66) {
                 adjust_scanner(scanners, scanners + j);
-                scanners_print_refs(scanners, scanners + j);
-
                 merge_scanner(scanners, scanners + j);
                 finished = 0;
             }
         }
     }
-    scanners_print_dists();
 }
 
 /* read input
@@ -611,18 +471,14 @@ static int scanners_read()
         switch (buf[1]) {
             case '-':
                 scanner = scanners + nscanners;
-                log_f(9, "[%c] nscanners = %d %p/%p\n", *buf, nscanners,
-                      scanner, scanners);
                 INIT_LIST_HEAD(&scanner->list_beacons);
                 INIT_LIST_HEAD(&scanner->list_dists);
                 nscanners++;
                 scanner->nbeacons = 0;
                 break;
             case '\0':
-                log_f(9, "NULL line\n");
                 break;
             default:
-                //log_f(2, "[%c] beacon = %d\n", *buf, nscanners);
                 beacon = pool_get(pool_beacon);
                 beacon->scanner = nscanners;
                 beacon->num = scanner->nbeacons;
@@ -630,12 +486,9 @@ static int scanners_read()
                        &beacon->vec.z);
                 if (insert_unique_beacon(scanner, beacon) > 0)
                     add_beacon_dists1(scanner, beacon);
-                //log(1, "zobi\n");
-                //list_add_tail(&beacon->list_beacons, &scanner->list_beacons);
         }
     }
     free(buf);
-    scanners_print();
     return nscanners;
 }
 
@@ -656,16 +509,8 @@ static s64 part2()
             cur = labs(v2->x - v1->x)
                 + labs(v2->y - v1->y)
                 + labs(v2->z - v1->z);
-            log(3, "dist(%d, %d)=%ld (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
-                i, j, cur,
-                v1->x, v1->y, v1->z,
-                v2->x, v2->y, v2->z);
             if (cur > max) {
                 max = cur;
-                log(3, "new max(%d, %d)=%ld (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
-                    i, j, max,
-                    v1->x, v1->y, v1->z,
-                    v2->x, v2->y, v2->z);
             }
         }
     }
@@ -699,10 +544,6 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    log_f(1, "sizeof(rotations)=%lu, sizeof2=%lu sizeof3=%lu rot=%lu\n",
-          sizeof(rotations), sizeof(*rotations),
-          sizeof(rotations) / sizeof(*rotations),
-          NROTATIONS);
     if (!(pool_beacon = pool_create("beacons", 1024, sizeof(beacon_t)))) {
         log(1, "pool create error, errno=%d\n", errno);
         exit(1);
@@ -712,9 +553,7 @@ int main(int ac, char **av)
         exit(1);
     }
     scanners_read();
-    //calc_square_distances();
     match_scanners();
-    scanners_print();
     printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
     pool_stats(pool_beacon);
     pool_destroy(pool_beacon);

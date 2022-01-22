@@ -365,8 +365,6 @@ In total, there are 79 beacons.
 Assemble the full map of beacons. How many beacons are there?
 
 Your puzzle answer was 318.
-
-The first half of this puzzle is complete! It provides one gold star: *
 --- Part Two ---
 
 Sometimes, it's a good idea to appreciate just how big the ocean is. Using the Manhattan distance, how far apart do the scanners get?
@@ -374,3 +372,7 @@ Sometimes, it's a good idea to appreciate just how big the ocean is. Using the M
 In the above example, scanners 2 (1105,-1205,1229) and 3 (-92,-2380,-20) are the largest Manhattan distance apart. In total, they are 1197 + 1175 + 1249 = 3621 units apart.
 
 What is the largest Manhattan distance between any two scanners?
+
+Your puzzle answer was 12166.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
