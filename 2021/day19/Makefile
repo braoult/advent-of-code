@@ -27,10 +27,12 @@ export LD_LIBRARY_PATH = $(LIBDIR)
 CFLAGS += -std=gnu99
 CFLAGS += -O2
 CFLAGS += -g
-#CFLAGS += -pg
+CFLAGS += -pg
 CFLAGS += -Wall
 CFLAGS += -Wextra
 CFLAGS += -march=native
+# Next one may be useful for valgrind (some invalid instructions)
+# CFLAGS += -mno-tbm
 CFLAGS += -Wmissing-declarations
 CFLAGS += -Wno-unused-result
 
@@ -40,7 +42,7 @@ CFLAGS += -DDEBUG_POOL		# memory pools management
 TIME   := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile memcheck memcheck1 memcheck2 ex1 ex2
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
 
 all: ex1 ex2
 
@@ -54,6 +56,8 @@ memcheck2:
 
 compile: aoc-c
 
+assembly: aoc-c.s
+
 ex1: aoc-c
 	@$(TIME) aoc-c -p 1 < $(INPUT)
 
@@ -66,3 +70,7 @@ clean:
 .c:
 	@echo compiling $<
 	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+
+.c.s:
+	@echo generating $@
+	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
