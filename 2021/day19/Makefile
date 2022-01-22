@@ -65,7 +65,7 @@ ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 clean:
-	@rm -f aoc-c core* gmon.out
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s
 
 .c:
 	@echo compiling $<

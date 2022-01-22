@@ -371,8 +371,8 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
                     /* we need to adjust references for the two pairs of
                      * 2 beacons having same distance, for both scanners.
                      */
-                    for (int i = 0; i < 2; i++) {
-                        if (i == 0) {
+                    for (int sc = 0; sc < 2; sc++) {
+                        if (sc == 0) {
                             beacon1 = pdist1->beacon1;
                             beacon2 = pdist1->beacon2;
                             scanner = s1;
@@ -416,17 +416,13 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
                             nref++;
                         }
                     }
-
                     break;
             }
-
-
         } else if (dist1 < dist2) {
             plist1 = plist1->next;
         } else {                                  /* dist1 > dist2 */
             plist2 = plist2->next;
         }
-
     }
     return count;
 }
