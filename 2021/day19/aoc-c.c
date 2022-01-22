@@ -27,7 +27,6 @@ typedef struct vector {
 } vector_t;
 
 typedef struct beacon {
-    u64 manhattan;                                /* manhattan distance from scanner */
     int scanner;                                  /* original scanner  for beacon */
     int num;                                      /* original # in original scanner */
     int common;                                   /* has common distance with 1st scanner */
@@ -44,6 +43,7 @@ typedef struct dist {
 typedef struct scanner {
     int nbeacons, ndists;
     int adjusted;
+    vector_t rel;                                 /* relative position to scanner 0 */
     struct list_head list_beacons;
     struct list_head list_dists;
     beacon_t *ref[3];                             /* reference beacons */
@@ -98,8 +98,7 @@ static void scanner_print(scanner_t *s)
 
     log(1, "scanner %ld: %d beacons\n", s - scanners, s->nbeacons);
     list_for_each_entry(cur, &s->list_beacons, list_beacons) {
-        log_i(3, " m=%lu %ld/%ld/%ld\n", cur->manhattan,
-            cur->vec.x, cur->vec.y, cur->vec.z);
+        log_i(3, "%ld/%ld/%ld\n", cur->vec.x, cur->vec.y, cur->vec.z);
     }
     //log(1, "\n");
 }
@@ -253,15 +252,13 @@ static int add_beacon_dists1(scanner_t *scanner, beacon_t *beacon)
 static inline int compare_beacons(beacon_t *b1, beacon_t *b2)
 {
     vector_t *v1 = &b1->vec, *v2 = &b2->vec;
-    u64 m1 = b1->manhattan, m2 = b2->manhattan;
+    //u64 m1 = b1->manhattan, m2 = b2->manhattan;
 
-    if (m1 < m2 ||
-        (m1 == m2 &&
-         (v1->x < v2->x ||
-          (v1->x == v2->x && v1->y < v2->y) ||
-          ((v1->x == v2->x && v1->y == v2->y) && v1->z < v2->z)))) {
+    if (v1->x < v2->x ||
+        (v1->x == v2->x && v1->y < v2->y) ||
+        ((v1->x == v2->x && v1->y == v2->y) && v1->z < v2->z)) {
         return -1;
-    } else if (m1 == m2 && v1->x == v2->x && v1->y == v2->y && v1->z == v2->z) {
+    } else if (v1->x == v2->x && v1->y == v2->y && v1->z == v2->z) {
         return 0;
     }
     return 1;
@@ -274,13 +271,7 @@ static inline int compare_beacons(beacon_t *b1, beacon_t *b2)
  */
 static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
 {
-    vector_t *vec = &beacon->vec;
     beacon_t *cur;
-    u64 manhattan = labs(vec->x) + labs(vec->y) + labs(vec->z);
-
-    beacon->manhattan = manhattan;
-
-    log_f(3, "manhattan=%lu\n", manhattan);
 
     cur = list_first_entry_or_null(&scanner->list_beacons, beacon_t, list_beacons);
     /* special case: first beacon or new beacon lower than first beacon */
@@ -291,7 +282,6 @@ static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
     }
     /* normal case: insert before current when new dist is lower than current dist */
     list_for_each_entry(cur, &scanner->list_beacons, list_beacons) {
-        log_i(7, "comp=%lu\n", cur->manhattan);
         switch (compare_beacons(beacon, cur)) {
             case -1:
                 list_add_tail(&beacon->list_beacons, &cur->list_beacons);
@@ -306,22 +296,6 @@ static int insert_unique_beacon(scanner_t *scanner, beacon_t *beacon)
     log_i(7, "add end\n");
 end:
     return ++scanner->nbeacons;
-}
-
-/* return 1 if b exists in s beacons's list, 0 otherwise.
- */
-static int beacon_exists(scanner_t *s, beacon_t *b)
-{
-    beacon_t *cur;
-
-    list_for_each_entry(cur, &s->list_beacons, list_beacons) {
-        if (b->vec.x == cur->vec.x &&
-            b->vec.y == cur->vec.y &&
-            b->vec.z == cur->vec.z) {
-            return 1;
-        }
-    }
-    return 0;
 }
 
 /* using scanner's reference points, find the correct rotation and translation
@@ -357,6 +331,7 @@ static int adjust_scanner(scanner_t *ref, scanner_t *s)
                 goto next_rot;
             }
         }
+        s->rel = diff[0];
         log(2, "Got it: scanner %lu is (%ld,%ld,%ld) from reference\n",
             s - scanners, diff[0].x, diff[0].y, diff[0].z);
         error = 0;
@@ -384,33 +359,6 @@ static int adjust_scanner(scanner_t *ref, scanner_t *s)
     return error;
 }
 
-/* add distances between b1 and all following beacons in scanner's list
- */
-static int add_beacon_dists(scanner_t *scanner, beacon_t *b1)
-{
-    beacon_t *b2 = b1;
-    dist_t *dist;
-    int count = 0;
-
-    list_for_each_entry_continue(b2, &scanner->list_beacons, list_beacons) {
-        dist = pool_get(pool_dist);
-        dist->dist =
-            (b1->vec.x - b2->vec.x) * (b1->vec.x - b2->vec.x) +
-            (b1->vec.y - b2->vec.y) * (b1->vec.y - b2->vec.y) +
-            (b1->vec.z - b2->vec.z) * (b1->vec.z - b2->vec.z);
-        dist->beacon1 = b1;
-        dist->beacon2 = b2;
-        log_f(1, "scanner %lu new dist : %lu (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
-              scanner - scanners,
-              dist->dist,
-              b1->vec.x, b1->vec.y, b1->vec.z,
-              b2->vec.x, b2->vec.y, b2->vec.z);
-        insert_dist(scanner, dist);
-        count++;
-    }
-    return count;
-}
-
 
 /* merge scanner s2 (already translated) beacons into scanner s1.
  * - ignore duplicate beacons
@@ -435,25 +383,6 @@ static int merge_scanner(scanner_t *s1, scanner_t *s2)
         if (insert_unique_beacon(s1, beacon) > 0)
             add_beacon_dists1(s1, beacon);
     }
-    /*
-        if (beacon->common) {
-            if (!beacon_exists(s1, beacon))
-                log(2, "BUG 1\n");
-            log(2, "common beacon ignored (%ld,%ld,%ld) - count=%d\n",
-                beacon->vec.x, beacon->vec.y, beacon->vec.z, beacon->common);
-            pool_add(pool_beacon, beacon);
-        } else {
-            if (beacon_exists(s1, beacon))
-                log(2, "BUG 2\n");
-            log(2, "add new beacon (%ld,%ld,%ld) - count=%d\n",
-                beacon->vec.x, beacon->vec.y, beacon->vec.z, beacon->common);
-            list_add(cur, &s1->list_beacons);
-            s1->nbeacons++;
-            add_beacon_dists(s1, beacon);
-            count++;
-        }
-    }
-    */
     /* free all dists */
     list_for_each_safe(cur, tmp, &s2->list_dists) {
         dist = list_entry(cur, dist_t, list_dists);
@@ -640,28 +569,6 @@ static int count_common_distances(scanner_t *s1, scanner_t *s2)
     return count;
 }
 
-/* For each scanner, calculate square distances between every beacon,
- * and generate corresponding list.
- * For N beacons, we will get (N) * (N-1) / 2 distances.
- *
- * Note: To find 12 matching beacons between scanners later, we will need
- * 66 matching distances (= 12 * 11 / 2).
- */
-static void calc_square_distances()
-{
-    scanner_t *scanner;
-    beacon_t *beacon;
-
-    log_f(1, "nscanners: %d\n", nscanners);
-    for (int i = 0; i < nscanners; ++i) {
-        scanner = scanners + i;
-        list_for_each_entry(beacon, &scanner->list_beacons, list_beacons) {
-            add_beacon_dists(scanner, beacon);
-        }
-    }
-    scanners_print_dists();
-}
-
 /* match all scanners
  */
 static void match_scanners()
@@ -688,38 +595,6 @@ static void match_scanners()
         }
     }
     scanners_print_dists();
-}
-
-static void match_scanners1()
-{
-    int finished = 0;
-
-    scanners[0].adjusted = 1;
-    log_f(1, "nscanners=%d\n", nscanners);
-    while (!finished) {
-        finished = 1;
-        for (int i = 0; i < nscanners - 1; ++i) {
-            if (!scanners[i].adjusted)            /* skip un-translated scanners */
-                continue;
-
-            for (int j = i+1; j < nscanners; ++j) {
-                if (i == j || scanners[j].adjusted) /* already translated */
-                    continue;
-
-                int count = count_common_distances(scanners + i, scanners + j);
-                log(1, "common(%d, %d) = %d\n", i, j, count);
-                if (count >= 66) {
-                    adjust_scanner(scanners + i, scanners + j);
-                    scanners_print_refs(scanners + i, scanners + j);
-
-                    //merge_scanner(scanners + i, scanners + j);
-                    finished = 0;
-                }
-            }
-        }
-    }
-    scanners_print_dists();
-    //scanners_print_dists(scanners + 2);
 }
 
 /* read input
@@ -771,7 +646,30 @@ static s64 part1()
 
 static s64 part2()
 {
-    return list_last_entry(&(*scanners).list_beacons, beacon_t, list_beacons)->manhattan;
+    vector_t *v1, *v2;
+    s64 max = 0, cur;
+
+    for (int i = 0; i < nscanners; ++i) {
+        v1 = &scanners[i].rel;
+        for (int j = i + 1; j < nscanners; ++j) {
+            v2 = &scanners[j].rel;
+            cur = labs(v2->x - v1->x)
+                + labs(v2->y - v1->y)
+                + labs(v2->z - v1->z);
+            log(3, "dist(%d, %d)=%ld (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
+                i, j, cur,
+                v1->x, v1->y, v1->z,
+                v2->x, v2->y, v2->z);
+            if (cur > max) {
+                max = cur;
+                log(3, "new max(%d, %d)=%ld (%ld,%ld,%ld) / (%ld,%ld,%ld)\n",
+                    i, j, max,
+                    v1->x, v1->y, v1->z,
+                    v2->x, v2->y, v2->z);
+            }
+        }
+    }
+    return max;
 }
 
 static int usage(char *prg)
