@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
@@ -128,6 +129,16 @@ static int read_data(int steps)
     for (i = 0; i < universe_size; ++i) {
         universe[0][i] = calloc(universe_size, sizeof(char));
         universe[1][i] = calloc(universe_size, sizeof(char));
+    }
+    /* they got me on this one ;-)
+     */
+    if (*algo) {
+        log(1, "init second array\n");
+        for (i = 0; i < universe_size; ++i)
+            memset(universe[1][i], 1, universe_size);
+        current=1;
+        print_data(-1);
+        current=0;
     }
     do {
         for (int i = 0; i < buflen; ++i) {
