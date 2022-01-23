@@ -21,15 +21,14 @@
 #include "bits.h"
 #include "list.h"
 
-#define ALGO 512
-int algolen;
-char algo[ALGO + 1];
+#define ALGOLEN 512
+static char algorithm[ALGOLEN];                   /* input algorithm */
 
-int universe_size = 0;
-char **universe[2];
+static int universe_size = 0;                     /* universe width/height */
+static char **universe[2];
 
-int left, right;
-int current = 0, next = 1;
+static int left, right;                           /* universe current borders */
+static int current = 0;                           /* active universe */
 
 #ifdef DEBUG
 /* print current universe
@@ -50,7 +49,7 @@ static void print_data(int step)
 
 /* make one step
  */
-static int count()
+static inline int count()
 {
     int res = 0;
 
@@ -62,13 +61,14 @@ static int count()
 
 /* make one step
  */
-static void step()
+static inline void step()
 {
-    int newleft = left - 1, newright = right + 1;
     int index;
 
-    for (int j = newleft; j < newright; ++j) {
-        for (int i = newleft; i < newright; ++i) {
+    left--;
+    right++;
+    for (int j = left; j < right; ++j) {
+        for (int i = left; i < right; ++i) {
             index = universe[current][i-1][j-1] << 8 |
                 universe[current][i-1][j  ] << 7 |
                 universe[current][i-1][j+1] << 6 |
@@ -80,74 +80,68 @@ static void step()
                 universe[current][i+1][j-1] << 2 |
                 universe[current][i+1][j  ] << 1 |
                 universe[current][i+1][j+1] << 0;
-            universe[next][i][j] = algo[index];
+            universe[!current][i][j] = algorithm[index];
         }
     }
-    left = newleft;
-    right = newright;
     current = !current;
-    next = !next;
 }
 
 /* read input
  */
 static int read_data(int steps)
 {
-    int i = 0, cur = 0, verif;
-    //char *buf, *buf1;
+    int i = 0, cur = 0;
     size_t alloc = 0;
     ssize_t buflen;
     char *buf = NULL;
 
     buflen = getline(&buf, &alloc, stdin) - 1;
-    printf("len=%d\n", algolen);
-    algolen = buflen;
     for (int i = 0; i < buflen; ++i)
-        algo[i] = buf[i] == '#';
-
-    getline(&buf, &alloc, stdin);
+        algorithm[i] = buf[i] == '#';
 
     /* We consider input will be a square, first line determines
      * the width
      */
+    getline(&buf, &alloc, stdin);                 /* skip second line */
     buflen = getline(&buf, &alloc, stdin) - 1;
-    verif = buflen;
+
+    /* universe grows by 1 on 4 side (= +2 width and +2 height),
+     * and we need also to keep one extra border for calculation.
+     */
     universe_size = buflen + 2 * steps + 2;
     left = steps + 1;
     right = universe_size - left;
-    log_f(1, "buflen=%ld universe_size=%d left=%d\n",
-          buflen, universe_size, left);
     universe[0] = malloc(universe_size * sizeof(char *));
     universe[1] = malloc(universe_size * sizeof(char *));
     for (i = 0; i < universe_size; ++i) {
         universe[0][i] = calloc(universe_size, sizeof(char));
         universe[1][i] = calloc(universe_size, sizeof(char));
     }
-    /* they got me on this one ;-)
+
+    /* they got me on this one, different from given example ;-)
+     * We need to fill the odd universe with '1' if algorithm[0] is 1
+     * (whole universe becomes lit).
+     * It would be better to consider also the case algorithm[511] is 1,
+     * and algorithm[0] is 0 (we could only count after odd steps).
      */
-    if (*algo) {
-        log(1, "init second array\n");
+    if (*algorithm) {
         for (i = 0; i < universe_size; ++i)
             memset(universe[1][i], 1, universe_size);
-        current=1;
-        current=0;
-    }
-    do {
-        for (int i = 0; i < buflen; ++i) {
-            universe[0][cur + left][i + left] = buf[i] == '#';
+        if (algorithm[ALGOLEN - 1]) {
+            log(0, "cannot display infinity ;-)\n");
+            return 0;
         }
+    }
+
+    do {
+        for (int i = 0; i < buflen; ++i)
+            universe[0][cur + left][i + left] = buf[i] == '#';
         cur++;
         buflen = getline(&buf, &alloc, stdin) - 1;
-        if (buflen != verif) {
-            log(1, "verif: cur=%d buflen=%ld\n", cur, buflen);
-        }
-    } while (cur < universe_size && buflen == verif);
-
-    log_f(1, "cur=%d buflen=%ld universe_size=%d\n",
-          cur, buflen, universe_size);
+    } while (cur < universe_size && buflen > 0);
 
     free(buf);
-    return algolen - 1;
+    return 1;
 }
 
 static int doit(int iter)
@@ -165,7 +159,7 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, part = 1, iter;
+    int opt, part = 1;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -184,10 +178,11 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    iter = part == 1? 2: 50;
-    read_data(iter);
+    int iter = part == 1? 2: 50;
 
-    printf("%s : res=%d\n", *av, doit(iter));
+    if (read_data(iter))
+        printf("%s : res=%d\n", *av, doit(iter));
+
     for (int i = 0; i < universe_size; ++i) {
         free(universe[0][i]);
         free(universe[1][i]);
