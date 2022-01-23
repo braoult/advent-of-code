@@ -25,16 +25,14 @@
 int algolen;
 char algo[ALGO + 1];
 
-#define WIDTH 256
 int universe_size = 0;
-int left;
-int curlen;
 char **universe[2];
 
 int left, right;
 int current = 0, next = 1;
 
-/* read input
+#ifdef DEBUG
+/* print current universe
  */
 static void print_data(int step)
 {
@@ -48,6 +46,7 @@ static void print_data(int step)
         log(1, "\n");
     }
 }
+#endif
 
 /* make one step
  */
@@ -55,11 +54,9 @@ static int count()
 {
     int res = 0;
 
-    for (int i = left; i < right; ++i) {
-        for (int j = left; j < right; ++j) {
+    for (int i = left; i < right; ++i)
+        for (int j = left; j < right; ++j)
             res += universe[current][i][j];
-        }
-    }
     return res;
 }
 
@@ -83,7 +80,6 @@ static void step()
                 universe[current][i+1][j-1] << 2 |
                 universe[current][i+1][j  ] << 1 |
                 universe[current][i+1][j+1] << 0;
-            log_i(1, "i=%d, j=%d, index=%d\n", i, j, index);
             universe[next][i][j] = algo[index];
         }
     }
@@ -103,7 +99,6 @@ static int read_data(int steps)
     ssize_t buflen;
     char *buf = NULL;
 
-    //scanf("%m[#.]%n%*c", &buf, &algolen);
     buflen = getline(&buf, &alloc, stdin) - 1;
     printf("len=%d\n", algolen);
     algolen = buflen;
@@ -120,7 +115,6 @@ static int read_data(int steps)
     universe_size = buflen + 2 * steps + 2;
     left = steps + 1;
     right = universe_size - left;
-    //scanf("%m[#.]s%n%*c", &buf1, &spacelen);
     log_f(1, "buflen=%ld universe_size=%d left=%d\n",
           buflen, universe_size, left);
     universe[0] = malloc(universe_size * sizeof(char *));
@@ -136,7 +130,6 @@ static int read_data(int steps)
         for (i = 0; i < universe_size; ++i)
             memset(universe[1][i], 1, universe_size);
         current=1;
-        print_data(-1);
         current=0;
     }
     do {
@@ -153,26 +146,14 @@ static int read_data(int steps)
     log_f(1, "cur=%d buflen=%ld universe_size=%d\n",
           cur, buflen, universe_size);
 
-    //spacelen = getline(&buf, &alloc, stdin) - 1;
-    //scanf("%m[#.]%n%*c", &buf1, &spacelen);
-    //printf("len=%d\n", spacelen);
-
-    //for (int i = 0; i < algolen; ++i)
-    //    algo[i] &= 1;                             /* lol */
-    //print_data();
-
-
     free(buf);
-    //algo[--algolen] = 0;
     return algolen - 1;
 }
 
 static int doit(int iter)
 {
-    for (int i = 0; i < iter; ++i) {
+    for (int i = 0; i < iter; ++i)
         step();
-        print_data(i + 1);
-    }
     return count();
 }
 
@@ -205,9 +186,6 @@ int main(int ac, char **av)
 
     iter = part == 1? 2: 50;
     read_data(iter);
-    print_data(0);
-    //step();
-    //print_data(1);
 
     printf("%s : res=%d\n", *av, doit(iter));
     for (int i = 0; i < universe_size; ++i) {
