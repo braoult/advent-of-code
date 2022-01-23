@@ -32,7 +32,6 @@ int curlen;
 char **universe[2];
 
 int left, right;
-int iter;
 int current = 0, next = 1;
 
 /* read input
@@ -168,18 +167,13 @@ static int read_data(int steps)
     return algolen - 1;
 }
 
-static int part1(int iter)
+static int doit(int iter)
 {
     for (int i = 0; i < iter; ++i) {
         step();
         print_data(i + 1);
     }
     return count();
-}
-
-static int part2()
-{
-    return 2;
 }
 
 static int usage(char *prg)
@@ -190,7 +184,7 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, part = 1;
+    int opt, part = 1, iter;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -209,13 +203,13 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    iter = 2;
+    iter = part == 1? 2: 50;
     read_data(iter);
     print_data(0);
     //step();
     //print_data(1);
 
-    printf("%s : res=%d\n", *av, part == 1? part1(iter): part2());
+    printf("%s : res=%d\n", *av, doit(iter));
     for (int i = 0; i < universe_size; ++i) {
         free(universe[0][i]);
         free(universe[1][i]);
