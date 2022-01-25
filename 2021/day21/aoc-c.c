@@ -193,10 +193,9 @@ static u64 part2()
                         enqueue(new);
                     }
                 }
-
             }
-
         }
+        pool_add(pool_queue, queue);
     }
     return count1 > count2? count1: count2;
 }
@@ -236,6 +235,7 @@ int main(int ac, char **av)
 
     read_input();
     printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
+    pool_destroy(pool_queue);
 
     exit(0);
 }
