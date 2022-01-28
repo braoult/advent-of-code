@@ -22,8 +22,7 @@
 
 typedef struct step {
     int sign;                                     /* 0: negative */
-    s64 volume;
-    int x[2], y[2], z[2];
+    int x[2], y[2], z[2];                         /* look for 'Arghh' below ;-) */
     struct list_head list_step;
 } step_t;
 
@@ -40,29 +39,11 @@ static inline s64 cube_volume(step_t *c)
     /* Arghh... The missing cast below implied int overflow, and did cost
      * me 2 days :-(
      */
-    return (s64)(c->x[1] - c->x[0] + 1) *
+    s64 volume = (s64)(c->x[1] - c->x[0] + 1) *
         (c->y[1] - c->y[0] + 1) *
         (c->z[1] - c->z[0] + 1);
+    return c->sign? volume: -volume;
 }
-
-/*
-static void print_cubes()
-{
-    step_t *cur;
-    int nlines = 1;
-
-    log_f(1, "cubes=%d\n", ncubes);
-    list_for_each_entry(cur, &list_step, list_step) {
-        log(1, "%d: sign=%d vol=%ld x=(%d,%d) y=(%d,%d) z=(%d,%d)\n",
-            nlines++,
-            cur->sign,
-            cur->sign? cur->volume: -cur->volume,
-            cur->x[0], cur->x[1],
-            cur->y[0], cur->y[1],
-            cur->z[0], cur->z[1]);
-    }
-}
-*/
 
 static step_t *read_instruction(step_t *cube)
 {
@@ -78,7 +59,7 @@ static step_t *read_instruction(step_t *cube)
     return NULL;
 }
 
-/* intersect 2 cubes (x axis calculation):
+/* intersect 2 cubes (x axis example):
  *
  *  x10       x11
  *  +---------+
@@ -93,9 +74,9 @@ static step_t *read_instruction(step_t *cube)
  * x0 = MAX(x10, x20)
  * x1 = MIN(x11, x21)
  *
- * If x0 > x1, cubew do not intersect.
+ * If x0 > x1, cubes do not intersect.
  */
-static step_t *cube_intersect(step_t *old, step_t *new)
+static inline step_t *cube_intersect(step_t *old, step_t *new)
 {
     step_t *cube = NULL;
     int x[2], y[2], z[2];
@@ -112,17 +93,20 @@ static step_t *cube_intersect(step_t *old, step_t *new)
     z[1] = MIN(old->z[1], new->z[1]);
     if (z[0] > z[1])
         return NULL;
+    /* intersection exists, we create a new cuboid and fill it
+     */
     cube = pool_get(pool_step);
     for (int i = 0; i < 2; ++i) {
         cube->x[i] = x[i];
         cube->y[i] = y[i];
         cube->z[i] = z[i];
     }
-    cube->volume = cube_volume(cube);
-    cube->sign = !old->sign;
     return cube;
 }
 
+/* brute force approach, I did not test with part 2 algorithm,
+ * my guess is that it could be worse...
+ */
 static s64 part1()
 {
     step_t cur;
@@ -154,10 +138,11 @@ static s64 part1()
     return res;
 }
 
-/* For part 2, we loop over all instructions (cuboid on/off):
- * For all previous cuboids, search for intersection, then add a "negative"
- * cuboid to negate them all.
- * If new cuboid is "on", add it also to the list.
+/* For part 2, we loop over all instructions (input on/off cuboids):
+ * For all previous cuboids, search for intersection, then add a
+ * cuboid to negate it (this resets this intersection to zero).
+ * If new cuboid is "on", add it also to the list, to make this intersection
+ * "becoming 1" again.
  */
 static s64 part2()
 {
@@ -167,28 +152,31 @@ static s64 part2()
     pool_step = pool_create("steps", 2048, sizeof(step_t));
 
     while ((new = read_instruction(tmp = pool_get(pool_step)))) {
-        LIST_HEAD(list_tmp);
+        LIST_HEAD(list_tmp);                      /* temp intersections list */
         list_for_each_entry(cur, &list_step, list_step) {
             /* intersection found: we insert it to negate cur
              * ones.
              */
-            if ((inter = cube_intersect(cur, new)))
+            if ((inter = cube_intersect(cur, new))) {
+                inter->sign = !cur->sign;         /* negates intersection */
                 list_add_tail(&inter->list_step, &list_tmp);
+                res += cube_volume(inter);
+            }
         }
-        /* add temporary list to global one
+        /* add temp intersections list to global's tail
          */
         list_splice_tail(&list_tmp, &list_step);
+        /* add the new "on" cuboid to the list
+         */
         if (new->sign) {
-            new->volume = cube_volume(new);
             list_add_tail(&new->list_step, &list_step);
+            res += cube_volume(new);
         } else {
-            pool_add(pool_step, tmp);
+            pool_add(pool_step, tmp);             /* release memory */
         }
     }
-    list_for_each_entry(cur, &list_step, list_step)
-        res += cur->sign? cur->volume: -cur->volume;
+    pool_destroy(pool_step);
     return res;
-
 }
 
 static int usage(char *prg)

@@ -27,6 +27,7 @@ export LD_LIBRARY_PATH = $(LIBDIR)
 CFLAGS += -std=gnu99
 CFLAGS += -O2
 CFLAGS += -g
+# for gprof
 #CFLAGS += -pg
 CFLAGS += -Wall
 CFLAGS += -Wextra
