@@ -253,3 +253,27 @@ aoc-c : res=5475
 aoc-c : res=17548
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	1+1, page-faults: 0+108
+
+=========================================
+================= day21 =================
+=========================================
+
+aoc-c : res=989352
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+84
+
+aoc-c : res=430229563871565
+	time: 0:03.11 real, 2.99 user, 0.11 sys
+	context-switch:	78+1, page-faults: 0+32804
+
+=========================================
+================= day22 =================
+=========================================
+
+aoc-c : res=606484
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	3+1, page-faults: 0+337
+
+aoc-c : res=1162571910364852
+	time: 0:00.19 real, 0.18 user, 0.00 sys
+	context-switch:	17+1, page-faults: 0+973

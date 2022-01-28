@@ -20,8 +20,8 @@
 #include "bits.h"
 #include "list.h"
 
-typedef struct step {
-    int sign;                                     /* 0: negative */
+typedef struct {
+    int sign;                                     /* 0: negative, 1: positive */
     int x[2], y[2], z[2];                         /* look for 'Arghh' below ;-) */
     struct list_head list_step;
 } step_t;
@@ -31,8 +31,8 @@ LIST_HEAD(list_step);
 pool_t *pool_step;
 int ncubes;
 
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 static inline s64 cube_volume(step_t *c)
 {
@@ -104,8 +104,8 @@ static inline step_t *cube_intersect(step_t *old, step_t *new)
     return cube;
 }
 
-/* brute force approach, I did not test with part 2 algorithm,
- * my guess is that it could be worse...
+/* Part 1: Brute force approach, I did not test with part 2 algorithm,
+ * my guess is that it could be much slower...
  */
 static s64 part1()
 {
@@ -146,7 +146,7 @@ static s64 part1()
  */
 static s64 part2()
 {
-    step_t *cur, *tmp, *new, *inter;
+    step_t *cur, *tmp, *new, *intersect;
     s64 res = 0;
 
     pool_step = pool_create("steps", 2048, sizeof(step_t));
@@ -154,13 +154,12 @@ static s64 part2()
     while ((new = read_instruction(tmp = pool_get(pool_step)))) {
         LIST_HEAD(list_tmp);                      /* temp intersections list */
         list_for_each_entry(cur, &list_step, list_step) {
-            /* intersection found: we insert it to negate cur
-             * ones.
+            /* intersection found: we insert it to negate cur ones.
              */
-            if ((inter = cube_intersect(cur, new))) {
-                inter->sign = !cur->sign;         /* negates intersection */
-                list_add_tail(&inter->list_step, &list_tmp);
-                res += cube_volume(inter);
+            if ((intersect = cube_intersect(cur, new))) {
+                intersect->sign = !cur->sign;     /* negates intersection */
+                list_add_tail(&intersect->list_step, &list_tmp);
+                res += cube_volume(intersect);
             }
         }
         /* add temp intersections list to global's tail
@@ -175,7 +174,7 @@ static s64 part2()
             pool_add(pool_step, tmp);             /* release memory */
         }
     }
-    pool_destroy(pool_step);
+    pool_destroy(pool_step);                      /* please valgrind */
     return res;
 }
 
