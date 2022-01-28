@@ -21,7 +21,7 @@
 #include "list.h"
 
 typedef struct step {
-    int onoff;
+    int sign;                                     /* 0: negative */
     s64 volume;
     int x[2], y[2], z[2];
     struct list_head list_step;
@@ -30,31 +30,39 @@ typedef struct step {
 LIST_HEAD(list_step);
 
 pool_t *pool_step;
+int ncubes;
 
 #define MAX(x,y) ((x) > (y) ? (x) : (y))
 #define MIN(x,y) ((x) < (y) ? (x) : (y))
 
-static inline int cube_volume(step_t *c)
+static inline s64 cube_volume(step_t *c)
 {
-    return (c->x[1] - c->x[0] + 1) *
+    /* Arghh... The missing cast below implied int overflow, and did cost
+     * me 2 days :-(
+     */
+    return (s64)(c->x[1] - c->x[0] + 1) *
         (c->y[1] - c->y[0] + 1) *
         (c->z[1] - c->z[0] + 1);
 }
 
+/*
 static void print_cubes()
 {
     step_t *cur;
     int nlines = 1;
 
+    log_f(1, "cubes=%d\n", ncubes);
     list_for_each_entry(cur, &list_step, list_step) {
-        log(1, "%d: %s x=(%d,%d) y=(%d,%d) z=(%d,%d)\n",
+        log(1, "%d: sign=%d vol=%ld x=(%d,%d) y=(%d,%d) z=(%d,%d)\n",
             nlines++,
-            cur->onoff? "on": "off",
+            cur->sign,
+            cur->sign? cur->volume: -cur->volume,
             cur->x[0], cur->x[1],
             cur->y[0], cur->y[1],
             cur->z[0], cur->z[1]);
     }
 }
+*/
 
 static step_t *read_instruction(step_t *cube)
 {
@@ -64,7 +72,7 @@ static step_t *read_instruction(step_t *cube)
               &cube->x[0], &cube->x[1],
               &cube->y[0], &cube->y[1],
               &cube->z[0], &cube->z[1]) == 7) {
-        cube->onoff = onoff[1] == 'n';
+        cube->sign = onoff[1] == 'n';
         return cube;
     }
     return NULL;
@@ -87,40 +95,39 @@ static step_t *read_instruction(step_t *cube)
  *
  * If x0 > x1, cubew do not intersect.
  */
-static step_t *cube_intersect(step_t *c1, step_t *c2)
+static step_t *cube_intersect(step_t *old, step_t *new)
 {
     step_t *cube = NULL;
     int x[2], y[2], z[2];
 
-    x[0] = MAX(c1->x[0], c2->x[0]);
-    x[1] = MIN(c1->x[1], c2->x[1]);
+    x[0] = MAX(old->x[0], new->x[0]);
+    x[1] = MIN(old->x[1], new->x[1]);
     if (x[0] > x[1])
-        goto end;
-    y[0] = MAX(c1->y[0], c2->y[0]);
-    y[1] = MIN(c1->y[1], c2->y[1]);
+        return NULL;
+    y[0] = MAX(old->y[0], new->y[0]);
+    y[1] = MIN(old->y[1], new->y[1]);
     if (y[0] > y[1])
-        goto end;
-    z[0] = MAX(c1->z[0], c2->z[0]);
-    z[1] = MIN(c1->z[1], c2->z[1]);
+        return NULL;
+    z[0] = MAX(old->z[0], new->z[0]);
+    z[1] = MIN(old->z[1], new->z[1]);
     if (z[0] > z[1])
-        goto end;
+        return NULL;
     cube = pool_get(pool_step);
     for (int i = 0; i < 2; ++i) {
         cube->x[i] = x[i];
         cube->y[i] = y[i];
         cube->z[i] = z[i];
     }
-    cube->volume = -cube_volume(cube);
-    list_add_tail(&cube->list_step, &list_step);
-end:
+    cube->volume = cube_volume(cube);
+    cube->sign = !old->sign;
     return cube;
 }
 
-static int part1()
+static s64 part1()
 {
     step_t cur;
     static char cuboid[101][101][101];
-    int res = 0;
+    s64 res = 0;
 
     while (read_instruction(&cur)) {
         int x1, x2, y1, y2, z1, z2;
@@ -134,45 +141,52 @@ static int part1()
         z1 = MAX(cur.z[0], -50);
         z2 = MIN(cur.z[1], 50);
 
-        for (int x = x1; x <= x2; ++x) {
-            for (int y = y1; y <= y2; ++y) {
-                for (int z = z1; z <= z2; ++z) {
-                    log(1, "(%d,%d,%d)=%d\n", x, y, z, cur.onoff);
-                    cuboid[x+50][y+50][z+50] = cur.onoff;
-                }
-            }
-        }
+        for (int x = x1; x <= x2; ++x)
+            for (int y = y1; y <= y2; ++y)
+                for (int z = z1; z <= z2; ++z)
+                    cuboid[x+50][y+50][z+50] = cur.sign;
     }
 
-    for (int x = 0; x < 101; ++x) {
-        for (int y = 0; y < 101; ++y) {
-            for (int z = 0; z < 101; ++z) {
+    for (int x = 0; x < 101; ++x)
+        for (int y = 0; y < 101; ++y)
+            for (int z = 0; z < 101; ++z)
                 res += cuboid[x][y][z];
-            }
-        }
-    }
     return res;
 }
 
 /* For part 2, we loop over all instructions (cuboid on/off):
  * For all previous cuboids, search for intersection, then add a "negative"
- * cuboid for it. If new cuboid is "on", add it also to the list.
+ * cuboid to negate them all.
+ * If new cuboid is "on", add it also to the list.
  */
-static int part2()
+static s64 part2()
 {
-    step_t *cur, *tmp, *inter, *new;
-    int res = 0;
+    step_t *cur, *tmp, *new, *inter;
+    s64 res = 0;
+
+    pool_step = pool_create("steps", 2048, sizeof(step_t));
 
     while ((new = read_instruction(tmp = pool_get(pool_step)))) {
+        LIST_HEAD(list_tmp);
         list_for_each_entry(cur, &list_step, list_step) {
-            inter = cube_intersect(new, cur);
+            /* intersection found: we insert it to negate cur
+             * ones.
+             */
+            if ((inter = cube_intersect(cur, new)))
+                list_add_tail(&inter->list_step, &list_tmp);
         }
-        list_add_tail(&cur->list_step, &list_step);
-        //list_add();
-            //list_for_each_entry_safe(cur, tmp, &list_step, list_step) {
-            //res++;
+        /* add temporary list to global one
+         */
+        list_splice_tail(&list_tmp, &list_step);
+        if (new->sign) {
+            new->volume = cube_volume(new);
+            list_add_tail(&new->list_step, &list_step);
+        } else {
+            pool_add(pool_step, tmp);
+        }
     }
-    print_cubes();
+    list_for_each_entry(cur, &list_step, list_step)
+        res += cur->sign? cur->volume: -cur->volume;
     return res;
 
 }
@@ -204,9 +218,7 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    pool_step = pool_create("steps", 512, sizeof(step_t));
-
-    printf("%s : res=%d\n", *av, part == 1? part1(): part2());
+    printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
 
     exit(0);
 }
