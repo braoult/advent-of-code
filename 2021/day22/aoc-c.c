@@ -1,4 +1,4 @@
-/* aoc-c.c: Advent of Code 2021, day 21 parts 1 & 2
+/* aoc-c.c: Advent of Code 2021, day 22 parts 1 & 2
  *
  * Copyright (C) 2022 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
