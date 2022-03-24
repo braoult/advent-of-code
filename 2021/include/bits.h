@@ -29,6 +29,8 @@
 #error "Only 64 bits word size supported."
 #endif
 
+/* fixed-size types
+ */
 typedef int64_t  s64;
 typedef int32_t  s32;
 typedef int16_t  s16;
@@ -38,8 +40,17 @@ typedef uint64_t u64;
 typedef uint32_t u32;
 typedef uint16_t u16;
 typedef uint8_t  u8;
+
+/* convenience types
+ */
+typedef unsigned long int ulong;
 typedef unsigned int uint;
+typedef unsigned short ushort;
 typedef unsigned char uchar;
+
+/* char is a special case, as it can be signed or unsigned
+ */
+typedef signed char schar;
 
 /* count trailing zeroes : 00101000 -> 3
  *                              ^^^
