@@ -35,15 +35,25 @@ static const u64 cost[] = {
     1, 10, 100, 1000
 };
 
-/* bitboards usage:
- *
- *
+/*
  * #############
  * #abcdefghijk#
  * ###l#m#n#o###
  *   #p#q#r#s#
  *   #########
  *
+ * From initial position, we can go:
+ *   - to a, b, d, f, h, j, k
+ *   - to destination room if room unlocked
+ * To unlock a room:
+ *   - Room must be empty or contain only correct amphipods
+ *
+ *
+ *
+ * From a, b, d, f, h, j, k, we can go only to correct unlocked room
+ *
+ * Init:
+ * from start position
  * bit 63: a
  * bit 62: b
  * bit 61: c
@@ -97,7 +107,7 @@ pos_t *pos_zero;
 
 static inline u64 get_occupancy(pos_t *pos)
 {
-    return pos->amp[0] | pos->amp[1] | pos->amp[2] | pos->amp[3];
+    return pos->amp[A] | pos->amp[B] | pos->amp[C] | pos->amp[D];
 }
 
 /* here we allow mask to be in forbidden places

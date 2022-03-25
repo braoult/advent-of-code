@@ -59,4 +59,11 @@ MONAD imposes additional, mysterious restrictions on model numbers, and legend s
 
 To enable as many submarine features as possible, find the largest valid fourteen-digit model number that contains no 0 digits. What is the largest model number accepted by MONAD?
 
-To begin, get your puzzle input.
+Your puzzle answer was 98998519596997.
+--- Part Two ---
+
+As the submarine starts booting up things like the Retro Encabulator, you realize that maybe you don't need all these submarine features after all.
+
+What is the smallest model number accepted by MONAD?
+
+Your puzzle answer was 31521119151421.
