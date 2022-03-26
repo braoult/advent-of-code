@@ -10,4 +10,4 @@
  -  Days 19-22: Bash
 
 #### Done 2021 (probably C only) :
- -  Day  1:     C
+ -  Day  1-22, 24: C
