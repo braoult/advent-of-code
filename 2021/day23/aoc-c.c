@@ -79,7 +79,22 @@ pool_t *pool_hash;
 
 LIST_HEAD(pos_queue);
 
-static u32 zobrist_table[24][4];
+static u64 zobrist_table[24][4];
+
+/* from https://stackoverflow.com/a/33021408/3079831
+ */
+#define IMAX_BITS(m) ((m)/((m)%255+1) / 255%255*8 + 7-86/((m)%255+12))
+#define RAND_MAX_WIDTH IMAX_BITS(RAND_MAX)
+_Static_assert((RAND_MAX & (RAND_MAX + 1u)) == 0, "RAND_MAX not a Mersenne number");
+
+static u64 rand64(void) {
+  u64 r = 0;
+  for (int i = 0; i < 64; i += RAND_MAX_WIDTH) {
+    r <<= RAND_MAX_WIDTH;
+    r ^= (unsigned) rand();
+  }
+  return r;
+}
 
 static void zobrist_init()
 {
@@ -87,8 +102,8 @@ static void zobrist_init()
     srand(RAND_SEED);
     for (int i = 0; i < 24; ++i) {
         for (int j = 0; j < 4; ++j) {
-            zobrist_table[i][j] = rand();
-            log(10, "%d ", zobrist_table[i][j]);
+            zobrist_table[i][j] = rand64();
+            log(10, "%lu ", zobrist_table[i][j]);
         }
     }
 }
@@ -116,7 +131,7 @@ static inline u64 zobrist_2(pos_t *pos, int amp, u32 from, u32 to)
     u64 zobrist = pos->zobrist;
 
     zobrist ^= zobrist_table[from][amp];
-    zobrist ^= zobrist_table[to][amp];
+    zobrist |= zobrist_table[to][amp];
     log_f(1, "zobrist=%lu -> %lu (amp=%d from=%u to=%u)\n",
           zobrist, zobrist % HASH_SIZE, amp, from, to);
     return zobrist;
@@ -545,7 +560,10 @@ static pos_t *newmove(pos_t *pos, amphipod_t amp, u32 from, u32 to)
           cells[from], cells[to],
           move->dist, pos->ok, move->dist * cost[amp]);
 
-    if (pos->ok < 0) {
+
+    if (pos->cost + move->dist * cost[amp] >= result)
+        return NULL;
+    if (pos->ok < 6) {
         collision = hash(pos, amp, from, to);
         if (!collision) {
             log(1, "collision, skipping move :\n");
@@ -722,6 +740,16 @@ static pos_t *read_input(int part)
         adjline++;
     }
     pos->occupied = get_occupancy(pos);
+    /* check if some amphipods are already in correct place
+     */
+    for (int room = 0; room < 4; ++room) {
+        for (int cell = 3; cell >= 0; ++cell) {
+            u32 mask = pos->amp[8 + room * 4] + pos;
+            //if (mask && mask & rooms[cell])
+
+        }
+
+    }
     free(buf);
     return pos;
 }
