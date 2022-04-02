@@ -29,20 +29,24 @@ static const u64 cost[] = {
     1, 10, 100, 1000
 };
 
-#define FORBIDDEN 0x1FD57FD57FFFFFUL
-#define ALLOWED   (~FORBIDDEN)
-#define HALLWAY   0x7F                            /* 0x000001111111 */
-#define ROOM_A    0xF00                           /* 0x111100000000*/
-#define ROOM_B    0xF000                          /* 0x1111000000000000*/
-#define ROOM_C    0xF0000                         /* 0x11110000000000000000*/
-#define ROOM_D    0xF00000                        /* 0x111100000000000000000000*/
-#define ROOM      0xFFFF00
+#define _HALLWAY   0x7F                           /* 0x000001111111 */
+#define _ROOM_A    0xF00                          /* 0x111100000000*/
+#define _ROOM_B    0xF000                         /* 0x1111000000000000*/
+#define _ROOM_C    0xF0000                        /* 0x11110000000000000000*/
+#define _ROOM_D    0xF00000                       /* 0x111100000000000000000000*/
+#define _ROOM      0xFFFF00
+
 #define BIT(c)    (1 << (c))
 
 #define RAND_SEED 1337                            /* seed for random generator */
 
-static u32 rooms[4] = { ROOM_A, ROOM_B, ROOM_C, ROOM_D };
+static u32 rooms[4] = { _ROOM_A, _ROOM_B, _ROOM_C, _ROOM_D };
 static u64 result = -1;
+
+typedef struct {
+    u32 from, to;
+} move_t;
+
 typedef struct pos {
     u32 amp[4];                                   /* bitboards */
     int moves;
@@ -51,15 +55,15 @@ typedef struct pos {
     u32 final;                                    /* 1 if final destination */
     int ok;                                       /* amphipods in correct place */
     u64 zobrist;                                  /* for zobrist_2() */
-    struct {
-        u32 from, to;
-    } move_list[64];
+    move_t moves_list[64];
     struct list_head list;
 } pos_t;
 
 typedef struct hash {
     u64 zobrist;                                  /* zobrist hash */
     u32 amp[4];
+    move_t moves_list[64];
+    int moves;
     struct list_head list;
 } hash_t;
 
@@ -154,6 +158,11 @@ static hash_t *get_hash(pos_t *pos)
         return NULL;
     for (int i = 0; i < 4; ++i)
         new->amp[i] = pos->amp[i];
+    /* copy moves list
+     */
+    for (int i = 0; i < 64; ++i)
+        new->moves_list[i] = pos->moves_list[i];
+
     INIT_LIST_HEAD(&new->list);
     return new;
 }
@@ -197,9 +206,12 @@ static u64 hash(pos_t *pos, int amp, u32 from, u32 to)
             if (amp_tmp[0] == cur->amp[0] &&
                 amp_tmp[1] == cur->amp[1] &&
                 amp_tmp[2] == cur->amp[2] &&
-                amp_tmp[3] == cur->amp[3])
+                amp_tmp[3] == cur->amp[3]) {
+                log(1, "zobrist collision for same positions\n");
                 return 0;
-            log(1, "zobrist collision for different positions\n");
+            } else {
+                log(1, "zobrist collision for different positions\n");
+            }
         }
     }
     hasht[val].count++;
@@ -208,6 +220,9 @@ static u64 hash(pos_t *pos, int amp, u32 from, u32 to)
     cur->zobrist = zobrist;
     cur->amp[amp] ^= BIT(from);
     cur->amp[amp] |= BIT(to);
+    cur->moves_list[cur->moves].from = from;
+    cur->moves_list[cur->moves].to = to;
+    cur->moves++;
 
     list_add(&cur->list, &hasht[val].list);
     return zobrist;
@@ -237,6 +252,15 @@ typedef enum {
     _D1,     _D2, _D3, _D4,                       /* 20-23 */
 } _space_t;
 
+#define HALLWAY(b)          ((b) & _HALLWAY)
+#define ROOM(b)             ((b) & _ROOM)
+
+#define IN_HALLWAY(c)       ((int)(c) >= _H1 && (int)(c) <= _H7)
+#define IN_ROOM(c)          (((int)(c) >= _A1 && (int)(c) <= _A4) ||   \
+                             ((int)(c) >= _B1 && (int)(c) <= _B4) ||  \
+                             ((int)(c) >= _C1 && (int)(c) <= _C4) || \
+                             ((int)(c) >= _D1 && (int)(c) <= _D4))
+
 #define LEFT 0
 #define RIGHT 1
 
@@ -255,8 +279,10 @@ static s32 room_exit[4][2][6] = {
     }
 };
 
-static char *int2bin(u32 mask, char *ret)
+static char *int2bin(u32 mask)
 {
+    static char ret[64];
+
     for (int i = 0; i < 32; ++i) {
         ret[31-i] = mask & BIT(i)? '1': '0';
     }
@@ -305,9 +331,8 @@ typedef enum {
 /* Mask which disallow moves to hallway
  */
 typedef struct {
-    u32 from, to;                                 /* unused */
     uint mask, dist;
-} move_t;
+} possible_move_t;
 
 /* Steps to move from space outside room to hallway destination
  */
@@ -400,7 +425,7 @@ static pos_t *pop_pos()
     return pos;
 }
 
-static void print_moves(move_t (*moves)[24])
+static void print_moves(possible_move_t (*moves)[24])
 {
     int hallway, room;
 
@@ -456,11 +481,42 @@ static void mask_print(u32 bits)
     log(1, "  #########\n");
 }
 
+static void burrow_print_flat(pos_t *pos)
+{
+    int rows = popcount32(pos->amp[0]);
+
+    log_f(1, "rows=%d moves=%2d cost=%6lu: ", rows, pos->moves, pos->cost);
+
+    for (int i = _H1; i <= _H7; ++i) {            /* hallway */
+        if (i >= 2 && i <= 5)
+            log(1, "$");
+        log(1, "%c",
+            BIT(i) & pos->amp[A]? 'A':
+            BIT(i) & pos->amp[B]? 'B':
+            BIT(i) & pos->amp[C]? 'C':
+            BIT(i) & pos->amp[D]? 'D': '.');
+    }
+    for (int i = 0; i < rows; ++i) {
+        int offset = 8 + i;
+        log(1, " ");
+
+        for (int j = 0; j < 4; ++j) {
+            log(1, "%c",
+                BIT(offset + 4 * j) & pos->amp[A]? 'A':
+                BIT(offset + 4 * j) & pos->amp[B]? 'B':
+                BIT(offset + 4 * j) & pos->amp[C]? 'C':
+                BIT(offset + 4 * j) & pos->amp[D]? 'D': '.');
+        }
+    }
+    log(1, "\n");
+}
+
 static void burrow_print(pos_t *pos)
 {
     u32 tmp;
     int count;
     int rows = popcount32(pos->amp[0]);
+
     log_f(1, "rows=%d moves=%d cost=%lu\n", rows, pos->moves, pos->cost);
     for (int i = 0; i < 4; ++i) {
         bit_for_each32_2(count, tmp, pos->amp[i]) {
@@ -499,16 +555,15 @@ static void burrow_print(pos_t *pos)
 
 /* generate possible moves between hallway and rooms
  */
-static move_t moves[24][24];
+static possible_move_t moves[24][24];
 
 /* calculate distance and move mask for all possible moves
  * (room -> hallway ans hallway -> room)
  */
-static move_t (*init_moves())[24]
+static possible_move_t (*init_moves())[24]
 {
     int hallway, room, dist, pos;
     u32 mask_h, mask_r;
-    char bin[64];
 
     for (room = _A1; room <= _D4; ++room) {
         pos = (room >> 2) - 2;
@@ -524,8 +579,8 @@ static move_t (*init_moves())[24]
             else
                 mask_h = setbits(room >> 2, hallway + 1);
             mask_r = setbits(room & ~3, room);
-            log(5, "\tmask_r=%d <%s>", mask_r, int2bin(mask_r, bin));
-            log(5, "\tmask_h=%d <%s>\n", mask_h, int2bin(mask_h, bin));
+            log(5, "\tmask_r=%d <%s>", mask_r, int2bin(mask_r));
+            log(5, "\tmask_h=%d <%s>\n", mask_h, int2bin(mask_h));
             log(3, "%s\n", int2pos(mask_r | mask_h));
             moves[room][hallway].mask = mask_r | mask_h;
             moves[room][hallway].dist = dist;
@@ -536,8 +591,8 @@ static move_t (*init_moves())[24]
             else
                 mask_h = setbits(room >> 2, hallway);
             mask_r = setbits(room & ~3, room + 1);
-            log(5, "\tmask_r=%d <%s>", mask_r, int2bin(mask_r, bin));
-            log(5, "\tmask_h=%d <%s>\n", mask_h, int2bin(mask_h, bin));
+            log(5, "\tmask_r=%d <%s>", mask_r, int2bin(mask_r));
+            log(5, "\tmask_h=%d <%s>\n", mask_h, int2bin(mask_h));
             log(3, "%s\n", int2pos(mask_r | mask_h));
             moves[hallway][room].mask = mask_r | mask_h;
             moves[hallway][room].dist = dist;
@@ -551,66 +606,74 @@ static move_t (*init_moves())[24]
 static pos_t *newmove(pos_t *pos, amphipod_t amp, u32 from, u32 to)
 {
     int rows = popcount32(pos->amp[0]);
-    move_t *move = &moves[from][to];
+    possible_move_t *move = &moves[from][to];
     pos_t *newpos;
     u64 collision;
+    u32 bit_from = BIT(from), bit_to = BIT(to);
 
     log_f(1, "rows=%d amp=%c from=%s to=%s dist=%u ok=%d cost=%lu\n",
           rows, amp + 'A',
           cells[from], cells[to],
           move->dist, pos->ok, move->dist * cost[amp]);
 
-
+    /*
+    if ((IN_HALLWAY(from) && !IN_ROOM(to)) ||
+        (IN_ROOM(from) && !IN_HALLWAY(to)) ||
+        (HALLWAY(bit_from) && !ROOM(bit_to)) ||
+        (ROOM(bit_from) && !HALLWAY(bit_to))) {
+        log(1, "BUG genmove!\n");
+    }
+    */
     if (pos->cost + move->dist * cost[amp] >= result)
         return NULL;
-    if (pos->ok < 6) {
+    if (pos->ok < 7) {
         collision = hash(pos, amp, from, to);
         if (!collision) {
-            log(1, "collision, skipping move :\n");
-            pos->amp[amp] ^= BIT(from);
-            pos->amp[amp] |= BIT(to);
-            burrow_print(pos);
-            pos->amp[amp] ^= BIT(to);
-            pos->amp[amp] |= BIT(from);
-            return NULL;
+            log(1, "collision, skipping move : ");
+            pos->amp[amp] ^= bit_from;
+            pos->amp[amp] |= bit_to;
+            burrow_print_flat(pos);
+            pos->amp[amp] ^= bit_to;
+            pos->amp[amp] |= bit_from;
+            //return NULL;
         }
     }
     if (!(newpos = get_pos(pos)))
         return NULL;
 
-    newpos->move_list[newpos->moves].from = from;
-    newpos->move_list[newpos->moves].to = to;
-    newpos->amp[amp] ^= BIT(from);
-    newpos->amp[amp] |= BIT(to);
-    newpos->occupied ^= BIT(from);
-    newpos->occupied |= BIT(to);
+    newpos->amp[amp] ^= bit_from;
+    newpos->amp[amp] |= bit_to;
+    newpos->occupied ^= bit_from;
+    newpos->occupied |= bit_to;
+
+    newpos->moves_list[newpos->moves].from = from;
+    newpos->moves_list[newpos->moves].to = to;
     newpos->moves++;
     newpos->cost += move->dist * cost[amp];
 
-    if (to >= A1) {                               /* final destination */
+    if (HALLWAY(bit_from)) {                    /* from hallway */
         newpos->ok++;
         newpos->final |= BIT(to);
         log(1, "Final destination %s, ok=%d, final=%s\n", cells[to],
             newpos->ok, int2pos(newpos->final));
         if (newpos->ok == rows * 4) {
             log(1, "found solution! cost=%lu\n", newpos->cost);
-            burrow_print(newpos);
-            free_pos(newpos);
             if (newpos->cost < result) {
                 result = newpos->cost;
                 log(1, "New best=%lu moves=%u List:", result, newpos->moves);
                 for (int i = 0; i < newpos->moves; ++i) {
-                    log(1, " %s-%s", cells[newpos->move_list[i].from],
-                        cells[newpos->move_list[i].to]);
+                    log(1, " %s-%s", cells[newpos->moves_list[i].from],
+                        cells[newpos->moves_list[i].to]);
                 }
                 log(1, "\n");
             }
+            free_pos(newpos);
             return NULL;
         }
 
     }
 
-    burrow_print(newpos);
+    burrow_print_flat(newpos);
     push_pos(newpos);
     log(1, "New position: moves=%d cost=%lu\n", newpos->moves, newpos->cost);
     return newpos;
@@ -630,10 +693,7 @@ static void genmoves(pos_t *pos)
     for (amp = A; amp <= D; ++amp) {
         u32 cur = pos->amp[amp];
         bit_for_each32_2(bit, tmp, cur) {
-            char s1[64], s2[64];
-            int2bin(bit, s1);
-            int2bin(ROOM, s2);
-            log(3, "-> %s %d\n   %s\n", s1, bit, s2);
+            log(3, "toto -> %s %d\n", int2bin(bit), bit);
 
             if (bit >= _A1) {                     /* in a room */
                 if (BIT(bit) & pos->final) {
@@ -648,9 +708,9 @@ static void genmoves(pos_t *pos)
                     for (; *d != -1; ++d) {
                         log(3, "checking %c from %s to %s\n",
                             amp + 'A', cells[bit], cells[*d]);
-                        move_t *move = &moves[bit][*d];
+                        possible_move_t *move = &moves[bit][*d];
                         log(3, "mask=%s dist=%d cost=%lu\n",
-                            int2bin(move->mask, s1), move->dist,
+                            int2bin(move->mask), move->dist,
                             move->dist * cost[amp]);
                         if (move->mask & pos->occupied) {
                             log(3, "blocked!\n");
@@ -663,17 +723,16 @@ static void genmoves(pos_t *pos)
             } else {                              /* hallway */
                 u32 room = rooms[amp], found = 0;
                 int dest, count = 0, tmp;
-                char foo[64];
 
                 log(1, "%c from %s to %#x (%s)\n", amp + 'A', cells[bit], room,
-                    int2bin(room, foo));
+                    int2bin(room));
                 if (room & pos->occupied && !(room & pos->final)) {
                     log(1, "room is occupied\n");
                     continue;                     /* skip current amp pos */
                 }
                 log(1, "room is available\n");
                 bit_for_each32_2(dest, tmp, room) {
-                    move_t *move = &moves[bit][dest];
+                    possible_move_t *move = &moves[bit][dest];
                     log(1, " %d(%s) -> %d(%s) : ", bit, cells[bit],
                         dest, cells[dest]);
                     if (move->mask & pos->occupied) {
@@ -743,10 +802,22 @@ static pos_t *read_input(int part)
     /* check if some amphipods are already in correct place
      */
     for (int room = 0; room < 4; ++room) {
-        for (int cell = 3; cell >= 0; ++cell) {
-            u32 mask = pos->amp[8 + room * 4] + pos;
-            //if (mask && mask & rooms[cell])
-
+        u32 mask = pos->amp[room];
+        if (mask & rooms[room]) {
+            log(1, "found amp %c in room %d\n", room + 'A', room);
+            mask &= rooms[room];
+            int room1 = 8 + room * 4;
+            for (int cell = part * 2 - 1; cell >= 0; --cell) {
+                if (BIT(room1 + cell) & mask) {
+                    log(1, " -> Match for cell %d\n", cell + 1);
+                    pos->final |= BIT(room1 + cell);
+                    pos->ok++;
+                } else {
+                    log(1, " -> No Match for cell %d\n", cell + 1);
+                    break;
+                }
+                //if (mask && mask & rooms[cell])
+            }
         }
 
     }
