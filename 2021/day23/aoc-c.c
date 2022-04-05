@@ -60,6 +60,15 @@ typedef struct pos {
     struct list_head list;
 } pos_t;
 
+/* All possible moves between hallway and rooms
+ */
+typedef struct {
+    uint mask;                                    /* blocking spaces */
+    uint dist;
+} possible_move_t;
+
+static possible_move_t moves[24][24];
+
 typedef struct hash {
     u64 zobrist;                                  /* zobrist hash */
     u32 amp[4];
@@ -144,6 +153,32 @@ static s32 room_exit[4][2][6] = {
       { _H6, _H7, -1 }                            /* room D right */
     }
 };
+
+static char *int2bin(u32 mask)
+{
+    static char ret[64];
+
+    for (int i = 0; i < 32; ++i) {
+        ret[31-i] = mask & BIT(i)? '1': '0';
+    }
+    ret[32] = 0;
+    return ret;
+}
+
+static char *int2pos(u32 mask)
+{
+    static char res[1024];
+    char *p = res;
+
+    for (int i = 0; i < 32; ++i) {
+        if (mask & BIT(i)) {
+            *p++ = ' ';
+            strcpy(p, cells[i]);
+            p += 2;
+        }
+    }
+    return res;
+}
 
 static void moves_print(move_t *moves, int nmoves)
 {
@@ -422,71 +457,76 @@ static u64 hash(pos_t *pos, int amp, u32 from, u32 to)
     return zobrist;
 }
 
-/* evaluate current position.
- *
- *
-*/
-static u32 eval(pos_t *pos, int amp, u32 from, u32 to)
+/* evaluate current position :
+ * eval = cost + eval_to_dest
+ * cost is current cost
+ * eval is cost to join top of destination room
+ */
+static int room2room_dist[][4] = {
+    { 4, 4, 6, 8}, { 4, 4, 4, 6}, { 6, 4, 4, 4}, { 8, 6, 4, 4}
+};
+
+/* static u64 eval_amp(pos_t *pos, int amp, u32 cell) */
+/* { */
+/*     u32 bit = BIT(cell); */
+/*     int rows = popcount32(pos->amp[0]); */
+/*     int dist; */
+/*     int left = rows - popcount32(rooms[amp] & pos->final); */
+
+/*     if (ROOM(bit)) {                              /\* in a room *\/ */
+/*         int curroom = cell / 4 - 2; */
+
+/*         dist = cell % 4;                          /\* distance to top of room *\/ */
+/*         dist += room2room_dist[curroom][amp]; */
+/*         dist += --left;                   /\* distance to final room *\/ */
+/*         log(1, "eval %c room(%s) = %d\n", amp + 'A', cells[cell], dist); */
+/*     } else {                              /\* in hallway *\/ */
+/*         int dest = (amp + 2) * 4; */
+/*         dist = moves[cell][dest].dist; */
+/*         dist += --left;                   /\* distance to final room *\/ */
+/*         log(1, "eval %c hallway(%s) = %d\n", amp + 'A', cells[cell], dist); */
+/*     } */
+/*     return cost[amp] * dist; */
+/* } */
+
+static u64 eval(pos_t *pos)
 {
-    log_f(1, "pos=%p amp=%d from=%u to=%u\n", pos, amp, from, to);
-    return 1;
-}
+    u32 amp, tmp;
+    int cell;
+    int rows = popcount32(pos->amp[0]);
+    u64 eval = 0;
 
-static char *int2bin(u32 mask)
-{
-    static char ret[64];
+    for (amp = A; amp <= D; ++amp) {
+        u32 todo = pos->amp[amp] & ~pos->final;   /* ignore finished ones */
+        int destroom = amp, dist;
+        int left = rows - popcount32(rooms[destroom] & pos->final);
 
-    for (int i = 0; i < 32; ++i) {
-        ret[31-i] = mask & BIT(i)? '1': '0';
-    }
-    ret[32] = 0;
-    return ret;
-}
+        printf("amp=%d %u final=%u\n", amp, pos->amp[amp], pos->final);
+        printf("amp=%c pos=%s\n", amp + 'A', int2bin(pos->amp[amp]));
+        printf("amp=  tod=%s\n", int2bin(todo));
+        printf("amp=  fin=%s\n", int2bin(pos->final));
+        bit_for_each32_2(cell, tmp, todo) {
+            u32 bit = BIT(cell);
+            if (ROOM(bit)) {                      /* in a room */
+                int curroom = cell / 4 - 2;
 
-static char *int2pos(u32 mask)
-{
-    static char res[1024];
-    char *p = res;
-
-    for (int i = 0; i < 32; ++i) {
-        if (mask & BIT(i)) {
-            *p++ = ' ';
-            strcpy(p, cells[i]);
-            p += 2;
+                dist = cell % 4;                   /* distance to top of room */
+                dist += room2room_dist[curroom][destroom];
+                dist += --left;                   /* distance to final room */
+                log(1, "eval %c room(%s) = %d\n", amp + 'A', cells[cell], dist);
+            } else {                              /* in hallway */
+                int dest = (destroom + 2) * 4;
+                dist = moves[cell][dest].dist;
+                dist += --left;                   /* distance to final room */
+                log(1, "eval %c hallway(%s) = %d\n", amp + 'A', cells[cell], dist);
+            }
+            //printf("eval = %lu %lu\n", cost[amp] * dist, eval_amp(pos, amp, cell));
+            eval += cost[amp] * dist;
         }
     }
-    return res;
+    //log_f(1, "pos=%p amp=%d from=%u to=%u\n", pos, amp, from, to);
+    return eval;
 }
-
-typedef enum {
-    H1 = BIT(_H1), H2 = BIT(_H2), H3 = (_H3), H4 = (_H4),
-    H5 = (_H5), H6 = (_H6), H7 = (_H7),
-    A1 = (_A1), A2 = (_A2), A3 = (_A3), A4 = (_A4),
-    B1 = (_B1), B2 = (_B2), B3 = (_B3), B4 = (_B4),
-    C1 = (_C1), C2 = (_C2), C3 = (_C3), C4 = (_C4),
-    D1 = (_D1), D2 = (_D2), D3 = (_D3), D4 = (_D4),
-} space_t;
-
-/* Steps to move to hallway
- */
-typedef enum {
-    A1H = 1, A2H = 2, A3H = 3, A4H = 4
-} out_t;
-
-/* Mask which disallow moves to hallway
- */
-typedef struct {
-    uint mask, dist;
-} possible_move_t;
-
-/* Steps to move from space outside room to hallway destination
- */
-typedef enum {
-    AH1 = 2, AH2 = 1, AH3 = 1, AH4 = 3, AH5 = 5, AH6 = 7 , AH7 = 8,
-    BH1 = 4, BH2 = 3, BH3 = 1, BH4 = 1, BH5 = 3, BH6 = 5 , BH7 = 6,
-    CH1 = 6, CH2 = 5, CH3 = 3, CH4 = 1, CH5 = 1, CH6 = 3 , CH7 = 4,
-    DH1 = 8, DH2 = 7, DH3 = 5, DH4 = 3, DH5 = 1, DH6 = 1 , DH7 = 2
-} steps_t;
 
 /*
  * #############
@@ -529,7 +569,6 @@ static pos_t *get_pos(pos_t *from)
         new->final = new->occupied = new->zobrist = 0;
         new->cost = new->eval = 0;
         new->moves = 0;
-        new->zobrist = 0;
     } else {
         *new = *from;
     }
@@ -553,12 +592,26 @@ static void free_pos(pos_t *pos)
  */
 static void push_pos(pos_t *pos)
 {
-    if (pos) {
-        list_add(&pos->list, &pos_queue);
-    } else {
+    pos_t *cur;
+
+    if (!pos) {
         log(1, "Fatal foo\n");
         exit(1);
     }
+    if (!list_empty(&pos_queue)) {
+        //list_add_tail(&pos->list, &pos_queue);
+        //} else {
+        list_for_each_entry(cur, &pos_queue, list) {
+            if (cur->eval > pos->eval) {
+                log(1, "adding %lu before %lu\n", pos->eval, cur->eval);
+                list_add_tail(&pos->list, &cur->list);
+                return;
+            } else {
+                log(1, "not adding %lu before %lu\n", pos->eval, cur->eval);
+            }
+        }
+    }
+    list_add_tail(&pos->list, &pos_queue);
 }
 
 /* pop a position from stack
@@ -628,10 +681,6 @@ static void mask_print(u32 bits)
     log(10, "  #########\n");
 }
 
-
-/* generate possible moves between hallway and rooms
- */
-static possible_move_t moves[24][24];
 
 /* calculate distance and move mask for all possible moves
  * (room -> hallway ans hallway -> room)
@@ -745,15 +794,6 @@ static pos_t *newmove(pos_t *pos, amphipod_t amp, u32 from, u32 to)
         }
     }
     */
-    /*
-    if ((IN_HALLWAY(from) && !IN_ROOM(to)) ||
-        (IN_ROOM(from) && !IN_HALLWAY(to)) ||
-        (HALLWAY(bit_from) && !ROOM(bit_to)) ||
-        (ROOM(bit_from) && !HALLWAY(bit_to))) {
-        log(1, "BUG genmove!\n");
-    }
-    */
-    zobrist = hash(&pos_tmp, amp, from, to);
     //if (zobrist != zobrist_1(&pos_tmp)) {
     //    printf("Zobi Fuck1\n");
     //    exit(1);
@@ -763,6 +803,7 @@ static pos_t *newmove(pos_t *pos, amphipod_t amp, u32 from, u32 to)
     //    exit(1);
     //}
     //zobrist = hash1(pos);
+    zobrist = hash(&pos_tmp, amp, from, to);
     if (ok < rows * 4 - 1) {                                 /*  */
         if (zobrist == HASH_SEEN) {
             log(1, "collision, skipping move : ");
@@ -770,34 +811,9 @@ static pos_t *newmove(pos_t *pos, amphipod_t amp, u32 from, u32 to)
             return NULL;
         }
     }
+    pos_tmp.eval = eval(&pos_tmp) + pos_tmp.cost;
     if (!(newpos = get_pos(&pos_tmp)))
         return NULL;
-
-    //newpos->zobrist = zobrist;
-    //log(1, "Zobi6 %lu\n", newpos->zobrist);
-    //newpos->moves_list[newpos->moves].from = from;
-    //newpos->moves_list[newpos->moves].to = to;
-    //newpos->moves++;
-    //newpos->cost = newcost;
-
-    /*
-    if (HALLWAY(bit_from)) {
-        newpos->final |= bit_to;
-        log(1, "Final destination %s, ok=%d, final=%s\n", cells[to],
-            popcount32(newpos->final), int2pos(newpos->final));
-        if (popcount32(newpos->final) == rows * 4) {
-            log(1, "found solution! cost=%lu\n", newpos->cost);
-            if (newpos->cost < result) {
-                result = newpos->cost;
-                log(1, "New best=%lu moves=%u List:", result, newpos->moves);
-                log(1, "\n");
-            }
-            free_pos(newpos);
-            return NULL;
-        }
-
-    }
-*/
 
     burrow_print_flat(newpos);
     push_pos(newpos);
@@ -1023,6 +1039,6 @@ int main(int ac, char **av)
     printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
 
     exit(0);
-    /*  for flycheck */
-    eval(pos, 1, 1, 1);
+    /* dummy calls for flycheck */
+    eval(pos);
 }
