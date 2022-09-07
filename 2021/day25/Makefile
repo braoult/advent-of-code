@@ -45,7 +45,7 @@ export PATH := .:$(PATH)
 
 .PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
 
-all: ex1 ex2
+all: ex1
 
 memcheck: memcheck1 memcheck2
 
