@@ -47,7 +47,7 @@ export PATH := .:$(PATH)
 
 all: ex1
 
-memcheck: memcheck1 memcheck2
+memcheck: memcheck1
 
 memcheck1:
 	@valgrind -q -s --track-origins=yes aoc-c -p 1 < $(INPUT)

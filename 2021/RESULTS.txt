@@ -294,7 +294,6 @@ aoc-c : res=31521119151421
 ================= day25 =================
 =========================================
 
-+++++++++++++++++ part 1
 aoc-c : res=412
-	time: 0:00.06 real, 0.06 user, 0.00 sys
-	context-switch:	16+1, page-faults: 0+99
+	time: 0:00.05 real, 0.05 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+97

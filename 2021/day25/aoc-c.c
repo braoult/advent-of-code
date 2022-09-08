@@ -10,129 +10,101 @@
  * SPDX-License-Identifier: GPL-3.0-or-later <https://spdx.org/licenses/GPL-3.0-or-later.html>
  */
 
-/* Warning: Work in progress. Should not work before I spend a lot of time
- * on it, the original "bitboard" approach for moves generation is pretty
- * difficult to program/debug
- */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
 
-#include "pool.h"
 #include "debug.h"
-#include "bits.h"
-#include "list.h"
-
 
 struct map {
     int ncols, nrows;
-    char *map, *next;
+    char *cur, *next;
 };
 
-static inline char *mapline(struct  map *m, int row)
+/**
+ * mapc - gives address of cuncumber at position (row, col)
+ * @ptr:    char array
+ * @ncols:  number of chars in one row
+ * @row:    cuncumber row
+ * @col:    cuncumber column
+ *
+ * @return: pointer to cuncumber position
+ */
+static inline char *mapc(char *p, int ncols, int row, int col)
 {
-    return m->map + row * m->ncols + row;
-}
-static inline char *nextline(struct  map *m, int row)
-{
-    return m->next + row * m->ncols + row;
-}
-static inline char *mapc(struct  map *m, int row, int col)
-{
-    return mapline(m, row) + col;
-}
-static inline char* nextc(struct  map *m, int row, int col)
-{
-    return nextline(m, row) + col;
+    return p + row * (ncols + 1) + col;
 }
 
 /*
-static void print_map(struct map *map)
+ * static void print_map(struct map *map)
+ * {
+ *     printf("map: cols=%d rows=%d\ncur:\n%snext:\n%s",
+ *            map->ncols, map->nrows, map->cur, map->next);
+ * }
+ */
+
+static inline int maybe_move(char *cur, char *next, int ncols,
+                             char dir,
+                             int r, int c, int r1, int c1)
 {
-    int i;
-    printf ("map: cols=%d rows=%d\ncur:\n", map->ncols, map->nrows);
-    for  (i = 0; i < map->nrows; ++i)
-        puts(mapline(map, i));
-    printf ("next:\n");
-    for  (i = 0; i < map->nrows; ++i)
-        puts(nextline(map, i));
+    int ret = 0;
+    if (*mapc(cur, ncols, r, c) == dir && *mapc(cur, ncols, r1, c1) == '.') {
+        *mapc(next, ncols, r, c) = '.';
+        *mapc(next, ncols, r1, c1) = dir;
+        ret = 1;
+    } else {
+        *mapc(next, ncols, r, c) = *mapc(cur, ncols, r, c);
+    }
+    return ret;
 }
-*/
 
 static int step(struct map *map)
 {
-    int r, c, mod = map->ncols, moves=0;
-    char *tmp;
+    int moves = 0, ncols = map->ncols, nrows = map->nrows;
+    char *cur = map->cur, *next = map->next;
 
-    /* move right */
-    for (r = 0; r < map->nrows; r++) {
-        for (c = 0; c < map->ncols; ++c) {
-            int next = (c + 1) % mod;
-            if (*mapc(map, r, c) == '>' && *mapc(map, r, next) == '.') {
-                *nextc(map, r, c) = '.';
-                *nextc(map, r, next) = '>';
+    /* move east */
+    for (int r = 0; r < nrows; r++) {
+        for (int c = 0; c < ncols; ++c) {
+            if (maybe_move(cur, next, ncols, '>', r, c, r, (c + 1) % ncols)) {
                 moves++;
                 c++;
-            } else {
-                *nextc(map, r, c) = *mapc(map, r, c);
             }
         }
     }
-    tmp = map->map;
-    map->map = map->next;
-    map->next = tmp;
-
-    /* move down */
-    mod = map->nrows;
-    for (c = 0; c < map->ncols; ++c) {
-        for (r = 0; r < map->nrows; r++) {
-            int next = (r + 1) % mod;
-            if (*mapc(map, r, c) == 'v' && *mapc(map, next, c) == '.') {
-                *nextc(map, r, c) = '.';
-                *nextc(map, next, c) = 'v';
+    /* move south - here we move data from next to cur */
+    for (int c = 0; c < ncols; ++c) {
+        for (int r = 0; r < nrows; r++) {
+            if (maybe_move(next, cur, ncols, 'v', r, c, (r + 1) % nrows, c)) {
                 moves++;
                 r++;
-            } else {
-                *nextc(map, r, c) = *mapc(map, r, c);
             }
         }
     }
-    tmp = map->map;
-    map->map = map->next;
-    map->next = tmp;
-    //print_map(map);
     return moves;
 }
 
-/* minimal parsing: We just read the 3-5 lines to get
- * the amphipods location in side rooms
+/**
+ * read-input() - read cuncumber map into memory.
+ *
  */
-static void read_input(struct map *map)
+static struct map *read_input()
 {
     size_t alloc = 0;
     ssize_t buflen;
-    char *buf = NULL;
-    int line = 0;
+    struct map *map=malloc(sizeof(struct map));
 
-    buflen = getline(&buf, &alloc, stdin);
-    buf[buflen - 1] = 0;
-    map->map = malloc(buflen * buflen);
-    map->next = malloc(buflen * buflen);
-    map->ncols = buflen - 1;
-    strcpy(map->map, buf);
-    strcpy(map->next, buf);
-    line++;
-    free(buf);
-    buf = mapline(map, line);
-    while (fgets(buf, buflen + 1, stdin)) {
-        buf[buflen - 1] = 0;
-        strcpy(nextline(map, line), buf);
-        line++;
-        buf = mapline(map, line);
+    if (map) {
+        map->cur = NULL;
+        /* read whole input */
+        buflen = getdelim(&map->cur, &alloc, '\0', stdin);
+        map->next = strdup(map->cur);
+        map->ncols = strchr(map->cur, '\n') - map->cur;
+        map->nrows = buflen / (map->ncols + 1);
     }
-    map->nrows = line;
+    return map;
 }
 
 static int usage(char *prg)
@@ -144,8 +116,6 @@ static int usage(char *prg)
 int main(int ac, char **av)
 {
     int opt, part = 1, moves, cur=1;
-    struct map map = { 0, 0, NULL, NULL};
-
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
             case 'd':
@@ -163,10 +133,10 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    read_input(&map);
-    while ((moves = step(&map))) {
-        cur++;
-    }
+    struct map *map = read_input();
+    if (map)
+        while ((moves = step(map)))
+            cur++;
 
     printf("%s : res=%d\n", *av, cur);
 
