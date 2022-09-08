@@ -17,10 +17,23 @@
 #include <errno.h>
 
 #include "debug.h"
+#include "bits.h"
+
+#define SWAP(x, y) do { typeof(x) __x = x; x = y; y = __x; } while (0)
+
+#define EAST  '>'
+#define SOUTH 'v'
+#define EMPTY '.'
 
 struct map {
-    int ncols, nrows;
+    uint ncols, nrows;
     char *cur, *next;
+};
+
+struct move {
+    uchar r, c;
+    uchar r1, c1;
+    uchar dir;
 };
 
 /**
@@ -37,25 +50,28 @@ static inline char *mapc(char *p, int ncols, int row, int col)
     return p + row * (ncols + 1) + col;
 }
 
-/*
- * static void print_map(struct map *map)
- * {
- *     printf("map: cols=%d rows=%d\ncur:\n%snext:\n%s",
- *            map->ncols, map->nrows, map->cur, map->next);
- * }
- */
-
-static inline int maybe_move(char *cur, char *next, int ncols,
-                             char dir,
-                             int r, int c, int r1, int c1)
+static void print_map(struct map *map, int details)
 {
-    int ret = 0;
-    if (*mapc(cur, ncols, r, c) == dir && *mapc(cur, ncols, r1, c1) == '.') {
-        *mapc(next, ncols, r, c) = '.';
-        *mapc(next, ncols, r1, c1) = dir;
+    if (details) {
+        log(2, "map: cols=%d rows=%d\ncur:\n%snext:\n%s",
+            map->ncols, map->nrows, map->cur, map->next);
+    } else {
+        log(2, "cur:\n%s\n", map->cur);
+    }
+}
+
+static inline int maybe_move(struct map *map, struct move m)
+{
+    int ret = 0, ncols = map->ncols;
+    char *cur = map->cur, *next = map->next;
+
+    if (*mapc(cur, ncols, m.r, m.c) == m.dir
+        && *mapc(cur, ncols, m.r1, m.c1) == EMPTY) {
+        *mapc(next, ncols, m.r, m.c) = EMPTY;
+        *mapc(next, ncols, m.r1, m.c1) = m.dir;
         ret = 1;
     } else {
-        *mapc(next, ncols, r, c) = *mapc(cur, ncols, r, c);
+        *mapc(next, ncols, m.r, m.c) = *mapc(cur, ncols, m.r, m.c);
     }
     return ret;
 }
@@ -63,26 +79,35 @@ static inline int maybe_move(char *cur, char *next, int ncols,
 static int step(struct map *map)
 {
     int moves = 0, ncols = map->ncols, nrows = map->nrows;
-    char *cur = map->cur, *next = map->next;
+    struct move m;
 
     /* move east */
-    for (int r = 0; r < nrows; r++) {
-        for (int c = 0; c < ncols; ++c) {
-            if (maybe_move(cur, next, ncols, '>', r, c, r, (c + 1) % ncols)) {
+    m.dir = EAST;
+    for (m.r = 0; m.r < nrows; ++m.r) {
+        m.r1 = m.r;
+        for (m.c = 0; m.c < ncols; ++m.c) {
+            m.c1 = (m.c + 1) % ncols;
+            if (maybe_move(map, m)) {
                 moves++;
-                c++;
+                m.c++;
             }
         }
     }
-    /* move south - here we move data from next to cur */
-    for (int c = 0; c < ncols; ++c) {
-        for (int r = 0; r < nrows; r++) {
-            if (maybe_move(next, cur, ncols, 'v', r, c, (r + 1) % nrows, c)) {
+
+    /* move south - here we move data from next to cur (by swapping them) */
+    SWAP(map->cur, map->next);
+    m.dir = SOUTH;
+    for (m.c = 0; m.c < ncols; ++m.c) {
+        m.c1 = m.c;
+        for (m.r = 0; m.r < nrows; ++m.r) {
+            m.r1 = (m.r + 1) % nrows;
+            if (maybe_move(map, m)) {
                 moves++;
-                r++;
+                m.r++;
             }
         }
     }
+    SWAP(map->cur, map->next);
     return moves;
 }
 
@@ -98,11 +123,17 @@ static struct map *read_input()
 
     if (map) {
         map->cur = NULL;
-        /* read whole input */
+        /* read whole input, we will keep '\n' and avoit useless splitting */
         buflen = getdelim(&map->cur, &alloc, '\0', stdin);
         map->next = strdup(map->cur);
         map->ncols = strchr(map->cur, '\n') - map->cur;
-        map->nrows = buflen / (map->ncols + 1);
+        /* we suppose there is nothing after the last input data last line
+         * Therefore last char of input is '\n', at position (bufflen - 1)
+         */
+        map->nrows = (buflen - 1) / map->ncols;
+
+        log(2, "buflen=%ld ncols=%d nrows=%d lastnl=%ld\n", buflen, map->ncols,
+            map->nrows, strrchr(map->cur, '\n') - map->cur);
     }
     return map;
 }
@@ -115,7 +146,10 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, part = 1, moves, cur=1;
+    int opt, part = 1;
+    struct map *map;
+    int moves, cur = 1;
+
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
             case 'd':
@@ -123,9 +157,9 @@ int main(int ac, char **av)
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
-                if (part < 1 || part > 2)
-                    return usage(*av);
-                break;
+                if (part == 1 || part == 2)
+                    break;
+                /* fall through */
             default:
                 return usage(*av);
         }
@@ -133,10 +167,13 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    struct map *map = read_input();
-    if (map)
-        while ((moves = step(map)))
+    if ((map = read_input())) {
+        while ((moves = step(map))) {
             cur++;
+            log(2, "+++ after step %d\n", cur);
+            print_map(map, 0);
+        }
+    }
 
     printf("%s : res=%d\n", *av, cur);
 
