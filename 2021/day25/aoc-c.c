@@ -112,29 +112,57 @@ static int step(struct map *map)
 }
 
 /**
- * read-input() - read cuncumber map into memory.
+ * map_release() - release a map structure memory.
+ * @map: A pointer on a map structure.
  *
+ */
+static void map_release(struct map *map)
+{
+    if (map) {
+        if (map->cur)
+            free(map->cur);
+        if (map->next)
+            free(map->next);
+        free(map);
+    }
+}
+
+/**
+ * read_input() - read cuncumber map into memory.
+ *
+ * In case of success, the map structure and its cur and array components
+ * should be released for example by calling map_release().
+ *
+ * Return: a pointer to a map structure or NULL if failure.
  */
 static struct map *read_input()
 {
     size_t alloc = 0;
     ssize_t buflen;
-    struct map *map=malloc(sizeof(struct map));
+    struct map *map;
 
-    if (map) {
-        map->cur = NULL;
-        /* read whole input, we will keep '\n' and avoit useless splitting */
-        buflen = getdelim(&map->cur, &alloc, '\0', stdin);
-        map->next = strdup(map->cur);
-        map->ncols = strchr(map->cur, '\n') - map->cur;
-        /* we suppose there is nothing after the last input data last line
-         * Therefore last char of input is '\n', at position (bufflen - 1)
-         */
-        map->nrows = (buflen - 1) / map->ncols;
+    /*  use calloc() to  ensure cur & next are set to  NULL */
+    if (!(map = calloc(1, sizeof(struct map))))
+        goto end;
 
-        log(2, "buflen=%ld ncols=%d nrows=%d lastnl=%ld\n", buflen, map->ncols,
-            map->nrows, strrchr(map->cur, '\n') - map->cur);
-    }
+    /* read whole input, we will keep '\n' and avoid useless '\0' splitting */
+    if ((buflen = getdelim(&map->cur, &alloc, '\0', stdin)) < 0)
+        goto freemem;
+    if (!(map->next = strdup(map->cur)))
+        goto freemem;
+    map->ncols = strchr(map->cur, '\n') - map->cur;
+    /* next line works  if there is nothing after the last input data last line,
+     * i.e. if last char of input (at position bufflen - 1) is the '\n' on the
+     * last valid puzzle line.
+     */
+    map->nrows = (buflen - 1) / map->ncols;
+
+    log(2, "buflen=%ld ncols=%d nrows=%d lastnl=%ld\n", buflen, map->ncols,
+        map->nrows, strrchr(map->cur, '\n') - map->cur);
+    goto end;
+freemem:
+    map_release(map);
+end:
     return map;
 }
 
@@ -173,9 +201,10 @@ int main(int ac, char **av)
             log(2, "+++ after step %d\n", cur);
             print_map(map, 0);
         }
+        printf("%s : res=%d\n", *av, cur);
+        map_release(map);
     }
 
-    printf("%s : res=%d\n", *av, cur);
 
     exit(0);
 }

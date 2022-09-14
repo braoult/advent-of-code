@@ -24,23 +24,23 @@ LDLIB   := -l$(LIB)
 
 export LD_LIBRARY_PATH = $(LIBDIR)
 
-CFLAGS += -std=gnu99
-CFLAGS += -O2
-CFLAGS += -g
+CFLAGS  += -std=gnu99
+CFLAGS  += -O2
+CFLAGS  += -g
 # for gprof
 #CFLAGS += -pg
-CFLAGS += -Wall
-CFLAGS += -Wextra
-CFLAGS += -march=native
+CFLAGS  += -Wall
+CFLAGS  += -Wextra
+CFLAGS  += -march=native
 # Next one may be useful for valgrind (some invalid instructions)
 # CFLAGS += -mno-tbm
-CFLAGS += -Wmissing-declarations
-CFLAGS += -Wno-unused-result
+CFLAGS  += -Wmissing-declarations
+CFLAGS  += -Wno-unused-result
 
-CFLAGS += -DDEBUG_DEBUG 	# activate general debug (debug.c)
-CFLAGS += -DDEBUG_POOL		# memory pools management
+CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
+CFLAGS  += -DDEBUG_POOL		# memory pools management
 
-TIME   := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
+TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
 .PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
