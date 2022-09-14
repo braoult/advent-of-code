@@ -141,7 +141,7 @@ static struct map *read_input()
     ssize_t buflen;
     struct map *map;
 
-    /*  use calloc() to  ensure cur & next are set to  NULL */
+    /*  use calloc() to ensure cur & next are set to NULL */
     if (!(map = calloc(1, sizeof(struct map))))
         goto end;
 
@@ -151,7 +151,7 @@ static struct map *read_input()
     if (!(map->next = strdup(map->cur)))
         goto freemem;
     map->ncols = strchr(map->cur, '\n') - map->cur;
-    /* next line works  if there is nothing after the last input data last line,
+    /* next line works if there is nothing after the last input data last line,
      * i.e. if last char of input (at position bufflen - 1) is the '\n' on the
      * last valid puzzle line.
      */

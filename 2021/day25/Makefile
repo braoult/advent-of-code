@@ -45,7 +45,7 @@ export PATH := .:$(PATH)
 
 .PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
 
-all: ex1
+all: ex1 ex2
 
 memcheck: memcheck1
 
@@ -62,8 +62,8 @@ assembly: aoc-c.s
 ex1: aoc-c
 	@$(TIME) aoc-c -p 1 < $(INPUT)
 
-ex2: aoc-c
-	@$(TIME) aoc-c -p 2 < $(INPUT)
+ex2: day_25a
+	@$(TIME) day_25a $(INPUT)
 
 clean:
 	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s
