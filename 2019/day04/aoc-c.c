@@ -18,17 +18,45 @@
 #include <getopt.h>
 
 #include "debug.h"
+#include "likely.h"
 
-static int is_valid(int number, int part)
+/**
+ * next_number() - finds next suitable number after a faulty right digit
+ * @number: the number
+ * @faulty: the faulty digit position (1, 10, 100, etc...)
+ * @left:   the left digit of faulty one
+ *
+ * This function is called when rule 4 is violated:
+ *    "Going from left to right, the digits never decrease."
+ * Example: 453456
+ *            ^
+ * Here we will replace the faulty digit and next ones with its left digit
+ * value (5 here). Returned number will be 455555.
+ * This function allowed to save 546,495/548,022 calls to is_valid(), which
+ * is 99.7%.
+ */
+static int next_number(int number, int faulty, int left)
 {
-    int valid = 0, dups[10] = { 0 };
-    int digit, dec;
+    int next = number - number % (faulty * 10);
 
-    for (digit = number % 10; number > 10; digit = dec) {
+    for (; faulty; faulty /= 10)
+        next += left * faulty;
+    return next;
+}
+
+static int is_valid(int number, int part, int *next)
+{
+    int valid = 0, dups[10] = { 0 }, work = number;
+    int digit, dec = number + 1, faulty = 1;
+    *next = number + 1;
+
+    for (digit = number % 10; number > 10; digit = dec, faulty *= 10) {
         number /= 10;
         dec = number % 10;
-        if (dec > digit)
+        if (dec > digit) {
+            *next = next_number(work, faulty, dec);
             return 0;
+        }
         if (dec == digit) {
             valid = 1;
             dups[digit] += 2;
@@ -44,13 +72,12 @@ static int is_valid(int number, int part)
 
 static int doit(int *nums, int part)
 {
-    int res = 0;
+    int res = 0, next = 0;
 
-    /* There is surely a way to avoid 99% of useless calls to is_valid.
-     */
-    for (int i = nums[0]; i < nums[1]; ++i)
-        if (is_valid(i, part))
+    for (int i = nums[0]; i < nums[1]; i = next) {
+        if (unlikely(is_valid(i, part, &next)))
             res++;
+    }
     return res;
 }
 
