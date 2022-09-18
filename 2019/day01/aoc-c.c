@@ -1,4 +1,4 @@
-/* aoc-c.c: Advent of Code 2021, day 1 parts 1 & 2
+/* aoc-c.c: Advent of Code 2019, day 1 parts 1 & 2
  *
  * Copyright (C) 2021 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
@@ -15,64 +15,28 @@
 #include <unistd.h>
 
 #include "debug.h"
-#include "bits.h"
 #include "pool.h"
+#include "list.h"
+#include "bits.h"
 
-struct ranges {
-    u32 val;
-    struct list_head list;
-};
-
-LIST_HEAD(list_head);
-
-int ex1()
+static u64 part1()
 {
-    u32 count = 0, res = 0, prev, cur;
+    u64 res = 0;
+    int cur;
 
-    while (scanf("%d", &cur) != EOF) {
-        if (count && cur > prev)
-            res++;
-        count++;
-        prev = cur;
-    }
+    while (scanf("%d", &cur) != EOF)
+        res += cur / 3 - 2;
     return res;
 }
 
-int ex2()
+static u64 part2()
 {
-    u32 count = 0, res = 0;
-    u32 val;
-    pool_t *pool;
-    struct ranges *input;
-    struct ranges *list_cur;
+    u64 res = 0;
+    int cur;
 
-    if (!(pool = pool_create("pool", 10, sizeof (struct ranges))))
-        return -1;
-
-    while (scanf("%d", &val) != EOF) {
-        if (!(input = pool_get(pool)))
-            return -1;
-        input->val = val;
-        list_add_tail(&input->list, &list_head);
-
-        if (count > 2) {
-            u32 loop = 0, v1 = 0, v2 = 0;
-            struct ranges *first = list_entry(list_head.next, struct ranges, list);
-
-            list_for_each_entry(list_cur, &list_head, list) {
-                if (loop < 3)
-                    v1 += list_cur->val;
-                if (loop > 0)
-                    v2 += list_cur->val;
-                ++loop;
-            }
-            list_del(&first->list);
-            pool_add(pool, first);
-            if (v2 > v1)
-                res++;
-        }
-        count++;
-    }
+    while (scanf("%d", &cur) != EOF)
+        while ((cur = cur / 3 - 2) > 0)
+            res += cur;
     return res;
 }
 
@@ -84,8 +48,7 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt;
-    u32 exercise = 1, res;
+    int opt, part = 1;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -93,7 +56,9 @@ int main(int ac, char **av)
                 debug_level_set(atoi(optarg));
                 break;
             case 'p':                             /* 1 or 2 */
-                exercise = atoi(optarg);
+                part = atoi(optarg);
+                if (part < 1 || part > 2)
+                    return usage(*av);
                 break;
             default:
                 return usage(*av);
@@ -103,13 +68,7 @@ int main(int ac, char **av)
     if (optind < ac)
         return usage(*av);
 
-    if (exercise == 1) {
-        res = ex1();
-        printf ("%s : res=%d\n", *av, res);
-    } else {
-        res = ex2();
-        printf ("%s : res=%d\n", *av, res);
-    }
+    printf("%s : res=%lu\n", *av, part == 1? part1(): part2());
 
     exit (0);
 }
