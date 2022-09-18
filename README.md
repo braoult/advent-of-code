@@ -9,5 +9,5 @@
  -  Days 2-18:  Bash and C
  -  Days 19-22: Bash
 
-#### Done 2021 (probably C only) :
- -  Day  1-22, 24: C
+#### Done 2021 (C only) :
+ -  Days  1-25: C
