@@ -1,6 +1,7 @@
 ex*-c
 aoc-c
 core*
+.ccls*
 gmon.out
 *.o
 ex*-cob
