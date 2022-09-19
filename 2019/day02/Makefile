@@ -40,20 +40,25 @@ CFLAGS  += -Wno-unused-result
 CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
 CFLAGS  += -DDEBUG_POOL		# memory pools management
 
+VALGRIND := valgrind
+VALGRINDFLAGS := -q -s --leak-check=full --show-leak-kinds=all --track-origins=yes
+
+
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
 .PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
 
-all: ex1 ex2
+all: README.org ex1 ex2
 
 memcheck: memcheck1
 
-memcheck1:
-	@valgrind -q -s --track-origins=yes aoc-c -p 1 < $(INPUT)
+memcheck1: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 1 < $(INPUT)
 
-memcheck2:
-	@valgrind -q -s --track-origins=yes aoc-c -p 2 < $(INPUT)
+memcheck2: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
+	@#@valgrind -s --track-origins=yes aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
 
@@ -66,12 +71,22 @@ ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 clean:
-	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html
 
 .c:
 	@echo compiling $<
 	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
 
-.c.s:
+# generate pre-processed file (.i) and assembler (.s)
+%.i: %.c
+	@echo generating $@
+	@$(CC) -E $(CFLAGS) -I $(INCDIR) $< -o $@
+
+%.s: %.c
 	@echo generating $@
 	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
+
+# generate README.org from README.html (must cleanup !)
+%.org: %.html
+	@echo generating $@. Cleanup before commit !
+	@pandoc $< -o $@

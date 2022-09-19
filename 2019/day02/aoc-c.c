@@ -145,6 +145,6 @@ int main(int ac, char **av)
         return usage(*av);
     p = parse();
     printf("%s : res=%d\n", *av, part == 1? part1(p): part2(p));
-
+    free(p);
     exit (0);
 }
