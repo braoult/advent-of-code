@@ -40,6 +40,10 @@ CFLAGS  += -Wno-unused-result
 CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
 CFLAGS  += -DDEBUG_POOL		# memory pools management
 
+VALGRIND := valgrind
+VALGRINDFLAGS := -q -s --leak-check=full --show-leak-kinds=all --track-origins=yes
+
+
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
@@ -49,11 +53,12 @@ all: ex1 ex2
 
 memcheck: memcheck1
 
-memcheck1:
-	@valgrind -q -s --track-origins=yes aoc-c -p 1 < $(INPUT)
+memcheck1: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 1 < $(INPUT)
 
-memcheck2:
-	@valgrind -q -s --track-origins=yes aoc-c -p 2 < $(INPUT)
+memcheck2: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
+	@#@valgrind -s --track-origins=yes aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
 
@@ -72,6 +77,11 @@ clean:
 	@echo compiling $<
 	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
 
-.c.s:
+# generate pre-processed file (.i) and assembler (.s)
+%.i: %.c
+	@echo generating $@
+	@$(CC) -E $(CFLAGS) -I $(INCDIR) $< -o $@
+
+%.s: %.c
 	@echo generating $@
 	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
