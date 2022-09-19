@@ -49,7 +49,7 @@ export PATH := .:$(PATH)
 
 .PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
 
-all: ex1 ex2
+all: README.org ex1 ex2
 
 memcheck: memcheck1
 
@@ -71,7 +71,7 @@ ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 clean:
-	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html
 
 .c:
 	@echo compiling $<
@@ -85,3 +85,8 @@ clean:
 %.s: %.c
 	@echo generating $@
 	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
+
+# generate README.org from README.html (must cleanup !)
+%.org: %.html
+	@echo generating $@. Cleanup before commit !
+	@pandoc $< -o $@

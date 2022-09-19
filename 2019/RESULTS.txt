@@ -25,3 +25,17 @@ aoc-c : res=3790689
 aoc-c : res=6533
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+88
+
+=========================================
+================= day03 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc-c : res=860
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+99
+
++++++++++++++++++ part 2
+aoc-c : res=9238
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+98
