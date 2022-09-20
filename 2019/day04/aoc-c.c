@@ -34,16 +34,12 @@ static int is_valid(int number, int part)
             dups[digit] += 2;
         }
     }
-    if (!valid)
-        return 0;
-    if (part == 2) {
-        valid = 0;
-        for (int i = 0; i < 10; ++i) {
-            if (dups[i] == 2)
-                return 1;
-        }
-    }
-    return valid;
+    if (!valid || part == 1)
+        return valid;
+    for (int i = 0; i < 10; ++i)
+        if (dups[i] == 2)
+            return 1;
+    return 0;
 }
 
 static int doit(int *nums, int part)
