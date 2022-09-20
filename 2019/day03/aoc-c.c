@@ -56,7 +56,8 @@ static struct list_head *parse(struct list_head *wires)
         int totdist = 0;
 
         if ((buflen = getline(&buf, &alloc, stdin)) <= 0) {
-            fprintf(stderr, "error %d reading file.\n", errno);
+            fprintf(stderr, "error %d reading input.\n", errno);
+            wires = NULL;
             goto end;
         }
 
