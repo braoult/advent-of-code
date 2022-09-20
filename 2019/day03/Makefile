@@ -51,7 +51,7 @@ export PATH := .:$(PATH)
 
 all: README.org ex1 ex2
 
-memcheck: memcheck1
+memcheck: memcheck1 memcheck2
 
 memcheck1: aoc-c
 	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 1 < $(INPUT)
