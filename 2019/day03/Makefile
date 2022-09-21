@@ -41,7 +41,8 @@ CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
 CFLAGS  += -DDEBUG_POOL		# memory pools management
 
 VALGRIND := valgrind
-VALGRINDFLAGS := -q -s --leak-check=full --show-leak-kinds=all --track-origins=yes
+VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
+	--sigill-diagnostics=yes --quiet --show-error-list=yes
 
 
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
