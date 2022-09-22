@@ -18,6 +18,13 @@
 #ifndef _BR_H
 #define _BR_H
 
+/* Indirect stringification.  Doing two levels allows the parameter to be a
+ * macro itself.  For example, compile with -DFOO=bar, __stringify(FOO)
+ * converts to "bar".
+ */
+#define __stringify_1(x...)	#x
+#define __stringify(x...)	__stringify_1(x)
+
 /* generate a (maybe) unique id.
  */
 #define ___PASTE(x, y)      x##y
