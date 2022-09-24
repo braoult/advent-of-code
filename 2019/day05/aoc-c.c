@@ -19,22 +19,21 @@
 #include "bits.h"
 #include "debug.h"
 
-struct {
+static struct {
     int cur;
     int length;
     int val[10];
-} input;
-
-typedef enum {
-    VAL = 1,                                      /* param is direct value */
-    PTR = 0                                       /* param is indirect value */
-} param_t;
+} input, output;
 
 typedef enum {
     ADD = 1,
     MUL = 2,
-    INP  = 3,
+    INP = 3,
     OUT = 4,
+    JMP_T = 5,
+    JMP_F = 6,
+    SET_LT = 7,
+    SET_EQ = 8,
     HLT = 99
 } opcode_t;
 
@@ -46,23 +45,19 @@ typedef enum {
 static struct {
     opcode_t op;
     u8       len;
+    u8       next;
     char     *mnemo;
 } ops[] = {
-    [ADD] = { ADD, 3, __stringify(ADD) },
-    [MUL] = { MUL, 3, __stringify(MUL) },
-    [INP] = { INP, 1, __stringify(INP)  },
-    [OUT] = { OUT, 1, __stringify(OUT) },
-    [HLT] = { HLT, 0, __stringify(HLT) }
+    [ADD]    = { ADD,    3, 4, __stringify(ADD) },
+    [MUL]    = { MUL,    3, 4, __stringify(MUL) },
+    [INP]    = { INP,    1, 2, __stringify(INP) },
+    [OUT]    = { OUT,    1, 2, __stringify(OUT) },
+    [JMP_T]  = { JMP_T,  2, 0, __stringify(JMP_T) },
+    [JMP_F]  = { JMP_F,  2, 0, __stringify(JMP_F) },
+    [SET_LT] = { SET_LT, 3, 4, __stringify({SET_LT) },
+    [SET_EQ] = { SET_EQ, 3, 4, __stringify(SET_EQ) },
+    [HLT] = { HLT, 0, 1, __stringify(HLT) }
 };
-
-static void print_avail_instr()
-{
-    log_f(3, "ops size: %zu\n", ARRAY_SIZE(ops));
-    for (uint i = 0; i < ARRAY_SIZE(ops); ++i) {
-        if (ops[i].op)
-            log(3, "%02u [%3s] %2d\n", i, ops[i].mnemo, ops[i].len);
-    }
-}
 
 union mem {
     struct {
@@ -86,43 +81,13 @@ static int _flag_pow10[] = {1, 100, 1000, 10000};
 #define OP(p, n)        ((p->mem[n].instr) % 100)
 #define MODE(p, n, i)   (((p->mem[n].instr) / _flag_pow10[i]) % 10)
 
-static union mem *parse_opcode(struct program *p, int pos, union mem *res)
-{
-    u8 op = p->mem[pos].instr % 100;
-    int flags = p->mem[pos].instr / 100;
-    int nargs = ops[op].len;
-
-    log_f(5, "opcode=%02d, flags=%03d", op, flags);
-    if (!ops[op].op) {
-        log(5, "fatal: unknown opcode %d at [%03d]\n", op, pos);
-        return NULL;
-    }
-    res->op = op;
-    res->nargs = nargs;
-    res->flags = 0;
-    for (int i = 0; i < nargs; ++i) {
-        res->flags |= flags % 10 << i;
-        log(3, " flag(0)=%d %d\n", flags % 10 << i, MODE(p, pos, i + 1));
-        flags /= 10;
-        (res + i + 1)->param = p->mem[pos + i + 1].param;
-        log(5, "\t%2d = %d\n", i+1, (res + 1)->param);
-    }
-    log_f(3, "%d %c%c%c %d %d %d\n", res->op,
-          res->flags&4, res->flags&2, res->flags&1, (res + 1)->param,
-          (res + 2)->param, (res + 3)->param);
-    return res;
-}
-
 static int print_opcode(struct program *p, int pos)
 {
-    //union mem mem[10], *instr;
     int op = OP(p, pos);
     if (ops[op].op) {
         int nargs = ops[op].len;
-        //instr->nargs;
-        //int flags = instr->flags;
 
-        log(3, "%03d [%2d][%3s]\t", pos, op, ops[op].mnemo);
+        log(3, "%03d [%2d][%6s]\t", pos, op, ops[op].mnemo);
         for (int i = 1; i <= nargs; ++i) {
             int direct = p->mem[pos + i].param;
             if (i > 1)
@@ -142,11 +107,6 @@ static int print_opcode(struct program *p, int pos)
         log(3, "%d\n", p->mem[pos].param);
         return 0;
     }
-        //p->mem[pos].op, ops[p->mem[pos].op]);
-        //log_f(3, "program size: %d\n", p->length);
-        //for (uint i = 0; i < ARRAY_SIZE(ops); ++i) {
-        //if (ops[i].len)
-        //}
 }
 
 static void print_program_codes(struct program *p)
@@ -166,15 +126,7 @@ static void print_program(struct program *p)
     }
 }
 
-//#define INDIRECT(p, n) (*(&p->mem[0].param + p->mem[n].param))
 #define INDIRECT(p, n) (p->mem[n].param)
-//#define INDIRECT(p, n)  (p->mem[_INDIRECT(p, n)].param)
-
-//#define OP(p) ((p)->ops + (p)->cur)
-
-//#define A1(p) ((p)->ops + *((p)->ops + (p)->cur + 1))
-//#define A2(p) ((p)->ops + *((p)->ops + (p)->cur + 2))
-//#define A3(p) ((p)->ops + *((p)->ops + (p)->cur + 3))
 
 /**
  */
@@ -182,75 +134,81 @@ static int peek(struct program *p, int pos, int arg)
 {
     int flag = MODE(p, pos, arg);
     int ret = p->mem[pos + arg].param;
-    if (flag) {
-        log_f(3, "getting direct value ");
-    } else {
-        log_f(3, "getting indirect (%d) value ", ret);
+    if (!flag)
         ret = p->mem[ret].param;
-    }
-    log(3, "%d\n", ret);
     return ret;
 }
 
 static int poke(struct program *p, int pos, int arg, int val)
 {
     int addr = p->mem[pos + arg].param;
-    log_f(3, "val(%d)=%d\n", pos+arg, addr);
-    //print_program(p);
-    log_f(3, "poking %d at %d+%d=%d\n", val, pos, arg, addr);
     p->mem[addr].param = val;
-    print_program(p);
     return val;
 }
 
 static int run(struct program *p)
 {
-    //union mem mem[10], *instr;
     while (1) {
         int op = OP(p, p->cur);
         int n1, n2;
-        log_f(3, "cur position=%d\n", p->cur);
         if (!(ops[op].op)) {
-            log(3, "PANIC: illegal instruction %d.\n", op);
+            fprintf(stderr, "PANIC: illegal instruction %d at %d.\n", op, p->cur);
             return -1;
         }
-        log(3, "%d, cur=%d len=%d, %d, %d, %d\n", op, p->cur,
-            ops[op].len, p->mem[p->cur+1].instr,
-            p->mem[p->cur+2].instr, p->mem[p->cur+3].instr);
-
+        log(3, "OP=%s\n", ops[op].mnemo?  ops[op].mnemo: "UNKNOWN");
         switch (op) {
             case ADD:
-                log(3, "ADD\n");
                 n1 = peek(p, p->cur, 1);
                 n2 = peek(p, p->cur, 2);
                 poke(p, p->cur, 3, n1 + n2);
-                //*A3(p) = *A1(p) + *A2(p);
                 break;
             case MUL:
-                log(3, "MUL\n");
                 n1 = peek(p, p->cur, 1);
                 n2 = peek(p, p->cur, 2);
                 poke(p, p->cur, 3, n1 * n2);
-                //*A3(prog) = *A1(prog) * *A2(prog);
                 break;
-            case HLT:
-                return p->mem[0].param;
             case INP:
                 poke(p, p->cur, 1, input.val[input.cur++]);
                 break;
             case OUT:
-                printf("***OUT: %d\n", peek(p, p->cur, 0));
+                output.val[output.length++] =  peek(p, p->cur, 1);
                 break;
+            case JMP_T:
+                n1 = peek(p, p->cur, 1);
+                n2 = peek(p, p->cur, 2);
+                if (n1)
+                    p->cur = n2;
+                else
+                    p->cur += ops[op].len + 1;
+                break;
+            case JMP_F:
+                n1 = peek(p, p->cur, 1);
+                n2 = peek(p, p->cur, 2);
+                if (!n1)
+                    p->cur = n2;
+                else
+                    p->cur += ops[op].len + 1;
+                break;
+            case SET_LT:
+                n1 = peek(p, p->cur, 1);
+                n2 = peek(p, p->cur, 2);
+                poke(p, p->cur, 3, n1 < n2 ? 1: 0);
+                break;
+            case SET_EQ:
+                n1 = peek(p, p->cur, 1);
+                n2 = peek(p, p->cur, 2);
+                poke(p, p->cur, 3, n1 == n2 ? 1: 0);
+                break;
+            case HLT:
+                return p->mem[0].param;
             default:
                 fprintf(stderr, "unknown error\n");
                 exit (1);
         }
-        p->cur += ops[op].len + 1;
-        log_f(3, "+++ cur position=%d\n", p->cur);
+        p->cur += ops[op].next;
     }
     return -1;
 }
-
 
 static struct program *parse()
 {
@@ -285,100 +243,25 @@ end:
     return prog;
 }
 
-/*
- * size_t alloc = 0;
- *     ssize_t buflen;
- *     char *buf = NULL, *token;
- *     union mem input;
- *     u8 opcode, flags, nargs;
- *     struct program *prog = NULL;
- *
- *     if ((buflen = getline(&buf, &alloc, stdin)) <= 0) {
- *         fprintf(stderr, "error reading file.\n");
- *         goto end;
- *     }
- *
- *     if (!(prog = calloc(1, sizeof(struct program)))) {
- *         fprintf(stderr, "cannot allocate program.\n");
- *         goto freebuf;
- *     }
- *     for (token = strtok(buf, ","); token; token = strtok(NULL, ",")) {
- *         if (prog->length >= MAXOPS - 1) {
- *             fprintf(stderr, "overflow !\n");
- *             free(prog);
- *             prog = NULL;
- *             goto freebuf;
- *         }
- *         input.param = atoi(token);
- *         /\* we get opcode and parameters types *\/
- *         opcode = input.param % 100;
- *         flags  = input.param / 100;
- *         //log(3, "opcode=%02d, flags=%03d", opcode, flags);
- *         if (!ops[opcode].op) {
- *             log(3, "fatal: unknown opcode %d\n", opcode);
- *             exit(1);
- *         }
- *         prog->mem[prog->length].op = opcode;
- *         /\* get op arguments *\/
- *         if ((nargs = ops[opcode].len)) {
- *             log(3, "opcode=%02d, flags=%03d\n", opcode, flags);
- *             for (int i = 0; i < nargs; ++i) {
- *                 if (!(token = strtok(NULL, ","))) {
- *                     fprintf(stderr, "overflow !\n");
- *                     free(prog);
- *                     prog = NULL;
- *                     goto freebuf;
- *                 }
- *                 prog->mem[prog->length].flags |= flags % 10 << i;
- *                 flags /= 10;
- *                 prog->mem[prog->length + 1 + i].param = atoi(token);
- *                 log(3, "\t%2d = %d\n", i+1, atoi(token));
- *             }
- *         }
- *         prog->length += nargs +1;
- *         //if (prog->length >= MAXOPS - 1) {
- *         //        if ()
- *         //prog->ops[prog->length++] = input;
- *     }
- * freebuf:
- *     free(buf);
- * end:
- *     return prog;
- * }
- */
-
 static int part1(struct program *p)
 {
-    input.val[input.length++] = 1;
+    if (!input.length)
+        input.val[input.length++] = 1;
     run(p);
-//    p->ops[1] = 12;
-//    p->ops[2] = 2;
-
-    return p->length;
+    return output.val[output.length - 1];
 }
 
 static int part2(struct program *p)
 {
-    /*
-     * struct program work;
-     *
-     * for (int noun = 0; noun < 100; ++noun) {
-     *     for (int verb = 0; verb < 100; ++verb) {
-     *         work = *p;
-     *         work.ops[1] = noun;
-     *         work.ops[2] = verb;
-     *         if (run(&work) == 19690720)
-     *             return noun * 100 + verb;
-     *     }
-     * }
-     * return -1;
-     */
-    return p->length;
+    if (!input.length)
+        input.val[input.length++] = 5;
+    run(p);
+    return output.val[output.length - 1];
 }
 
 static int usage(char *prg)
 {
-    fprintf(stderr, "Usage: %s [-d debug_level] [-p part]\n", prg);
+    fprintf(stderr, "Usage: %s [-d debug_level] [-p part] [-i input]\n", prg);
     return 1;
 }
 
@@ -387,10 +270,13 @@ int main(int ac, char **av)
     int opt, part = 1;
     struct program *p;
 
-    while ((opt = getopt(ac, av, "d:p:")) != -1) {
+    while ((opt = getopt(ac, av, "d:p:i:")) != -1) {
         switch (opt) {
             case 'd':
                 debug_level_set(atoi(optarg));
+                break;
+            case 'i':
+                input.val[input.length++] = atoi(optarg);
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
@@ -404,19 +290,8 @@ int main(int ac, char **av)
 
     if (optind < ac)
         return usage(*av);
-    //print_avail_instr();
     p = parse();
     print_program(p);
-    //return 0;
-    //union mem mem[10], *instr;
-    //instr = parse_opcode(p, p->cur, mem);
-    //peek(p, mem, 0);
-    //exit(0);
-    part1(p);
-    print_program_codes(p);
-    printf("mem[0] = %d\n", p->mem[0].param);
-    exit(0);
     printf("%s : res=%d\n", *av, part == 1? part1(p): part2(p));
-    //free(p);
     exit (0);
 }
