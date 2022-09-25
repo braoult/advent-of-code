@@ -28,16 +28,27 @@ typedef enum {
 } opcode_t;
 
 /**
- * ops - array of op-codes mnemoand number of parameters
- * @len: number of parameters
- * @mnemo: op mnemo
+ * ops - array of op-codes, mnemo, and number of parameters
+ * @op:     An integer, the opcode
+ * @nargs:  Opcode number of parameters (unused)
+ * @jump:   Next instruction (usually @nargs + 1)
+ * @mnemo:  Opcode mnemo (unused, for debug)
  */
-static struct {
-    opcode_t op;
-    u8       len;
-    u8       next;
+typedef struct {
+    int      op;
+    u8       nargs;
+    u8       jump;
     char     *mnemo;
-} ops[] = {
+} ops_t;
+
+#define MAXOPS 1024
+typedef struct {
+    int length;                                   /* total program length */
+    int cur;                                      /* current position */
+    int mem [MAXOPS];                             /* should really be dynamic */
+} program_t;
+
+static ops_t ops[] = {
     [ADD]    = { ADD,    3, 4, __stringify(ADD) },
     [MUL]    = { MUL,    3, 4, __stringify(MUL) },
     [INP]    = { INP,    1, 2, __stringify(INP) },
@@ -49,12 +60,6 @@ static struct {
     [HLT]    = { HLT,    0, 1, __stringify(HLT) }
 };
 
-#define MAXOPS 1024
-struct program {
-    int length;                                   /* total program length */
-    int cur;                                      /* current position */
-    int mem [MAXOPS];                             /* should really be dynamic */
-};
 
 static int _flag_pow10[] = {1, 100, 1000, 10000};
 #define OP(p, n)           ((p->mem[n]) % 100)
@@ -63,13 +68,15 @@ static int _flag_pow10[] = {1, 100, 1000, 10000};
 #define INDIRECT(p, i)     (DIRECT(p, DIRECT(p, i)))
 
 #define peek(p, n, i)      (ISDIRECT(p, n, i)? DIRECT(p, n + i): INDIRECT(p, n + i))
-#define poke(p, n, i, val) do { INDIRECT(p, n + i) = val; } while (0)
+#define poke(p, n, i, val) do {       \
+        INDIRECT(p, n + i) = val; }   \
+    while (0)
 
-static int run(struct program *p, int in)
+static int run(program_t *p, int in)
 {
     int out = -1;
     while (1) {
-        int op = OP(p, p->cur), _cur = p->cur;
+        int op = OP(p, p->cur), cur = p->cur;
 
         if (!(ops[op].op)) {
             fprintf(stderr, "PANIC: illegal instruction %d at %d.\n", op, p->cur);
@@ -105,12 +112,12 @@ static int run(struct program *p, int in)
             case HLT:
                 return out;
         }
-        if (p->cur == _cur)
-            p->cur += ops[op].next;
+        if (p->cur == cur)
+            p->cur += ops[op].jump;
     }
 }
 
-static void parse(struct program *prog)
+static void parse(program_t *prog)
 {
     while (scanf("%d%*c", &prog->mem[prog->length++]) > 0)
            ;
@@ -125,7 +132,7 @@ static int usage(char *prg)
 int main(int ac, char **av)
 {
     int opt, part = 1, in = -1;
-    struct program p = { 0 };
+    program_t p = { 0 };
 
     while ((opt = getopt(ac, av, "d:p:i:")) != -1) {
         switch (opt) {

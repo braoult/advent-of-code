@@ -5,7 +5,7 @@ ship computer to support the Thermal Environment Supervision Terminal.
 
 The Thermal Environment Supervision Terminal (TEST) starts by running a
 /diagnostic program/ (your puzzle input). The TEST diagnostic program
-will run on [[file:2][your existing Intcode computer]] after a few
+will run on [[file:~/dev/advent-of-code/2019/day02][your existing Intcode computer]] after a few
 modifications:
 
 /First/, you'll need to add /two new instructions/:
