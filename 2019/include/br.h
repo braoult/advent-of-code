@@ -30,7 +30,6 @@
 #define ___PASTE(x, y)      x##y
 #define __PASTE(x, y)       ___PASTE(x, y)
 #define __UNIQUE_ID(prefix) __PASTE(__PASTE(__UNIQUE_ID_, prefix), __COUNTER__)
-//__##prefix##__COUNTER__
 
 /* see https://lkml.org/lkml/2018/3/20/845 for explanation of this monster
  */
@@ -69,6 +68,8 @@
 	__builtin_choose_expr(__safe_cmp(x, y), \
 		__cmp(x, y, op), \
 		__cmp_once(x, y, __UNIQUE_ID(__x), __UNIQUE_ID(__y), op))
+
+#define __pure   __attribute__((__pure__))
 
 /**
  * min - return minimum of two values of the same or compatible types
