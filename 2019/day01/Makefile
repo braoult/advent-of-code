@@ -24,7 +24,7 @@ LDLIB   := -l$(LIB)
 
 export LD_LIBRARY_PATH = $(LIBDIR)
 
-CFLAGS  += -std=gnu99
+CFLAGS  += -std=gnu11
 CFLAGS  += -O2
 CFLAGS  += -g
 # for gprof
