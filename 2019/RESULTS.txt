@@ -76,9 +76,9 @@ aoc-c : res=14195011
 compiling aoc-c.c
 aoc-c : res=453028
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+429
+	context-switch:	0+1, page-faults: 0+417
 
 +++++++++++++++++ part 2
 aoc-c : res=562
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+436
+	context-switch:	0+1, page-faults: 0+417

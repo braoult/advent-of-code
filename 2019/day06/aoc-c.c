@@ -116,20 +116,6 @@ typedef struct trie {
     object_t *object;
 } trie_t;
 
-/**
- * parent_t - list of parents for an object
- * @object: address of object
- * @list:   next parent
- *
- * For example, if A orbits around B, which orbits around COM, list will be:
- * head -> COM -> B -> A.
- * This is used only in part 2 (to find common ancestor of two objects).
- */
-typedef struct {
-    object_t *object;
-    struct list_head list;
-} parent_t;
-
 static pool_t *pool_tries, *pool_objects;
 
 static trie_t *trie_get(trie_t *parent, char *name, int pos)
@@ -181,44 +167,43 @@ static int part1(object_t *object, int depth)
     return ret;
 }
 
+static int get_depth(object_t *obj)
+{
+    int res = 0;
+    for (; obj; obj = obj->parent)
+        res++;
+    return res;
+}
+
 static int part2(trie_t *root, char *name1, char *name2)
 {
-    object_t *obj;
-    parent_t *parent, *parent1, *parent2;
-    LIST_HEAD(list1);
-    LIST_HEAD(list2);
-    pool_t *pool_parents = pool_create("parents", 1024, sizeof(parent_t));
-    int count = 0;
+    object_t *obj1, *obj2;
+    int count = 0, depth1, depth2;
 
     /* build a list of nodes from root to the two objects
      */
-    obj = object_find(root, name1);
-    while (obj->parent) {
-        count++;
-        obj = obj->parent;
-        parent = pool_get(pool_parents);
-        parent->object = obj;
-        list_add(&parent->list, &list1);
+    obj1 = object_find(root, name1);
+    depth1 = get_depth(obj1);
+    obj2 = object_find(root, name2);
+    depth2 = get_depth(obj2);
+    while (obj1 != obj2) {
+        if (depth1 > depth2) {
+            obj1 = obj1->parent;
+            depth1--;
+            count++;
+        } else if (depth2 > depth1) {
+            obj2 = obj2->parent;
+            depth2--;
+            count++;
+        } else {
+            obj1 = obj1->parent;
+            depth1--;
+            obj2 = obj2->parent;
+            depth2--;
+            count +=2;
+        }
     }
-    obj = object_find(root, name2);
-    while (obj->parent) {
-        count++;
-        obj = obj->parent;
-        parent = pool_get(pool_parents);
-        parent->object = obj;
-        list_add(&parent->list, &list2);
-    }
-    /* skip common parents in the two lists
-     */
-    parent1 = list_first_entry_or_null(&list1, parent_t, list);
-    parent2 = list_first_entry_or_null(&list2, parent_t, list);
-    while (parent1->object == parent2->object) {
-        count -= 2;
-        parent1 = list_next_entry(parent1, list);
-        parent2 = list_next_entry(parent2, list);
-    }
-    pool_destroy(pool_parents);
-    return count;
+    return count - 2;                             /* coz' we want objects parents */
 }
 
 static void parse(trie_t *root)
