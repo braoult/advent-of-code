@@ -36,6 +36,39 @@
  * @sibling:  a list of objects orbiting around @parent
  * @child:    a list of object orbiting around this object
  * @name:     the object name
+ *
+ * Example: if N1 and N2 orbit around O and S orbits around N1, we will
+ * have :
+ *                             +---------+
+ *                       +---->|    0    |<---------+
+ *                       |     |---------|          |
+ *                       |     | parent  |--->NIL   |
+ *                       |     |---------|          |
+ *   +-------------------+---->| child   |<---------+-----------------+
+ *   |                   |     |---------|          |                 |
+ *   |                   |     | sibling |          |                 |
+ *   |                   |     +---------+          |                 |
+ *   |                   |                          |                 |
+ *   |    +---------+    |                          |  +---------+    |
+ *   |    |   N1    |<---+-----+                    |  |   N2    |    |
+ *   |    |---------|    |     |                    |  |---------|    |
+ *   |    | parent  |----+     |                    +--| parent  |    |
+ *   |    |---------|          |                       |---------|    |
+ *   | +->| child   |<---------+----+           NIL<---| child   |    |
+ *   | |  |---------|          |    |                  |---------|    |
+ *   +-+->| sibling |<---------+----+----------------->| sibling |<---+
+ *     |  +---------+          |    |                  +---------+
+ *     |                       |    |
+ *     |  +---------+          |    |
+ *     |  |    S    |          |    |
+ *     |  |---------|          |    |
+ *     |  | parent  |----------+    |
+ *     |  |---------|               |
+ *     |  | child   |--->NIL        |
+ *     |  |---------|               |
+ *     +->| sibling |<--------------+
+ *        +---------+
+ *
  */
 typedef struct object {
     struct object *parent;
@@ -45,15 +78,42 @@ typedef struct object {
 
 /**
  * trie_t - trie node
- * @child:     array of pointers to node_t children of current node
- * @str:       current string (for debug)
- * @is_object: 1: this is an object, 0 if not
- * @data:      object data
+ * @child:     array of pointers to trie_t children of current node
+ * @object:    pointer to object data (NULL if node only)
+ *
+ * For example, if objects N1, N2, and S exist, the structure will be:
+ *
+ *      Root trie
+ *      +--------+-------------------------------------+
+ *      | object | 0 | 1 | ... | N | ... | S | ... | Z |
+ *      +--------+---------------+---------------------+
+ *          |      |             |         |         |
+ *          v      v             |         |         v
+ *         NIL    NIL            |         |        NIL
+ *  +----------------------------+   +-----+
+ *  |   "N" trie                     |  "S" trie
+ *  |   +--------+-------------+     |  +--------------------------+
+ *  +-->| object | 0 | ... | Z |     +->| object | 0 | 1 | 2 | ... |
+ *      +--------+-------------+        +--------------------------+
+ *          |      |         |              |      |   |   |
+ *          |      v         v              v      v   |   |
+ *          |     NIL       NIL            NIL    NIL  |   |
+ *          |        +---------------------------------+   |
+ *          |        |                         +-----------+
+ *          |        |   "S1" trie             |   "S2" trie
+ *          |        |   +------------------+  |   +------------------+
+ *          |        +-->| object | 0 | ... |  +-->| object | 0 | ... |
+ *          |            +------------------+      +------------------+
+ *          |                |      |                  |      |
+ *          |                |      v                  |      v
+ *          v                v     NIL                 v     NIL
+ *     +-----------+   +-----------+             +-----------+
+ *     | Object N  |   | Object S1 |             | Object S2 |
+ *     +-----------+   +-----------+             +-----------+
  */
 typedef struct trie {
     struct trie *child[TRIESIZE];
-    int is_object;
-    object_t data;
+    object_t *object;
 } trie_t;
 
 /**
@@ -62,14 +122,15 @@ typedef struct trie {
  * @list:   next parent
  *
  * For example, if A orbits around B, which orbits around COM, list will be:
- * head -> COM -> B -> A
+ * head -> COM -> B -> A.
+ * This is used only in part 2 (to find common ancestor of two objects).
  */
 typedef struct {
     object_t *object;
     struct list_head list;
 } parent_t;
 
-static pool_t *pool_tries;
+static pool_t *pool_tries, *pool_objects;
 
 static trie_t *trie_get(trie_t *parent, char *name, int pos)
 {
@@ -78,7 +139,7 @@ static trie_t *trie_get(trie_t *parent, char *name, int pos)
     if ((trie = pool_get(pool_tries))) {
         for (int i = 0; i < TRIESIZE; ++i)
             trie->child[i] = NULL;
-        trie->is_object = 0;
+        trie->object = NULL;
         if (parent)
             parent->child[c2index(name[pos])] = trie;
     }
@@ -99,14 +160,14 @@ static trie_t *trie_find(trie_t *root, char *name)
 static object_t *object_find(trie_t *root, char *name)
 {
     trie_t *trie = trie_find(root, name);
-    if (!trie->is_object) {
-        trie->data.parent = NULL;
-        trie->is_object = 1;
-        strcpy(trie->data.name, name);
-        INIT_LIST_HEAD(&trie->data.child);
-        INIT_LIST_HEAD(&trie->data.sibling);
+    if (!trie->object) {
+        trie->object = pool_get(pool_objects);
+        trie->object->parent = NULL;
+        strcpy(trie->object->name, name);
+        INIT_LIST_HEAD(&trie->object->child);
+        INIT_LIST_HEAD(&trie->object->sibling);
     }
-    return &trie->data;
+    return trie->object;
 }
 
 static int part1(object_t *object, int depth)
@@ -200,11 +261,13 @@ int main(int ac, char **av)
         return usage(*av);
 
     pool_tries = pool_create("tries", 1024, sizeof(trie_t));
+    pool_objects = pool_create("objects", 1024, sizeof(object_t));
     trie_t *root = trie_get(NULL, NULL, 0);
     parse(root);
     printf("%s : res=%d\n", *av,
            part == 1 ? part1(object_find(root, "COM"), 0) :
            part2(root, "YOU", "SAN"));
     pool_destroy(pool_tries);
+    pool_destroy(pool_objects);
     exit (0);
 }
