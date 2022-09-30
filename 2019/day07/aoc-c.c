@@ -41,10 +41,13 @@ typedef struct {
     char     *mnemo;
 } ops_t;
 
-#define MAXOPS 1024
+#define MAXINPUT 4
+#define MAXOPS   1024
 typedef struct {
     int length;                                   /* total program length */
     int cur;                                      /* current position */
+    int curinput, lastinput;
+    int input[MAXINPUT];                          /* input */
     int mem [MAXOPS];                             /* should really be dynamic */
 } program_t;
 
@@ -72,7 +75,45 @@ static int _flag_pow10[] = {1, 100, 1000, 10000};
         INDIRECT(p, n + i) = val; }   \
     while (0)
 
-static int run(program_t *p, int in)
+/**
+ * permute - get next permutation of an array of integers
+ * @len:   length of array
+ * @array: address of array
+ *
+ * Algorithm: lexicographic permutations
+ * https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
+ * Before the initial call, the array must be sorted (e.g. 0 2 3 5)
+ *
+ * Return: 1 if next permutation was found, 0 if no more permutation.
+ *
+ */
+static int permute_next(int len, int *array)
+{
+    int k, l;
+
+    /* 1. Find the largest index k such that a[k] < a[k + 1] */
+    for (k = len - 2; k >= 0 && array[k] >= array[k + 1]; k--)
+        ;
+    /*  No more permutations */
+    if (k < 0)
+        return 0;
+    /* 2. Find the largest index l greater than k such that a[k] < a[l] */
+    for (l = len - 1; array[l] <= array[k]; l--)
+        ;
+    /* 3. Swap the value of a[k] with that of a[l] */
+    swap(array[k], array[l]);
+    /* 4. Reverse sequence from a[k + 1] up to the final element */
+    for (l = len - 1, k++; k < l; k++, l--)
+        swap(array[k], array[l]);
+    return 1;
+}
+
+static void dup_program(program_t *from, program_t *to)
+{
+    *to = *from;
+}
+
+static int run(program_t *p)
 {
     int out = -1;
     while (1) {
@@ -90,7 +131,7 @@ static int run(program_t *p, int in)
                 poke(p, p->cur, 3, peek(p, p->cur, 1) *  peek(p, p->cur, 2));
                 break;
             case INP:
-                poke(p, p->cur, 1, in);
+                poke(p, p->cur, 1, p->input[p->curinput++]);
                 break;
             case OUT:
                 out = peek(p, p->cur, 1);
@@ -132,15 +173,20 @@ static int usage(char *prg)
 int main(int ac, char **av)
 {
     int opt, part = 1, in = -1;
-    program_t p = { 0 };
+    program_t p = { 0 }, p1;
+    int phase[] = {0, 1, 2, 3, 4};
 
-    while ((opt = getopt(ac, av, "d:p:i:")) != -1) {
+    while ((opt = getopt(ac, av, "d:p:i:o:")) != -1) {
         switch (opt) {
             case 'd':
                 debug_level_set(atoi(optarg));
                 break;
             case 'i':
-                in = atoi(optarg);
+                p.input[p.lastinput++] = atoi(optarg);
+                break;
+            case 'o':
+                for (ulong i = 0; i < strlen(optarg); ++i)
+                    phase[i] = optarg[i] - '0';
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
@@ -152,11 +198,32 @@ int main(int ac, char **av)
         }
     }
 
+    for (int i = 0; i < 5; ++i)
+        printf("phase[%d]=%d\n", i, phase[i]);
+    parse(&p);
+    int out, max = 0;
+    do {
+        out = 0;
+        for (int i = 0; i < 5; ++i) {
+            dup_program(&p, &p1);
+            p1.input[p1.lastinput++] = phase[i];
+            p1.input[p1.lastinput++] = out;
+            out = run(&p1);
+        }
+        if (out > max) {
+            max = out;
+            printf("new max: %c%c%c%c%c out=%d max=%d\n", phase[0] + '0',
+                   phase[1] + '0', phase[2] + '0', phase[3] + '0', phase[4] + '0',
+                   out, max);
+        }
+    } while (permute_next(5, phase));
+
+    exit(0);
     if (optind < ac)
         return usage(*av);
     if (in == -1)
         in = part == 1? 1: 5;
     parse(&p);
-    printf("%s : res=%d\n", *av, run(&p, in));
+    printf("%s : res=%d\n", *av, run(&p));
     exit (0);
 }
