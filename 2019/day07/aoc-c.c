@@ -18,6 +18,8 @@
 #include "br.h"
 #include "bits.h"
 #include "debug.h"
+#include "list.h"
+#include "pool.h"
 
 typedef enum {
     ADD    = 1, MUL    = 2,
@@ -41,13 +43,18 @@ typedef struct {
     char     *mnemo;
 } ops_t;
 
-#define MAXINPUT 4
+typedef struct input {
+    int val;
+    struct list_head list;
+} input_t;
+
+
 #define MAXOPS   1024
 typedef struct {
     int length;                                   /* total program length */
     int cur;                                      /* current position */
-    int curinput, lastinput;
-    int input[MAXINPUT];                          /* input */
+    struct list_head input;
+    //int input[MAXINPUT];                          /* input */
     int mem [MAXOPS];                             /* should really be dynamic */
 } program_t;
 
@@ -74,6 +81,78 @@ static int _flag_pow10[] = {1, 100, 1000, 10000};
 #define poke(p, n, i, val) do {       \
         INDIRECT(p, n + i) = val; }   \
     while (0)
+
+static int print_opcode(program_t *p, int pos)
+{
+    int op = OP(p, pos);
+    if (ops[op].op) {
+        int nargs = ops[op].nargs;
+        log(3, "%03d [%2d][%6s]\t", pos, op, ops[op].mnemo);
+        for (int i = 1; i <= nargs; ++i) {
+            int direct = p->mem[pos + i];
+            //p->mem[pos + i].param;
+            if (i > 1)
+                log(3, ", ");
+            if (i < 3 && !ISDIRECT(p, pos, i)) {
+                log(3, "*[%d]=", direct);
+                int val = p->mem[direct];
+                log(3, "%d", val);
+            } else {
+                log(3, "%d", direct);
+            }
+        }
+        log(3, "\n");
+        return nargs;
+    } else {
+        log(3, "%03d      \t", pos);
+        log(3, "%d\n", p->mem[pos]);
+        return 0;
+    }
+}
+static void print_program_codes(program_t *p)
+{
+    log(3, "program codes: length=%d\n", p->length);
+    for (int i = 0; i < p->length; ++i)
+        log(3, "%d ", p->mem[i]);
+    log(3, "\n");
+}
+static void print_program(program_t *p)
+{
+    print_program_codes(p);
+    log(3, "program: length=%d\n", p->length);
+    for (int i = 0; i < p->length; ++i) {
+        i += print_opcode(p, i);
+    }
+}
+
+static pool_t *pool_input;
+static int prg_add_input(program_t *prg, int in)
+{
+    input_t *input = pool_get(pool_input);
+    input->val = in;
+    list_add_tail(&input->list, &prg->input);
+    return in;
+}
+
+static int prg_get_input(program_t *prg, int *out)
+{
+    input_t *input = list_first_entry_or_null(&prg->input, input_t, list);
+    if (!input)
+        return 0;
+    *out = input->val;
+    list_del(&input->list);
+    pool_add(pool_input, input);
+    return 1;
+}
+static void prg_print_input(program_t *prg, int num)
+{
+    input_t *cur;
+    printf("prg[%d].input: ", num);
+    list_for_each_entry(cur, &prg->input, list) {
+        printf("%d ", cur->val);
+    }
+    printf("\n");
+}
 
 /**
  * permute - get next permutation of an array of integers
@@ -113,11 +192,11 @@ static void dup_program(program_t *from, program_t *to)
     *to = *from;
 }
 
-static int run(program_t *p)
+static int run(int part, program_t *p, int *end)
 {
     int out = -1;
     while (1) {
-        int op = OP(p, p->cur), cur = p->cur;
+        int op = OP(p, p->cur), cur = p->cur, input;
 
         if (!(ops[op].op)) {
             fprintf(stderr, "PANIC: illegal instruction %d at %d.\n", op, p->cur);
@@ -131,7 +210,13 @@ static int run(program_t *p)
                 poke(p, p->cur, 3, peek(p, p->cur, 1) *  peek(p, p->cur, 2));
                 break;
             case INP:
-                poke(p, p->cur, 1, p->input[p->curinput++]);
+                if (prg_get_input(p, &input)) {
+                    printf("op=%d\nINP %d\n", op, input);
+                    poke(p, p->cur, 1, input);
+                } else {
+                    printf("NO INPUT\n");
+                    return out;
+                }
                 break;
             case OUT:
                 out = peek(p, p->cur, 1);
@@ -151,6 +236,7 @@ static int run(program_t *p)
                 poke(p, p->cur, 3, peek(p, p->cur, 1) == peek(p, p->cur, 2) ? 1: 0);
                 break;
             case HLT:
+                *end = 1;
                 return out;
         }
         if (p->cur == cur)
@@ -172,21 +258,18 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, part = 1, in = -1;
-    program_t p = { 0 }, p1;
-    int phase[] = {0, 1, 2, 3, 4};
+    int phase1[] = {0, 1, 2, 3, 4}, phase2[] = {5, 6, 7, 8, 9}, *phase;
+    int opt, part = 1;
+    program_t p = { 0 }, prg[5];
 
-    while ((opt = getopt(ac, av, "d:p:i:o:")) != -1) {
+    while ((opt = getopt(ac, av, "d:p:o:")) != -1) {
         switch (opt) {
             case 'd':
                 debug_level_set(atoi(optarg));
                 break;
-            case 'i':
-                p.input[p.lastinput++] = atoi(optarg);
-                break;
             case 'o':
                 for (ulong i = 0; i < strlen(optarg); ++i)
-                    phase[i] = optarg[i] - '0';
+                    phase1[i] = optarg[i] - '0';
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
@@ -198,17 +281,36 @@ int main(int ac, char **av)
         }
     }
 
-    for (int i = 0; i < 5; ++i)
-        printf("phase[%d]=%d\n", i, phase[i]);
+    pool_input = pool_create("input", 128, sizeof(input_t));
+
+    if (optind < ac)
+        return usage(*av);
+
+    phase = part == 1? phase1: phase2;
     parse(&p);
-    int out, max = 0;
+    print_program(&p);
+    int out, max = 0, end;
     do {
         out = 0;
-        for (int i = 0; i < 5; ++i) {
-            dup_program(&p, &p1);
-            p1.input[p1.lastinput++] = phase[i];
-            p1.input[p1.lastinput++] = out;
-            out = run(&p1);
+        for (unsigned i = 0; i < ARRAY_SIZE(prg); ++i) {
+            printf("creating array %d\n", i);
+            dup_program(&p, &prg[i]);
+            INIT_LIST_HEAD(&prg[i].input);
+            prg_add_input(&prg[i], phase[i]);
+        }
+
+        //      while (1) {
+        end = 0;
+        while (!end) {
+            for (int i = 0; i < 5; ++i) {
+                prg_add_input(&prg[i], out);
+                prg_print_input(&prg[i], i);
+                //prg[i].input[prg[i].lastinput++] = phase[i];
+                //prg[i].input[prg[i].lastinput++] = out;
+                printf("running program %d\n", i);
+                out = run(part, &prg[i], &end);
+                printf("end program %d out=%d end=%d\n", i, out, end);
+            }
         }
         if (out > max) {
             max = out;
@@ -219,11 +321,4 @@ int main(int ac, char **av)
     } while (permute_next(5, phase));
 
     exit(0);
-    if (optind < ac)
-        return usage(*av);
-    if (in == -1)
-        in = part == 1? 1: 5;
-    parse(&p);
-    printf("%s : res=%d\n", *av, run(&p));
-    exit (0);
 }
