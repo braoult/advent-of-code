@@ -1,6 +1,6 @@
 /* aoc-c.c: Advent of Code 2019, day 6 parts 1 & 2
  *
- * Copyright (C) 2021 Bruno Raoult ("br")
+ * Copyright (C) 2022 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
  * Some rights reserved. See COPYING.
  *
@@ -17,6 +17,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 
+#include "br.h"
 #include "debug.h"
 #include "pool.h"
 
@@ -130,7 +131,6 @@ static trie_t *trie_get(trie_t *parent, char *name, int pos)
         if (parent)
             parent->child[c2index(name[pos])] = trie;
     }
-    printf ("tot=%d\n", total);
     return trie;
 }
 
@@ -156,22 +156,37 @@ static object_t *object_find(trie_t *root, char *name)
         strcpy(trie->object->name, name);
         INIT_LIST_HEAD(&trie->object->child);
         INIT_LIST_HEAD(&trie->object->sibling);
-        printf ("tot2=%d\n", total);
     }
     return trie->object;
 }
 
-static int part1(object_t *object, int depth)
+/**
+ * get_orbits - get all orbits (direct and indirect) around an object
+ * @object: object address
+ * @depth: depth of current object
+ */
+static int get_orbits(object_t *object, int depth)
 {
     int ret = depth;
     object_t *cur;
 
     if (!list_empty(&object->child))
         list_for_each_entry(cur, &object->child, sibling)
-            ret += part1(cur, depth + 1);
+            ret += get_orbits(cur, depth + 1);
     return ret;
 }
 
+static int part1(trie_t *root, char *name)
+{
+    object_t *object = object_find(root, name);
+    return get_orbits(object, 0);
+}
+
+/**
+ * get_depth - get depth of an object in a tree
+ * @object: object address
+ * Return: object depth
+ */
 static int get_depth(object_t *obj)
 {
     int res = 0;
@@ -182,33 +197,28 @@ static int get_depth(object_t *obj)
 
 static int part2(trie_t *root, char *name1, char *name2)
 {
-    object_t *obj1, *obj2;
+    object_t *obj1 = object_find(root, name1), *obj2 = object_find(root, name2);
     int count = 0, depth1, depth2;
 
-    /* build a list of nodes from root to the two objects
-     */
-    obj1 = object_find(root, name1);
     depth1 = get_depth(obj1);
-    obj2 = object_find(root, name2);
     depth2 = get_depth(obj2);
-    while (obj1 != obj2) {
-        if (depth1 > depth2) {
-            obj1 = obj1->parent;
-            depth1--;
-            count++;
-        } else if (depth2 > depth1) {
-            obj2 = obj2->parent;
-            depth2--;
-            count++;
-        } else {
-            obj1 = obj1->parent;
-            depth1--;
-            obj2 = obj2->parent;
-            depth2--;
-            count +=2;
-        }
+    /* ensure highest depth is obj1
+     */
+    if (depth1 < depth2) {
+        swap(obj1, obj2);
+        swap(depth1, depth2);
     }
-    return count - 2;                             /* coz' we want objects parents */
+    /* make the 2 depths equal
+     */
+    for (; depth1 > depth2; count++, depth1--)
+        obj1 = obj1->parent;
+    /* find common parent
+     */
+    for (; obj1 != obj2; count += 2) {
+        obj1 = obj1->parent;
+        obj2 = obj2->parent;
+    }
+    return count - 2;                             /* coz' we want parents objects */
 }
 
 static void parse(trie_t *root)
@@ -255,8 +265,7 @@ int main(int ac, char **av)
     trie_t *root = trie_get(NULL, NULL, 0);
     parse(root);
     printf("%s : res=%d\n", *av,
-           part == 1 ? part1(object_find(root, "COM"), 0) :
-           part2(root, "YOU", "SAN"));
+           part == 1 ? part1(root, "COM") : part2(root, "YOU", "SAN"));
     pool_destroy(pool_tries);
     pool_destroy(pool_objects);
     exit (0);
