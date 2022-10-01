@@ -82,3 +82,17 @@ aoc-c : res=453028
 aoc-c : res=562
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+417
+
+=========================================
+================= day07 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc-c : res=65464
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+94
+
++++++++++++++++++ part 2
+aoc-c : res=1518124
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+94
