@@ -122,8 +122,7 @@ static pool_t *pool_tries, *pool_objects;
 static trie_t *trie_get(trie_t *parent, char *name, int pos)
 {
     trie_t *trie;
-    static int total = 0;
-    total ++;
+
     if ((trie = pool_get(pool_tries))) {
         for (int i = 0; i < TRIESIZE; ++i)
             trie->child[i] = NULL;
@@ -148,9 +147,8 @@ static trie_t *trie_find(trie_t *root, char *name)
 static object_t *object_find(trie_t *root, char *name)
 {
     trie_t *trie = trie_find(root, name);
-    static int total = 0;
+
     if (!trie->object) {
-        total ++;
         trie->object = pool_get(pool_objects);
         trie->object->parent = NULL;
         strcpy(trie->object->name, name);
