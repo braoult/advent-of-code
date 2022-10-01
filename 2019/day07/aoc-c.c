@@ -149,7 +149,7 @@ static int run(program_t *p, int *end)
                 if (prg_get_input(p, &input))
                     poke(p, p->cur, 1, input);
                 else
-                    /* we need an input which is not yet avalable, so we need
+                    /* we need an input which is not yet avalaible, so we need
                      * to put the program in "waiting mode": We stop it (and
                      * return output value) without setting end flag.
                      */
