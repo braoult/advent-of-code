@@ -43,16 +43,17 @@ typedef struct {
 } ops_t;
 
 typedef struct input {
-    int val;
+    s64 val;
     struct list_head list;
 } input_t;
 
 #define MAXOPS   1024
 typedef struct {
     int length;                                   /* total program length */
-    int cur;                                      /* current position */
+    int cur;                                      /* current instruction */
+    int rel;                                      /* current relative memory */
     struct list_head input;                       /* process input queue */
-    int mem [MAXOPS];                             /* should really be dynamic */
+    s64 mem [MAXOPS];                             /* should really be dynamic */
 } program_t;
 
 static ops_t ops[] = {
@@ -60,24 +61,75 @@ static ops_t ops[] = {
     [INP]    = { INP,    2 },    [OUT]    = { OUT,    2 },
     [JMP_T]  = { JMP_T,  3 },    [JMP_F]  = { JMP_F,  3 },
     [SET_LT] = { SET_LT, 4 },    [SET_EQ] = { SET_EQ, 4 },
+    [ADJ_RL] = { ADJ_RL, 2 },
     [HLT]    = { HLT,    1 }
 };
 
+typedef enum {
+    IND = 0,
+    DIR = 1,
+    REL = 2
+} param_t;
 
-static int _flag_pow10[] = {1, 100, 1000, 10000};
-#define OP(p, n)           ((p->mem[n]) % 100)
-#define ISDIRECT(p, n, i)  ((((p->mem[n]) / _flag_pow10[i]) % 10))
+static inline int getop(program_t *prg, int addr)
+{
+    return prg->mem[addr] % 100;
+}
+
+static inline param_t paramtype(program_t *prg, int addr, int param)
+{
+    static int _flag_pow10[] = {1, 100, 1000, 10000};
+    return prg->mem[addr] / _flag_pow10[param] % 10;
+}
+
+//static int _flag_pow10[] = {1, 100, 1000, 10000};
+//#define OP(p, n)           ((p->mem[n]) % 100)
+#define ISDIRECT(p, n, i)  ((((p->mem[n]) / _flag_pow10[i]) % 10) == 1)
 #define DIRECT(p, i)       ((p)->mem[i])
 #define INDIRECT(p, i)     (DIRECT(p, DIRECT(p, i)))
 
-#define peek(p, n, i)      (ISDIRECT(p, n, i)? DIRECT(p, n + i): INDIRECT(p, n + i))
+static inline s64 peek(program_t *prg, int cur, int param)
+{
+    param_t partype = paramtype(prg, cur, param);
+    //printf("partype=%d\n", partype);
+    switch(partype) {
+        case DIR:
+            return DIRECT(prg, cur + param);
+        case IND:
+            return INDIRECT(prg, cur + param);
+        case REL:
+            return INDIRECT(prg, cur + prg->rel + param);
+    }
+    return 0;                                     /* not reached */
+}
+
+static inline void poke(program_t *prg, int cur, int param, s64 val)
+{
+
+    param_t partype = paramtype(prg, cur, param);
+    //printf("partype=%d\n", partype);
+    switch(partype) {
+        case DIR:
+            printf("should not happen here\n");
+            break;
+            //    DIRECT(prg, cur + param);
+        case IND:
+            INDIRECT(prg, cur + param) = val;
+            break;
+        case REL:
+            INDIRECT(prg, cur + prg->rel + param) = val;
+    }
+}
+
+//#define peek(p, n, i)      (ISDIRECT(p, n, i)? DIRECT(p, n + i): INDIRECT(p, n + i))
+/*
 #define poke(p, n, i, val) do {       \
         INDIRECT(p, n + i) = val; }   \
     while (0)
-
+*/
 
 static pool_t *pool_input;
-static __always_inline int prg_add_input(program_t *prg, int in)
+static __always_inline s64 prg_add_input(program_t *prg, s64 in)
 {
     input_t *input = pool_get(pool_input);
     input->val = in;
@@ -85,7 +137,7 @@ static __always_inline int prg_add_input(program_t *prg, int in)
     return in;
 }
 
-static __always_inline int prg_get_input(program_t *prg, int *out)
+static __always_inline s64 prg_get_input(program_t *prg, s64 *out)
 {
     input_t *input = list_first_entry_or_null(&prg->input, input_t, list);
     if (!input)
@@ -129,11 +181,12 @@ static int permute_next(int len, int *array)
     return 1;
 }
 
-static int run(program_t *p, int *end)
+static s64 run(program_t *p, int *end)
 {
-    int out = -1;
+    s64 out = -1, input;
     while (1) {
-        int op = OP(p, p->cur), cur = p->cur, input;
+        int cur = p->cur;
+        opcode_t op = getop(p, p->cur);
 
         if (!(ops[op].op)) {
             fprintf(stderr, "PANIC: illegal instruction %d at %d.\n", op, p->cur);
@@ -173,6 +226,9 @@ static int run(program_t *p, int *end)
             case SET_EQ:
                 poke(p, p->cur, 3, peek(p, p->cur, 1) == peek(p, p->cur, 2) ? 1: 0);
                 break;
+            case ADJ_RL:
+                p->rel += peek(p, p->cur, 1);
+                break;
             case HLT:
                 *end = 1;
             sleep:
@@ -185,8 +241,8 @@ static int run(program_t *p, int *end)
 
 static void parse(program_t *prog)
 {
-    while (scanf("%d%*c", &prog->mem[prog->length++]) > 0)
-           ;
+    while (scanf("%ld%*c", &prog->mem[prog->length++]) > 0)
+        ;
 }
 
 static int usage(char *prg)
