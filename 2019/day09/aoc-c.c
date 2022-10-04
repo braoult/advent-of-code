@@ -74,52 +74,45 @@ typedef enum {
     REL = 2
 } param_t;
 
-static inline int getop(program_t *prg, int addr)
+static __always_inline int getop(program_t *prg, int addr)
 {
     return prg->mem[addr] % 100;
 }
 
-static inline param_t paramtype(program_t *prg, int addr, int param)
+static __always_inline param_t paramtype(program_t *prg, int addr, int param)
 {
     static int _flag_pow10[] = {1, 100, 1000, 10000};
     return prg->mem[addr] / _flag_pow10[param] % 10;
 }
 
-//static int _flag_pow10[] = {1, 100, 1000, 10000};
-//#define OP(p, n)           ((p->mem[n]) % 100)
-#define ISDIRECT(p, n, i)  ((((p->mem[n]) / _flag_pow10[i]) % 10) == 1)
 #define DIRECT(p, i)       ((p)->mem[i])
 #define INDIRECT(p, i)     (DIRECT(p, DIRECT(p, i)))
-#define RELATIVE(p, i)     (DIRECT(p , p->rel + DIRECT(p, i)))
+#define RELATIVE(p, i)     (DIRECT(p, DIRECT(p, i) + p->rel))
 
-static inline s64 peek(program_t *prg, s64 cur, s64 param)
+static __always_inline s64 peek(program_t *prg, s64 cur, s64 param)
 {
     switch(paramtype(prg, cur, param)) {
-        case DIR:
-            return DIRECT(prg, cur + param);
         case IND:
             return INDIRECT(prg, cur + param);
         case REL:
             return RELATIVE(prg, cur + param);
+        case DIR:
+            return DIRECT(prg, cur + param);
     }
     return 0;                                     /* not reached */
 }
 
-static inline void poke(program_t *prg, int cur, int param, s64 val)
+static __always_inline void poke(program_t *prg, int cur, int param, s64 val)
 {
-    switch(paramtype(prg, cur, param)) {
-        case IND:
-            INDIRECT(prg, cur + param) = val;
-        case DIR:                                 /* never happens */
-            break;
-        case REL:
-            RELATIVE(prg, cur + param) = val;
-    }
+    if (paramtype(prg, cur, param) == REL)
+        RELATIVE(prg, cur + param) = val;
+    else
+        INDIRECT(prg, cur + param) = val;
 }
 
 static pool_t *pool_io;
 
-static __always_inline int prg_add_input(program_t *prg, s64 in)
+static inline int prg_add_input(program_t *prg, s64 in)
 {
     io_t *input = pool_get(pool_io);
     input->val = in;
@@ -127,7 +120,7 @@ static __always_inline int prg_add_input(program_t *prg, s64 in)
     return in;
 }
 
-static __always_inline s64 prg_add_output(program_t *prg, s64 out)
+static inline s64 prg_add_output(program_t *prg, s64 out)
 {
     io_t *output = pool_get(pool_io);
     output->val = out;
@@ -135,7 +128,7 @@ static __always_inline s64 prg_add_output(program_t *prg, s64 out)
     return out;
 }
 
-static __always_inline int prg_get_input(program_t *prg, s64 *in)
+static inline int prg_get_input(program_t *prg, s64 *in)
 {
     io_t *input = list_first_entry_or_null(&prg->input, io_t, list);
     if (!input)
@@ -146,7 +139,7 @@ static __always_inline int prg_get_input(program_t *prg, s64 *in)
     return 1;
 }
 
-static __always_inline _unused int prg_get_output(program_t *prg, s64 *out)
+static inline _unused int prg_get_output(program_t *prg, s64 *out)
 {
     io_t *output = list_first_entry_or_null(&prg->output, io_t, list);
     if (!output)
@@ -159,7 +152,7 @@ static __always_inline _unused int prg_get_output(program_t *prg, s64 *out)
 
 static s64 run(program_t *p, int *end)
 {
-    s64 out = -1, input, tmp;
+    s64 out = -1, input;
 
     while (1) {
         int cur = p->cur;
@@ -187,8 +180,7 @@ static s64 run(program_t *p, int *end)
                     goto sleep;
                 break;
             case OUT:
-                out = peek(p, p->cur, 1);
-                prg_add_output(p, out);
+                prg_add_output(p, out = peek(p, p->cur, 1));
                 break;
             case JMP_T:
                 if (peek(p, p->cur, 1))
@@ -231,8 +223,7 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int opt, end = 0, part = 1;
-    program_t p = { 0 };
+    int opt, part = 1;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -248,16 +239,18 @@ int main(int ac, char **av)
                 return usage(*av);
         }
     }
-
-    pool_io = pool_create("i/o", 128, sizeof(io_t));
-
     if (optind < ac)
         return usage(*av);
 
-    parse(&p);
+    int end = 0;
+    program_t p = { 0 };
+
+    pool_io = pool_create("i/o", 128, sizeof(io_t));
+
     INIT_LIST_HEAD(&p.input);
     INIT_LIST_HEAD(&p.output);
     prg_add_input(&p, part);
+    parse(&p);
 
     printf("%s : res=%ld\n", *av, run(&p, &end));
     pool_destroy(pool_io);
