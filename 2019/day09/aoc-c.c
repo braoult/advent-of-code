@@ -21,6 +21,8 @@
 #include "list.h"
 #include "pool.h"
 
+#define _unused __attribute__((unused))
+
 /*  operators codes
  */
 typedef enum {
@@ -42,17 +44,18 @@ typedef struct {
     u8       length;
 } ops_t;
 
-typedef struct input {
+typedef struct io {
     s64 val;
     struct list_head list;
-} input_t;
+} io_t;
 
-#define MAXOPS   1024
+#define MAXOPS   2048
 typedef struct {
-    int length;                                   /* total program length */
-    int cur;                                      /* current instruction */
-    int rel;                                      /* current relative memory */
+    s64 length;                                   /* total program length */
+    s64 cur;                                      /* current instruction */
+    s64 rel;                                      /* current relative memory */
     struct list_head input;                       /* process input queue */
+    struct list_head output;                      /* process output queue */
     s64 mem [MAXOPS];                             /* should really be dynamic */
 } program_t;
 
@@ -87,109 +90,83 @@ static inline param_t paramtype(program_t *prg, int addr, int param)
 #define ISDIRECT(p, n, i)  ((((p->mem[n]) / _flag_pow10[i]) % 10) == 1)
 #define DIRECT(p, i)       ((p)->mem[i])
 #define INDIRECT(p, i)     (DIRECT(p, DIRECT(p, i)))
+#define RELATIVE(p, i)     (DIRECT(p , p->rel + DIRECT(p, i)))
 
-static inline s64 peek(program_t *prg, int cur, int param)
+static inline s64 peek(program_t *prg, s64 cur, s64 param)
 {
-    param_t partype = paramtype(prg, cur, param);
-    //printf("partype=%d\n", partype);
-    switch(partype) {
+    switch(paramtype(prg, cur, param)) {
         case DIR:
             return DIRECT(prg, cur + param);
         case IND:
             return INDIRECT(prg, cur + param);
         case REL:
-            return INDIRECT(prg, cur + prg->rel + param);
+            return RELATIVE(prg, cur + param);
     }
     return 0;                                     /* not reached */
 }
 
 static inline void poke(program_t *prg, int cur, int param, s64 val)
 {
-
-    param_t partype = paramtype(prg, cur, param);
-    //printf("partype=%d\n", partype);
-    switch(partype) {
-        case DIR:
-            printf("should not happen here\n");
-            break;
-            //    DIRECT(prg, cur + param);
+    switch(paramtype(prg, cur, param)) {
         case IND:
             INDIRECT(prg, cur + param) = val;
+        case DIR:                                 /* never happens */
             break;
         case REL:
-            INDIRECT(prg, cur + prg->rel + param) = val;
+            RELATIVE(prg, cur + param) = val;
     }
 }
 
-//#define peek(p, n, i)      (ISDIRECT(p, n, i)? DIRECT(p, n + i): INDIRECT(p, n + i))
-/*
-#define poke(p, n, i, val) do {       \
-        INDIRECT(p, n + i) = val; }   \
-    while (0)
-*/
+static pool_t *pool_io;
 
-static pool_t *pool_input;
-static __always_inline s64 prg_add_input(program_t *prg, s64 in)
+static __always_inline int prg_add_input(program_t *prg, s64 in)
 {
-    input_t *input = pool_get(pool_input);
+    io_t *input = pool_get(pool_io);
     input->val = in;
     list_add_tail(&input->list, &prg->input);
     return in;
 }
 
-static __always_inline s64 prg_get_input(program_t *prg, s64 *out)
+static __always_inline s64 prg_add_output(program_t *prg, s64 out)
 {
-    input_t *input = list_first_entry_or_null(&prg->input, input_t, list);
+    io_t *output = pool_get(pool_io);
+    output->val = out;
+    list_add_tail(&output->list, &prg->output);
+    return out;
+}
+
+static __always_inline int prg_get_input(program_t *prg, s64 *in)
+{
+    io_t *input = list_first_entry_or_null(&prg->input, io_t, list);
     if (!input)
         return 0;
-    *out = input->val;
+    *in = input->val;
     list_del(&input->list);
-    pool_add(pool_input, input);
+    pool_add(pool_io, input);
     return 1;
 }
 
-/**
- * permute - get next permutation of an array of integers
- * @len:   length of array
- * @array: address of array
- *
- * Algorithm: lexicographic permutations
- * https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
- * Before the initial call, the array must be sorted (e.g. 0 2 3 5)
- *
- * Return: 1 if next permutation was found, 0 if no more permutation.
- *
- */
-static int permute_next(int len, int *array)
+static __always_inline _unused int prg_get_output(program_t *prg, s64 *out)
 {
-    int k, l;
-
-    /* 1. Find the largest index k such that a[k] < a[k + 1] */
-    for (k = len - 2; k >= 0 && array[k] >= array[k + 1]; k--)
-        ;
-    /*  No more permutations */
-    if (k < 0)
+    io_t *output = list_first_entry_or_null(&prg->output, io_t, list);
+    if (!output)
         return 0;
-    /* 2. Find the largest index l greater than k such that a[k] < a[l] */
-    for (l = len - 1; array[l] <= array[k]; l--)
-        ;
-    /* 3. Swap the value of a[k] with that of a[l] */
-    swap(array[k], array[l]);
-    /* 4. Reverse sequence from a[k + 1] up to the final element */
-    for (l = len - 1, k++; k < l; k++, l--)
-        swap(array[k], array[l]);
+    *out = output->val;
+    list_del(&output->list);
+    pool_add(pool_io, output);
     return 1;
 }
 
 static s64 run(program_t *p, int *end)
 {
-    s64 out = -1, input;
+    s64 out = -1, input, tmp;
+
     while (1) {
         int cur = p->cur;
         opcode_t op = getop(p, p->cur);
 
         if (!(ops[op].op)) {
-            fprintf(stderr, "PANIC: illegal instruction %d at %d.\n", op, p->cur);
+            fprintf(stderr, "PANIC: illegal instruction %d at %ld.\n", op, p->cur);
             return -1;
         }
         switch (op) {
@@ -211,6 +188,7 @@ static s64 run(program_t *p, int *end)
                 break;
             case OUT:
                 out = peek(p, p->cur, 1);
+                prg_add_output(p, out);
                 break;
             case JMP_T:
                 if (peek(p, p->cur, 1))
@@ -253,18 +231,13 @@ static int usage(char *prg)
 
 int main(int ac, char **av)
 {
-    int phase1[] = {0, 1, 2, 3, 4}, phase2[] = {5, 6, 7, 8, 9}, *phase;
-    int opt, max = 0, part = 1;
-    program_t p = { 0 }, prg[5];
+    int opt, end = 0, part = 1;
+    program_t p = { 0 };
 
-    while ((opt = getopt(ac, av, "d:p:o:")) != -1) {
+    while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
             case 'd':
                 debug_level_set(atoi(optarg));
-                break;
-            case 'o':
-                for (ulong i = 0; i < strlen(optarg); ++i)
-                    phase1[i] = optarg[i] - '0';
                 break;
             case 'p':                             /* 1 or 2 */
                 part = atoi(optarg);
@@ -276,39 +249,17 @@ int main(int ac, char **av)
         }
     }
 
-    pool_input = pool_create("input", 128, sizeof(input_t));
+    pool_io = pool_create("i/o", 128, sizeof(io_t));
 
     if (optind < ac)
         return usage(*av);
 
-    phase = part == 1? phase1: phase2;
     parse(&p);
+    INIT_LIST_HEAD(&p.input);
+    INIT_LIST_HEAD(&p.output);
+    prg_add_input(&p, part);
 
-    do {
-        int out = 0, end = 0;
-        /* reset programs initial state, and add phase to their input
-         */
-        for (unsigned i = 0; i < ARRAY_SIZE(prg); ++i) {
-            prg[i] = p;
-            INIT_LIST_HEAD(&prg[i].input);
-            prg_add_input(&prg[i], phase[i]);
-        }
-
-        /* run the 5 processes in order (0, 1, 2, 3, 4, 0, 1, etc...),
-         * until end flag is set by the process 4 (HLT instruction)
-         */
-        while (!end) {
-            for (int i = 0; i < 5; ++i) {
-                /* add last process output in current process input queue
-                 */
-                prg_add_input(&prg[i], out);
-                out = run(&prg[i], &end);
-            }
-        }
-        max = max(max, out);
-    } while (permute_next(5, phase));
-
-    printf("%s : res=%d\n", *av, max);
-    pool_destroy(pool_input);
+    printf("%s : res=%ld\n", *av, run(&p, &end));
+    pool_destroy(pool_io);
     exit(0);
 }
