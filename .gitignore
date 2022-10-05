@@ -2,6 +2,8 @@ ex*-c
 aoc-c
 core*
 .ccls*
+.projectile
+.dir-locals.el
 gmon.out
 *.o
 ex*-cob
