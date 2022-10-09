@@ -27,21 +27,15 @@ while read -r line; do
                ;;
         esac
         if [[ "$c" = e ]]; then
-            (( x++ ))
+            ((++x))
         elif [[ "$c" = w ]]; then
-            (( x-- ))
+            ((--x))
         else
             printf "error c=%s\n" "$c"
+            exit 1
         fi
     done
-    printf "new tile at (%d,%d): " "$x" "$y"
-    if [[ -v plan[$x,$y] ]]; then
-        printf "already set\n"
-        unset "plan[$x,$y]"
-    else
-        printf "new\n"
-        plan[$x,$y]=1
-    fi
+    [[ -v plan[$x,$y] ]] && unset "plan[$x,$y]" || plan[$x,$y]=1
 done
 res=${#plan[@]}
 printf "%s: res=%s\n" "$CMD" "$res"
