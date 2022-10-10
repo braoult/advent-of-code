@@ -9,7 +9,7 @@
 
 #### Advent of Code 2020
  - `C`: Days 1-18
- - `Bash`: Days 1-23
+ - `Bash`: Days 1-24
  - `Cobol`: Day 1 (!!)
 
 #### Advent of Code 2021

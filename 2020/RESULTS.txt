@@ -497,3 +497,15 @@ ex1.bash: res=75893264
 ex2.bash: res=38162588308
 	time: 6:52.50 real, 412.30 user, 0.14 sys
 	context-switch:	2219+1, page-faults: 0+30233
+
+=========================================
+================= day24 =================
+=========================================
+
+ex1.bash: res=450
+	time: 0:00.17 real, 0.17 user, 0.00 sys
+	context-switch:	5+1, page-faults: 0+177
+
+ex2.bash: res=4059
+	time: 0:22.35 real, 22.22 user, 0.07 sys
+	context-switch:	1471+1, page-faults: 0+858
