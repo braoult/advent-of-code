@@ -509,3 +509,11 @@ ex1.bash: res=450
 ex2.bash: res=4059
 	time: 0:22.35 real, 22.22 user, 0.07 sys
 	context-switch:	1471+1, page-faults: 0+858
+
+=========================================
+================= day25 =================
+=========================================
+
+ex1.bash: res=9620012
+	time: 2:42.30 real, 162.05 user, 0.08 sys
+	context-switch:	3634+1, page-faults: 0+163
