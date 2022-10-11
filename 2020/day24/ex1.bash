@@ -2,6 +2,10 @@
 #
 # ex1.bash: Advent2020 game, day 24/game 1.
 
+# See https://www.redblobgames.com/grids/hexagons/ for hexagon possible
+# representations.
+# I use the "doubled-coordinate" system here :
+#   https://www.redblobgames.com/grids/hexagons/#coordinates-doubled
 CMD=${0##*/}
 shopt -s extglob
 set -o noglob
