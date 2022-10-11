@@ -28,7 +28,7 @@ ex2: ex2-c ex2-sort-cob ex2-pure-sort-cob
 	@$(TIME) ex2-c < $(INPUT)
 
 clean:
-	@rm -f ex1-c ex2-c core ex2-galoisgirl-cob ex2-cob
+	@rm -f ex1-c ex2-c core ex*-cob
 
 output:
 	$(MAKE) --no-print-directory all >OUTPUT 2>&1
