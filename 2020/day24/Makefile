@@ -14,6 +14,8 @@ INPUT   := INPUT.txt
 SHELL   := /bin/bash
 
 CC      := gcc
+BEAR    := bear
+CCLSFILE:= compile_commands.json
 
 LIB     := aoc_$(shell uname -m)
 INCDIR  := ../include
@@ -48,9 +50,9 @@ VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls
 
-all: README.org ex1 ex2
+all: README.org ccls ex1 ex2
 
 memcheck: memcheck1 memcheck2
 
@@ -70,6 +72,8 @@ ex1: aoc-c
 
 ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT)
+
+ccls: $(CCLSFILE)
 
 clean:
 	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
@@ -91,3 +95,7 @@ clean:
 %.org: %.html
 	@echo generating $@. Cleanup before commit !
 	@pandoc $< -o $@
+
+# generate compile_commands.json
+$(CCLSFILE): aoc-c.c Makefile
+	$(BEAR) -- make clean compile
