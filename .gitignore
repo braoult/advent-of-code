@@ -11,8 +11,5 @@ lib/
 GPATH
 GRTAGS
 GTAGS
-FOO*
-BAR*
-QUAX*
-TOTO*
 README.html
+compile_commands.json
