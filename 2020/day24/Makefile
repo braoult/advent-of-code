@@ -61,9 +61,10 @@ memcheck1: aoc-c
 
 memcheck2: aoc-c
 	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
-	@#@valgrind -s --track-origins=yes aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
+
+cpp: aoc-c.i
 
 assembly: aoc-c.s
 
@@ -99,3 +100,7 @@ clean:
 # generate compile_commands.json
 $(CCLSFILE): aoc-c.c Makefile
 	$(BEAR) -- make clean compile
+
+bear: clean
+	@$(BEAR) -- make compile
+	@touch .ccls-root

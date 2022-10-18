@@ -39,25 +39,34 @@ CFLAGS  += -march=native
 CFLAGS  += -Wmissing-declarations
 CFLAGS  += -Wno-unused-result
 
-#CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
-#CFLAGS  += -DDEBUG_POOL		# memory pools management
+CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
+CFLAGS  += -DDEBUG_POOL		# memory pools management
+
+VALGRIND := valgrind
+VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
+	--sigill-diagnostics=yes --quiet --show-error-list=yes
+
 
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 bear
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 bear org
 
-all: ex1 ex2
+org: README.org
+
+all: org ex1 ex2
 
 memcheck: memcheck1 memcheck2
 
 memcheck1: aoc-c
-	@valgrind -q -s --track-origins=yes aoc-c -p 1 < $(INPUT)
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 1 < $(INPUT)
 
 memcheck2: aoc-c
-	@valgrind -q -s --track-origins=yes aoc-c -p 2 < $(INPUT)
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
+
+cpp: aoc-c.i
 
 assembly: aoc-c.s
 
@@ -70,7 +79,7 @@ ex2: aoc-c
 	@$(TIME) aoc-c -p 2 < $(INPUT) 2>&1
 
 clean:
-	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s compile_commands.json
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
 
 .c:
 	@echo compiling $<
