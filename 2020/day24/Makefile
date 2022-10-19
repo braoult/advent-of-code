@@ -30,7 +30,7 @@ CFLAGS  += -std=gnu11
 CFLAGS  += -O2
 CFLAGS  += -g
 # for gprof
-#CFLAGS += -pg
+# CFLAGS += -pg
 CFLAGS  += -Wall
 CFLAGS  += -Wextra
 CFLAGS  += -march=native
@@ -69,9 +69,11 @@ cpp: aoc-c.i
 assembly: aoc-c.s
 
 ex1: aoc-c
+	@$(TIME) ex1.bash -p 1 < $(INPUT)
 	@$(TIME) aoc-c -p 1 < $(INPUT)
 
 ex2: aoc-c
+	@$(TIME) ex2.bash -p 2 < $(INPUT)
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 ccls: $(CCLSFILE)
