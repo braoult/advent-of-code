@@ -20,20 +20,21 @@
  * one for the neighbours count.
  * My first try with the Linux kernel hashtables implementation.
  */
+
 typedef union coord {
-    u64 val;
+    u32 val;                                      /* used for hash */
     struct {
-        s32 x, y;
+        s16 x, y;
     };
 } coord_t;
 
 typedef struct point {
     coord_t pos;
     int count;
-    struct hlist_node coll;                       /* entry in hash table */
+    struct hlist_node hlist;                       /* entry in hash table */
 } point_t;
 
-#define HBITS 11                                  /* in bits: 12 bits = 4096 */
+#define HBITS 11                                  /* 11 bits: size is 2048 */
 
 DEFINE_HASHTABLE(hasht_black, HBITS);             /* current black tiles */
 DEFINE_HASHTABLE(hasht_count, HBITS);             /* count of neighbours */
@@ -42,7 +43,7 @@ pool_t *pt_pool;
 
 static __always_inline u32 hash(coord_t p)
 {
-    return hash_64(p.val, HASH_BITS(hasht_black));
+    return hash_32(p.val, HASH_BITS(hasht_black));
 }
 
 /**
@@ -51,7 +52,8 @@ static __always_inline u32 hash(coord_t p)
 static point_t *find_point(struct hlist_head *head, coord_t p)
 {
     point_t *point;
-    hlist_for_each_entry(point, head, coll) {
+
+    hlist_for_each_entry(point, head, hlist) {
         if (point->pos.val == p.val)
             return point;
     }
@@ -59,9 +61,9 @@ static point_t *find_point(struct hlist_head *head, coord_t p)
 }
 
 /**
- * add_point - add point in hasht_count hashtable (used to count neighbours)
+ * add_neighbour - add point in hasht_count hashtable (used to count neighbours)
  */
-static point_t *add_point(coord_t pos)
+static point_t *add_neighbour(coord_t pos)
 {
     point_t *new;
     u32 h;
@@ -71,7 +73,7 @@ static point_t *add_point(coord_t pos)
         new = pool_get(pt_pool);
         new->pos.val = pos.val;
         new->count = 0;
-        hlist_add_head(&new->coll, &hasht_count[h]);
+        hlist_add_head(&new->hlist, &hasht_count[h]);
     }
     new->count++;
     return new;
@@ -87,14 +89,14 @@ static point_t *init_point(coord_t pos)
 
     h = hash(pos);
     if ((new = find_point(&hasht_black[h], pos))) {
-        hlist_del(&new->coll);
+        hlist_del(&new->hlist);
         pool_add(pt_pool, new);
         new = NULL;
     } else {
         new = pool_get(pt_pool);
         new->pos.val = pos.val;
         new->count = 0;
-        hlist_add_head(&new->coll, &hasht_black[h]);
+        hlist_add_head(&new->hlist, &hasht_black[h]);
     }
     return new;
 }
@@ -108,7 +110,7 @@ static int count_black()
     int res = 0;
     ulong bucket;
 
-    hash_for_each(hasht_black, bucket, cur, coll)
+    hash_for_each(hasht_black, bucket, cur, hlist)
         res++;
     return res;
 }
@@ -120,57 +122,46 @@ static const coord_t neighbours [] = {
 };
 
 /**
- * count_neighbours - count hasht_black neighbours, result in hasht_next
+ * life - do one day.
  */
-static void count_neighbours()
-{
-    point_t *cur;
-    u32 bucket;
-
-    hash_for_each(hasht_black, bucket, cur, coll) {
-        for (int i = 0; i < (int) ARRAY_SIZE(neighbours); ++i) {
-            coord_t neigh = cur->pos;
-            neigh.x += neighbours[i].x;
-            neigh.y += neighbours[i].y;
-            add_point(neigh);
-        }
-    }
-}
-
-/**
- * adjust_neighbours - adjust hasht_next according to rules
- */
-static void adjust_neighbours()
+static void life()
 {
     point_t *pt_cur, *pt_count;
     u32 bucket;
     struct hlist_node *tmp;
 
-    /* 1) check hasht_black tiles (currently black)
-     */
-    hash_for_each_safe(hasht_black, bucket, tmp, pt_cur, coll) {
+    /* fill hasht_count hashtable with neighbours */
+    hash_for_each(hasht_black, bucket, pt_cur, hlist) {
+        s16 x = pt_cur->pos.x, y = pt_cur->pos.y;
+        for (int i = 0; i < (int) ARRAY_SIZE(neighbours); ++i) {
+            coord_t neigh = {
+                .x = x + neighbours[i].x,
+                .y = y + neighbours[i].y,
+            };
+            add_neighbour(neigh);
+        }
+    }
+    /* check hasht_black tiles (currently black) */
+    hash_for_each_safe(hasht_black, bucket, tmp, pt_cur, hlist) {
         int h = hash(pt_cur->pos);
         point_t *pt_count = find_point(&hasht_count[h], pt_cur->pos);
         if (!pt_count || pt_count->count > 2) {
-            hash_del(&pt_cur->coll);
+            hash_del(&pt_cur->hlist);             /* black tile becomes white */
             pool_add(pt_pool, pt_cur);
         }
-        /* we do not want to re-consider this point in next loop
-         */
+        /* we do not want to re-consider this point in next loop */
         if (pt_count) {
-            hash_del(&pt_count->coll);
+            hash_del(&pt_count->hlist);
             pool_add(pt_pool, pt_count);
         }
     }
-    /* 2) check remaining points in hasht_next (currently white)
-     */
-    hash_for_each_safe(hasht_count, bucket, tmp, pt_count, coll) {
-        hash_del(&pt_count->coll);
-        if (pt_count->count == 2) {
-            hash_add(hasht_black, &pt_count->coll, hash(pt_count->pos));
-        } else {
+    /* check remaining points in hasht_count (not in hasht_black => white) */
+    hash_for_each_safe(hasht_count, bucket, tmp, pt_count, hlist) {
+        hash_del(&pt_count->hlist);
+        if (pt_count->count == 2)
+            hash_add(hasht_black, &pt_count->hlist, hash(pt_count->pos));
+        else
             pool_add(pt_pool, pt_count);
-        }
     }
 }
 
@@ -213,7 +204,6 @@ int main(ac, av)
     char **av;
 {
     int opt, part = 1;
-    int res = 0;
 
     while ((opt = getopt(ac, av, "d:p:")) != -1) {
         switch (opt) {
@@ -227,16 +217,14 @@ int main(ac, av)
                     return usage(*av);
         }
     }
-    pt_pool = pool_create("pool_points", 512, sizeof(point_t));
+
+    pt_pool = pool_create("pool_points", 2048, sizeof(point_t));
     parse();
     if (part == 2) {
-        for (int i = 0; i < 100; ++i) {
-            count_neighbours();
-            adjust_neighbours();
-        }
+        for (int i = 0; i < 100; ++i)
+            life();
     }
-    res = count_black();
-    printf("%s : res=%d\n", *av, res);
+    printf("%s : res=%d\n", *av, count_black());
     pool_destroy(pt_pool);
     exit (0);
 }
