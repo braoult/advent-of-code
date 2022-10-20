@@ -33,6 +33,7 @@ next[$_cup]=$cup                                  # close the ring
 
 _cup=$cup
 declare -i _1st _2nd _3rd dest
+# make the moves: a simple sub linked list operation.
 for ((i = 1; i <= runs; ++i)); do
     _1st="${next[$cup]}"
     _2nd="${next[$_1st]}"
