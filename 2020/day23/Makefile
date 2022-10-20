@@ -1,30 +1,108 @@
-INPUT := INPUT.txt
-SHELL := /bin/bash
-CFLAGS := -w -g
-#CFLAGS := -w -g -pg
-#CFLAGS := -w -O3
-TIME := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
+# AOC daily Makefile - GNU make only.
+#
+# Copyright (C) 2021-2022 Bruno Raoult ("br")
+# Licensed under the GNU General Public License v3.0 or later.
+# Some rights reserved. See COPYING.
+#
+# You should have received a copy of the GNU General Public License along with this
+# program. If not, see <https://www.gnu.org/licenses/gpl-3.0-standalone.html>.
+#
+# SPDX-License-Identifier: GPL-3.0-or-later <https://spdx.org/licenses/GPL-3.0-or-later.html>
+#
+
+INPUT   := INPUT.txt
+SHELL   := /bin/bash
+
+CC      := gcc
+BEAR    := bear
+CCLSFILE:= compile_commands.json
+
+LIB     := aoc_$(shell uname -m)
+INCDIR  := ../include
+LIBDIR  := ../lib
+LDFLAGS := -L$(LIBDIR)
+#LDLIB   := -l$(LIB) -lm
+LDLIB   := -l$(LIB)
+
+export LD_LIBRARY_PATH = $(LIBDIR)
+
+CFLAGS  += -std=gnu11
+CFLAGS  += -O2
+CFLAGS  += -g
+# for gprof
+# CFLAGS += -pg
+CFLAGS  += -Wall
+CFLAGS  += -Wextra
+CFLAGS  += -march=native
+# Next one may be useful for valgrind (some invalid instructions)
+# CFLAGS += -mno-tbm
+CFLAGS  += -Wmissing-declarations
+CFLAGS  += -Wno-unused-result
+
+CFLAGS  += -DDEBUG_DEBUG 	# activate general debug (debug.c)
+CFLAGS  += -DDEBUG_POOL		# memory pools management
+
+VALGRIND := valgrind
+VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
+	--sigill-diagnostics=yes --quiet --show-error-list=yes
+
+
+TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile deploy ex1 ex2
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls
 
-all: ex1 ex2
+all: README.org ccls ex1 ex2
 
-output:
-	@$(MAKE) --no-print-directory all 2>&1 > OUTPUT
+memcheck: memcheck1 memcheck2
 
-compile: ex1-c ex2-c
+memcheck1: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 1 < $(INPUT)
 
-ex1:
-	@$(TIME) ex1.bash < $(INPUT) 2>&1
-	@#$(TIME) ex1-c 2020 < $(INPUT) 2>&1
+memcheck2: aoc-c
+	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
 
-ex2:
-	@$(TIME) ex2.bash < $(INPUT) 2>&1
-	@#$(TIME) ex1-c 30000000 < $(INPUT) 2>&1
+compile: aoc-c
+
+cpp: aoc-c.i
+
+assembly: aoc-c.s
+
+ex1: aoc-c
+	@$(TIME) ex1.bash -p 1 < $(INPUT)
+	@$(TIME) aoc-c -p 1 < $(INPUT)
+
+ex2: aoc-c
+	@$(TIME) ex2.bash -p 2 < $(INPUT)
+	@$(TIME) aoc-c -p 2 < $(INPUT)
+
+ccls: $(CCLSFILE)
 
 clean:
-	@rm -f ex1-c ex2-c core
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
 
-deploy:
-	@$(MAKE) -C .. deploy
+.c:
+	@echo compiling $<
+	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+
+# generate pre-processed file (.i) and assembler (.s)
+%.i: %.c
+	@echo generating $@
+	@$(CC) -E $(CFLAGS) -I $(INCDIR) $< -o $@
+
+%.s: %.c
+	@echo generating $@
+	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
+
+# generate README.org from README.html (must cleanup !)
+%.org: %.html
+	@echo generating $@. Cleanup before commit !
+	@pandoc $< -o $@
+
+# generate compile_commands.json
+$(CCLSFILE): aoc-c.c Makefile
+	$(BEAR) -- make clean compile
+
+bear: clean
+	@$(BEAR) -- make compile
+	@touch .ccls-root
