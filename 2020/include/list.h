@@ -230,6 +230,29 @@ static inline void list_move_tail(struct list_head *list,
 }
 
 /**
+ * list_bulk_move - move a subsection of a list to its head
+ * @head: the head that our entry will follow
+ * @first: first entry to move
+ * @last: last entry to move, can be the same as first
+ *
+ * Move all entries between @first and including @last after @head.
+ * All three entries must belong to the same linked list.
+ */
+static inline void list_bulk_move(struct list_head *head,
+                                  struct list_head *first,
+                                  struct list_head *last)
+{
+    first->prev->next = last->next;
+    last->next->prev = first->prev;
+
+    last->next = head->next;
+    head->next->prev = last;
+
+    head->next = first;
+    first->prev = head;
+}
+
+/**
  * list_bulk_move_tail - move a subsection of a list to its tail
  * @head: the head that will follow our entry
  * @first: first entry to move
