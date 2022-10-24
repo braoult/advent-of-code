@@ -161,10 +161,10 @@ static long part1()
     for (int msg = 0; msg < nmesg; ++msg) {
         pos = 0;
         if (match(mesg[msg], &pos, 0, 0)) {
-            printf("%s: ok\n", mesg[msg]);
+            log(2, "%s: ok\n", mesg[msg]);
             ok++;
         } else {
-            printf("%s: NOK\n", mesg[msg]);
+            log(2, "%s: ok\n", mesg[msg]);
         }
     }
     return ok;
@@ -219,6 +219,6 @@ int main(ac, av)
 
     parse();
     printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
-    printall();
+//    printall();
     exit (0);
 }
