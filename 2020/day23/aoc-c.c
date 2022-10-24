@@ -16,11 +16,11 @@
  * calculations
  */
 
-struct list_head *curcup;                         /* curcup cup */
+struct list_head *curcup;                         /* current cup */
 struct list_head *cups;                           /* the cups cups */
 int lastnum;                                      /* last cup number */
 
-#define CUR_CUP (&*curcup)
+#define CUR_CUP    (&*curcup)
 #define NUM(pcup)  ((pcup) - cups)
 
 static __always_inline void step()
@@ -39,7 +39,6 @@ static __always_inline void step()
             dest = &cups[lastnum];
     } while (NUM(dest) == num[0] || NUM(dest) == num[1] || NUM(dest) == num[2]);
 
-    //list_bulk_move_tail(dest->next, first, last);
     list_bulk_move(dest, first, last);
     curcup = CUR_CUP->next;
 }
