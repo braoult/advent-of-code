@@ -1,6 +1,6 @@
 # AOC daily Makefile - GNU make only.
 #
-# Copyright (C) 2022 Bruno Raoult ("br")
+# Copyright (C) 2021-2022 Bruno Raoult ("br")
 # Licensed under the GNU General Public License v3.0 or later.
 # Some rights reserved. See COPYING.
 #
@@ -15,22 +15,22 @@ SHELL   := /bin/bash
 
 CC      := gcc
 BEAR    := bear
+CCLSFILE:= compile_commands.json
 
-#LIB     := aoc_$(shell uname -m)
-#INCDIR  := ../include
-INCDIR  := .
-#LIBDIR  := ../lib
-#LDFLAGS := -L$(LIBDIR)
+LIB     := aoc_$(shell uname -m)
+INCDIR  := ../include
+LIBDIR  := ../lib
+LDFLAGS := -L$(LIBDIR)
 #LDLIB   := -l$(LIB) -lm
-#LDLIB   := -l$(LIB)
+LDLIB   := -l$(LIB)
 
-#export LD_LIBRARY_PATH = $(LIBDIR)
+export LD_LIBRARY_PATH = $(LIBDIR)
 
 CFLAGS  += -std=gnu11
 CFLAGS  += -O2
 CFLAGS  += -g
 # for gprof
-#CFLAGS += -pg
+# CFLAGS += -pg
 CFLAGS  += -Wall
 CFLAGS  += -Wextra
 CFLAGS  += -march=native
@@ -50,11 +50,9 @@ VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 bear org
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls
 
-org: README.org
-
-all: org ex1 ex2
+all: README.org ccls ex1 ex2
 
 memcheck: memcheck1 memcheck2
 
@@ -71,19 +69,21 @@ cpp: aoc-c.i
 assembly: aoc-c.s
 
 ex1: aoc-c
-	@$(TIME) ex1.bash < $(INPUT) 2>&1
-	@$(TIME) aoc-c -p 1 < $(INPUT) 2>&1
+	@$(TIME) ex1.bash -p 1 < $(INPUT)
+	@$(TIME) aoc-c -p 1 < $(INPUT)
 
 ex2: aoc-c
-	@$(TIME) ex2.bash < $(INPUT) 2>&1
-	@$(TIME) aoc-c -p 2 < $(INPUT) 2>&1
+	@$(TIME) ex2.bash -p 2 < $(INPUT)
+	@$(TIME) aoc-c -p 2 < $(INPUT)
+
+ccls: $(CCLSFILE)
 
 clean:
 	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
 
 .c:
 	@echo compiling $<
-	$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
 
 # generate pre-processed file (.i) and assembler (.s)
 %.i: %.c
@@ -93,6 +93,15 @@ clean:
 %.s: %.c
 	@echo generating $@
 	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
+
+# generate README.org from README.html (must cleanup !)
+%.org: %.html
+	@echo generating $@. Cleanup before commit !
+	@pandoc $< -o $@
+
+# generate compile_commands.json
+$(CCLSFILE): aoc-c.c Makefile
+	$(BEAR) -- make clean compile
 
 bear: clean
 	@$(BEAR) -- make compile
