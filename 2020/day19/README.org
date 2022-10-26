@@ -198,13 +198,3 @@ rule =0=?/
 Your puzzle answer was =412=.
 
 Both parts of this puzzle are complete! They provide two gold stars: **
-
-At this point, all that is left is for you to [[/2020][admire your
-Advent calendar]].
-
-If you still want to see it, you can [[file:19/input][get your puzzle
-input]].
-
-You can also [Shareon
-[[https://twitter.com/intent/tweet?text=I%27ve+completed+%22Monster+Messages%22+%2D+Day+19+%2D+Advent+of+Code+2020&url=https%3A%2F%2Fadventofcode%2Ecom%2F2020%2Fday%2F19&related=ericwastl&hashtags=AdventOfCode][Twitter]]
-[[javascript:void(0);][Mastodon]]] this puzzle.
