@@ -448,6 +448,11 @@ ex2.bash : res=412
 	time: 0:03.37 real, 3.34 user, 0.03 sys
 	context-switch:	19+1, page-faults: 0+11909
 
+
+aoc-c : res=412
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+95
+
 =========================================
 ================= day20 =================
 =========================================

@@ -54,7 +54,7 @@ static void printall()
         printf("\n");
     }
     for (int i = 0; i < nmesg; ++i) {
-        printf("%3d: %s\n", i, mesg[i].str);
+        printf("%3d: len=%d %s\n", i, mesg[i].len, mesg[i].str);
     }
 }
 
@@ -108,62 +108,44 @@ static void parse()
 static int match(struct mesg *msg, int *pos, int rule, int depth)
 {
     struct rule *r = rules+rule;
-    int found = 0, ret = 0, postmp = *pos;
+    int found = 0, postmp, recurse = 0;
     char *space = "                                     ";
     log_f(3, "%.*sstr=%s pos=%d rule=%d\n", depth * 2, space, msg->str,
           *pos, rule);
-    /* check for no char left ? */
-    //if (!str[*pos]) {
-    //    printf("No char left !\n");
-    //    found = 0;
-    //    goto end;
-    //}
-    switch (r->type) {
-        case SUB:
-            found = 1;
-            log_f(3, "%.*sLEFT\n", depth * 2, space);
-            for (int sub = 0; sub < 3 && r->sub.rule[0][sub] >= 0; ++sub) {
-                if (!match(msg, pos, r->sub.rule[0][sub], depth + 1)) {
-                    *pos = postmp;
-                    found = 0;
-                    break;
-                }
-            }
-            if (found)
-                ret++;
-            //if (found || r->sub.rule[1][0] == -1)
-            //    goto end;
-            log_f(3, "%.*sRIGHT\n", depth * 2, space);
-            found = 1;
-            for (int sub = 0; sub < 3 && r->sub.rule[1][sub] >= 0; ++sub) {
-                if (!match(msg, pos, r->sub.rule[1][sub], depth + 1)) {
-                    *pos = postmp;
-                    found = 0;
-                    goto end;
-                }
-            }
-            if (found)
-                ret++;
-            goto end;
-        case CHR:
-            if (rules[rule].str == msg->str[*pos]) {
-                (*pos)++;
-                found = 1;
-                ret++;
-                goto end;
-            }
+    if (r->type == CHR)
+        return rules[rule].str == msg->str[(*pos)++];
+    for (int side = 0; side < 2; ++side) {
+        if (r->sub.rule[side][0] == -1) {
             found = 0;
-            goto end;
+            break;
+        }
+        postmp = *pos;
+        recurse = 0;
+        found = 1;
+        for (int sub = 0; sub < 3 && r->sub.rule[side][sub] >= 0; ++sub) {
+            if (*pos == msg->len)
+                return recurse;
+            if (r->sub.rule[side][sub] == rule) {
+                log(3, "recursing %d rule\n", rule);
+                recurse = 1;
+            }
+            if (!match(msg, pos, r->sub.rule[side][sub], depth + 1)) {
+                found = 0;
+                *pos = postmp;
+                break;
+            }
+        }
+        if (found)
+            break;
     }
-end:
     /* check for exact length */
     if (depth == 0 && msg->str[*pos]) {
-        log_f(3, "chars remaining !\n");
+        log_f(3, "pos=%d len=%d chars remaining !\n", *pos, msg->len);
         found = 0;
     }
     log_f(3, "%.*sstr=%s pos=%d rule=%d ret=%s\n",
           depth * 2, space, msg->str+*pos, *pos, rule, found? "ok": "NOK");
-    return !!ret;                                     /* not reached */
+    return found;                                     /* not reached */
 }
 
 static long part1()
@@ -172,10 +154,10 @@ static long part1()
     for (int msg = 0; msg < nmesg; ++msg) {
         pos = 0;
         if (match(mesg + msg, &pos, 0, 0)) {
-            log(2, "%s: ok\n", mesg[msg].str);
+            log(2, "len=%d pos=%d %s: ok\n", mesg[msg].len, pos, mesg[msg].str);
             ok++;
         } else {
-            log(2, "%s: ok\n", mesg[msg].str);
+            log(2, "len=%d pos=%d %s: NOK\n", mesg[msg].len, pos, mesg[msg].str);
         }
     }
     return ok;
@@ -194,10 +176,10 @@ static long part2()
     for (int msg = 0; msg < nmesg; ++msg) {
         pos = 0;
         if (match(mesg + msg, &pos, 0, 0)) {
-            printf("%s: ok\n", mesg[msg].str);
+            log(2, "len=%d pos=%d %s: ok\n", mesg[msg].len, pos, mesg[msg].str);
             ok++;
         } else {
-            printf("%s: NOK\n", mesg[msg].str);
+            log(2, "len=%d pos=%d %s: NOK\n", mesg[msg].len, pos, mesg[msg].str);
         }
     }
     return ok;
@@ -230,6 +212,6 @@ int main(ac, av)
 
     parse();
     printf("%s : res=%ld\n", *av, part == 1? part1(): part2());
-//    printall();
+    //printall();
     exit (0);
 }
