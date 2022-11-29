@@ -1,4 +1,4 @@
-/* aoc-c.c: Advent2020, day 22, part 1
+/* aoc-c.c: Advent2020, day 22, parts 1 & 2
  */
 
 #include <ctype.h>
