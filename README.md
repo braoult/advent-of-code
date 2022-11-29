@@ -8,7 +8,7 @@
  - `C`: Days 1-9
 
 #### Advent of Code 2020
- - `C`: Days 1-19, 23-25
+ - `C`: Days 1-19, 22-25
  - `Bash`: All (days 1-25)
  - `Cobol`: Day 1 (!!)
 
