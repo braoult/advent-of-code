@@ -13,13 +13,13 @@
 #include "pool.h"
 
 typedef struct card {
-    u8 card;               /* card value */
-    struct list_head list; /* list of cards */
+    u8 card;                                      /* card value */
+    struct list_head list;                        /* list of cards */
 } card_t;
 
 typedef struct player {
-    int ncards;            /* player cards # */
-    struct list_head head; /* head of cards list */
+    int ncards;                                   /* player cards # */
+    struct list_head head;                        /* head of cards list */
 } player_t;
 
 /* zobrist hash used to find duplicate positions
@@ -309,5 +309,7 @@ int main(int ac, char **av)
     long res = part == 1 ? part1(players): part2(players);
 
     printf("%s : res=%ld\n", *av, res);
+    pool_destroy(pool_hash);
+    pool_destroy(pool_cards);
     exit(0);
 }
