@@ -10,7 +10,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later <https://spdx.org/licenses/GPL-3.0-or-later.html>
 #
 
-INPUT   := INPUT.txt
+INPUT   := input/input.txt
 SHELL   := /bin/bash
 
 CC      := gcc
@@ -50,9 +50,9 @@ VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls bear org
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 part1 part2 ccls bear org
 
-all: README.org ccls ex1 ex2
+all: README.org ccls part1 part2
 
 memcheck: memcheck1 memcheck2
 
@@ -69,11 +69,13 @@ cpp: aoc-c.i
 
 assembly: aoc-c.s
 
-ex1: aoc-c
-	@$(TIME) aoc-c -p 1 < $(INPUT)
+part1: aoc-c
+	@$(TIME) aoc.bash -p 1 < $(INPUT) 2>&1
+	@#$(TIME) aoc-c -p 1 < $(INPUT)
 
-ex2: aoc-c
-	@$(TIME) aoc-c -p 2 < $(INPUT)
+part2: aoc-c
+	@$(TIME) aoc.bash -p 2 < $(INPUT) 2>&1
+	@#$(TIME) aoc-c -p 2 < $(INPUT)
 
 ccls: $(CCLSFILE)
 
