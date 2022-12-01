@@ -50,7 +50,7 @@ VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls bear
+.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 ex1 ex2 ccls bear org
 
 all: README.org ccls ex1 ex2
 
@@ -61,6 +61,7 @@ memcheck1: aoc-c
 
 memcheck2: aoc-c
 	@$(VALGRIND) $(VALGRINDFLAGS) aoc-c -p 2 < $(INPUT)
+	@#@valgrind -s --track-origins=yes aoc-c -p 2 < $(INPUT)
 
 compile: aoc-c
 
@@ -69,11 +70,9 @@ cpp: aoc-c.i
 assembly: aoc-c.s
 
 ex1: aoc-c
-	@$(TIME) ex1.bash -p 1 < $(INPUT)
 	@$(TIME) aoc-c -p 1 < $(INPUT)
 
 ex2: aoc-c
-	@$(TIME) ex2.bash -p 2 < $(INPUT)
 	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 ccls: $(CCLSFILE)
@@ -95,6 +94,8 @@ clean:
 	@$(CC) -S -fverbose-asm $(CFLAGS) -I $(INCDIR) $< -o $@
 
 # generate README.org from README.html (must cleanup !)
+org: README.org
+
 %.org: %.html
 	@echo generating $@. Cleanup before commit !
 	@pandoc $< -o $@
@@ -104,5 +105,5 @@ $(CCLSFILE): aoc-c.c Makefile
 	$(BEAR) -- make clean compile
 
 bear: clean
-	@$(BEAR) -- make compile
 	@touch .ccls-root
+	@$(BEAR) -- make compile

@@ -24,7 +24,7 @@ ex2: ex12-c
 	@$(TIME) ex12-c 2 < $(INPUT) 2>&1
 
 clean:
-	@rm -f ex1-c ex2-c core
+	@rm -f ex12-c core
 
 deploy:
 	@$(MAKE) -C .. deploy
