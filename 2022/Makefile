@@ -61,9 +61,9 @@ $(SUBDIRS):
 	@echo "========================================="
 	@echo
 	@echo "+++++++++++++++++ part 1"
-	+@$(MAKE) --no-print-directory -C $@ ex1 2>&1
+	+@$(MAKE) --no-print-directory -C $@ part1 2>&1
 	@echo "+++++++++++++++++ part 2"
-	+@$(MAKE) --no-print-directory -C $@ ex2 2>&1
+	+@$(MAKE) --no-print-directory -C $@ part2 2>&1
 
 output:
 	@$(MAKE) --no-print-directory all >OUTPUT 2>&1
