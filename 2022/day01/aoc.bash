@@ -15,7 +15,7 @@
 
 declare -a total
 declare max=0
-declare -i res
+declare -i res=0
 
 parse() {
     local -i elf=0
@@ -36,18 +36,15 @@ part1() {
 
 part2() {
     local -i i elf newbest
-    res=0
+
     for ((i=0; i<3; ++i)); do
         newbest=0
         for ((elf=0; elf<${#total[@]}; ++elf)); do
-            if (( total[elf] > total[newbest] )); then
-                newbest=$elf
-            fi
+            (( total[elf] > total[newbest] )) && newbest=$elf
         done
         (( res+=total[newbest] ))
         unset "total[$newbest]"                   # remove current max
         total=("${total[@]}")                     # pack array
-        #printf "%d: %s\n" "$i" "${total[*]}"
     done
 }
 
