@@ -153,6 +153,14 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
     list_for_each_entry(pos, &(head)->node_list, node_list)
 
 /**
+ * plist_for_each_reverse - iterate backwards over the plist
+ * @pos:	the type * to use as a loop counter
+ * @head:	the head for your list
+ */
+#define plist_for_each_reverse(pos, head)                               \
+    list_for_each_entry_reverse(pos, &(head)->node_list, node_list)
+
+/**
  * plist_for_each_continue - continue iteration over the plist
  * @pos:	the type * to use as a loop cursor
  * @head:	the head for your list
@@ -180,6 +188,15 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
  * @mem:	the name of the list_head within the struct
  */
 #define plist_for_each_entry(pos, head, mem)                    \
+    list_for_each_entry(pos, &(head)->node_list, mem.node_list)
+
+/**
+ * plist_for_each_entry_reverse	- iterate backwards over list of given type
+ * @pos:	the type * to use as a loop counter
+ * @head:	the head for your list
+ * @mem:	the name of the list_head within the struct
+ */
+#define plist_for_each_entry_reverse(pos, head, mem)                    \
     list_for_each_entry(pos, &(head)->node_list, mem.node_list)
 
 /**
