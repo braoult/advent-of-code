@@ -1,4 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
+
+/* adaptation of kernel's <linux/plist.h>
+ *
+ */
+
 /*
  * Descending-priority-sorted double-linked list
  *
@@ -157,7 +162,7 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
  * @pos:	the type * to use as a loop counter
  * @head:	the head for your list
  */
-#define plist_for_each_reverse(pos, head)                               \
+#define plist_for_each_reverse(pos, head)                       \
     list_for_each_entry_reverse(pos, &(head)->node_list, node_list)
 
 /**
@@ -167,8 +172,19 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
  *
  * Continue to iterate over plist, continuing after the current position.
  */
-#define plist_for_each_continue(pos, head)                              \
+#define plist_for_each_continue(pos, head)                      \
     list_for_each_entry_continue(pos, &(head)->node_list, node_list)
+
+/**
+ * plist_for_each_continue_reverse - continue iteration over the plist
+ * @pos:	the type * to use as a loop cursor
+ * @head:	the head for your list
+ *
+ * Continue to iterate backwards over plist, continuing after the current
+ * position.
+ */
+#define plist_for_each_continue_reverse(pos, head)              \
+    list_for_each_entry_continue_reverse(pos, &(head)->node_list, node_list)
 
 /**
  * plist_for_each_safe - iterate safely over a plist of given type
@@ -178,8 +194,19 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
  *
  * Iterate over a plist of given type, safe against removal of list entry.
  */
-#define plist_for_each_safe(pos, n, head)                               \
+#define plist_for_each_safe(pos, n, head)                       \
     list_for_each_entry_safe(pos, n, &(head)->node_list, node_list)
+
+/**
+ * plist_for_each_safe_reverse - iterate backwards safely over a plist of given type
+ * @pos:	the type * to use as a loop counter
+ * @n:	another type * to use as temporary storage
+ * @head:	the head for your list
+ *
+ * Iterate backwards over a plist of given type, safe against removal of list entry.
+ */
+#define plist_for_each_safe_reverse(pos, n, head)               \
+    list_for_each_entry_safe_reverse(pos, n, &(head)->node_list, node_list)
 
 /**
  * plist_for_each_entry	- iterate over list of given type
@@ -197,7 +224,7 @@ extern void plist_requeue(struct plist_node *node, struct plist_head *head);
  * @mem:	the name of the list_head within the struct
  */
 #define plist_for_each_entry_reverse(pos, head, mem)                    \
-    list_for_each_entry(pos, &(head)->node_list, mem.node_list)
+    list_for_each_entry_reverse(pos, &(head)->node_list, mem.node_list)
 
 /**
  * plist_for_each_entry_continue - continue iteration over list of given type
