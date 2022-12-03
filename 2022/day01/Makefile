@@ -82,9 +82,9 @@ ccls: $(CCLSFILE)
 clean:
 	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
 
-.c:
+aoc-c: aoc-c.c common.c
 	@echo compiling $<
-	@$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $< $(LDLIB) -o $@
+	$(CC) $(CFLAGS) $(LDFLAGS) -I $(INCDIR) $^ $(LDLIB) -o $@
 
 # generate pre-processed file (.i) and assembler (.s)
 %.i: %.c

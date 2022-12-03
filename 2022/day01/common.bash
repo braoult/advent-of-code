@@ -14,17 +14,18 @@
 # shellcheck disable=2034
 export cmdname=${0##*/}
 export debug=0
-export part=1
-export res=""
+export res
 
 shopt -s extglob
 set -o noglob
 
 usage() {
     printf "usage: %s [-d DEBUG] [-p PART]\n" "$cmdname"
+    exit 1
 }
 
 checkargs() {
+    local part
     while getopts p:d: todo; do
         case "$todo" in
             d)
@@ -45,7 +46,6 @@ checkargs() {
                 ;;
             *)
                 usage
-                exit 1
                 ;;
         esac
     done
@@ -53,14 +53,15 @@ checkargs() {
     shift $((OPTIND - 1))
 
     (( $# > 1 )) && usage
+    return "$part"
 }
 
 main() {
+    local -i part
+
     checkargs "$@"
-    parse
-    if ((part == 1)); then
-        part1
-    else
-        part2
-    fi
+    part=$?
+    parse "$part"
+    solve "$part"
+    printf "%s: res=%s\n" "$cmdname" "$res"
 }

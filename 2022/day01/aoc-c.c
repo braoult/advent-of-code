@@ -17,6 +17,8 @@
 #include "plist.h"
 #include "debug.h"
 #include "pool.h"
+#include "aoc.h"
+
 
 PLIST_HEAD(plist);
 
@@ -45,7 +47,7 @@ static void parse(pool_t *pool)
         buflen = getline(&buf, &alloc, stdin);
         switch (buflen) {
             case 1:
-            case -1:
+            case -1:                              /* EOF */
                 node = pool_get(pool);
                 plist_node_init(node, total);
                 plist_add(node, &plist);
@@ -62,35 +64,11 @@ end:
     return;
 }
 
-static int usage(char *prg)
-{
-    fprintf(stderr, "Usage: %s [-d debug_level] [-p part] [-i input]\n", prg);
-    return 1;
-}
-
 int main(int ac, char **av)
 {
-    int opt, part = 1;
-
-    while ((opt = getopt(ac, av, "d:p:")) != -1) {
-        switch (opt) {
-            case 'd':
-                debug_level_set(atoi(optarg));
-                break;
-            case 'p':                             /* 1 or 2 */
-                part = atoi(optarg);
-                if (part < 1 || part > 2)
-                    return usage(*av);
-                break;
-            default:
-                return usage(*av);
-        }
-    }
-    if (optind < ac)
-        return usage(*av);
+    int part = parseargs(ac, av);
 
     pool_t *pool_tot = pool_create("total", 128, sizeof(struct plist_node));
-
     parse(pool_tot);
 
     printf("%s : res=%d\n", *av, calc_top_plist(part == 1? 1: 3));

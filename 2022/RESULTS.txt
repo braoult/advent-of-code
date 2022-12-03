@@ -7,8 +7,15 @@ aoc.bash: res=66719
 	time: 0:00.03 real, 0.02 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+274
 
+aoc-c : res=66719
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+89
+
 +++++++++++++++++ part 2
 aoc.bash: res=198551
 	time: 0:00.03 real, 0.03 user, 0.00 sys
 	context-switch:	2+1, page-faults: 0+283
 
+aoc-c : res=198551
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	5+1, page-faults: 0+87

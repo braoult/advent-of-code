@@ -13,41 +13,44 @@
 
 . common.bash
 
-declare -a total
-declare max=0
-declare -i res=0
+declare -a elf
+declare -i maxwanted=3
 
 parse() {
-    local -i elf=0
+    local -i tot=0 i res
 
-    while read -r line; do
-        if [[ -n $line ]]; then
-            (( total[elf] += line))
-        else
-            (( total[elf] > max )) && (( max = total[elf] ))
-            ((elf++))
-        fi
-    done
-}
-
-part1() {
-    res=$max
-}
-
-part2() {
-    local -i i elf newbest
-
-    for ((i=0; i<3; ++i)); do
-        newbest=0
-        for ((elf=0; elf<${#total[@]}; ++elf)); do
-            (( total[elf] > total[newbest] )) && newbest=$elf
+    while true; do
+        read -r line
+        res=$?
+        # number found: sum & continue
+        [[ -n $line ]] && (( tot += line)) && continue
+        # first elf: we set it and continue
+        (( !${#elf[@]} )) && (( elf[0] = tot )) && continue
+        # find a place to (maybe) insert new high (keep array sorted)
+        for (( i = 0; i < ${#elf[@]}; ++i )); do
+            if (( tot > elf[i] )); then         # normal insert (tot > old value)
+                elf=( "${elf[@]:0:i}" "$tot" "${elf[@]:i}" )
+                break
+            elif (( i == ${#elf[@]}-1 )); then  # insert at end
+                elf+=( "$tot" )
+                break
+            fi
         done
-        (( res+=total[newbest] ))
-        unset "total[$newbest]"                   # remove current max
-        total=("${total[@]}")                     # pack array
+        # keep array size <= maxwanted
+        elf=( "${elf[@]:0:maxwanted}" )
+        (( tot = 0 ))
+        ((res > 0)) && break                      # EOF
     done
+}
+
+solve() {
+    local -i part="$1"
+    if ((part == 1)); then
+        (( res = elf[0] ))
+    else
+        (( res = elf[0] + elf[1] + elf[2] ))
+    fi
 }
 
 main "$@"
-printf "%s: res=%s\n" "$cmdname" "$res"
 exit 0
