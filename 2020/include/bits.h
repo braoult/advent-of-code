@@ -26,9 +26,11 @@
 
 /* no plan to support 32bits for now...
  */
+/*
 #if __WORDSIZE != 64
 #error "Only 64 bits word size supported."
 #endif
+*/
 
 /* fixed-size types
  */
