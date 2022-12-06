@@ -1,6 +1,6 @@
 /* pool.c - A simple pool manager.
  *
- * Copyright (C) 2021 Bruno Raoult ("br")
+ * Copyright (C) 2021-2022 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
  * Some rights reserved. See COPYING.
  *
@@ -25,18 +25,16 @@
 void pool_stats(pool_t *pool)
 {
     if (pool) {
-#       ifdef DEBUG_POOL
         block_t *block;
 
-        log_f(1, "[%s] pool [%p]: blocks:%u avail:%u alloc:%u grow:%u eltsize:%lu\n",
-              pool->name, (void *)pool, pool->nblocks, pool->available, pool->allocated,
-              pool->growsize, pool->eltsize);
+        log_f(1, "[%s] pool [%p]: blocks:%u avail:%u alloc:%u grow:%u eltsize:%zu\n",
+              pool->name, (void *)pool, pool->nblocks, pool->available,
+              pool->allocated, pool->growsize, pool->eltsize);
         log(5, "\tblocks: ");
-        list_for_each_entry(block, &pool->list_blocks, list_blocks) {
+        list_for_each_entry(block, &poo7l->list_blocks, list_blocks) {
             log(5, "%p ", block);
         }
         log(5, "\n");
-#       endif
     }
 }
 
@@ -45,14 +43,13 @@ pool_t *pool_create(const char *name, u32 growsize, size_t eltsize)
     pool_t *pool;
 
 #   ifdef DEBUG_POOL
-    log_f(1, "name=[%s] growsize=%u eltsize=%lu\n",
-          name, growsize, eltsize);
+    log_f(1, "name=[%s] growsize=%u eltsize=%zu\n", name, growsize, eltsize);
 #   endif
     /* we need at least  sizeof(struct list_head) space in pool elements
      */
     if (eltsize < sizeof (struct list_head)) {
 #       ifdef DEBUG_POOL
-        log_f(1, "[%s]: structure size too small (%lu < %lu), adjusting to %lu.\n",
+        log_f(1, "[%s]: structure size too small (%zu < %zu), adjusting to %zu.\n",
               name, eltsize, sizeof(struct list_head), sizeof(struct list_head));
 #       endif
         eltsize = sizeof(struct list_head);
@@ -67,6 +64,8 @@ pool_t *pool_create(const char *name, u32 growsize, size_t eltsize)
         pool->nblocks = 0;
         INIT_LIST_HEAD(&pool->list_available);
         INIT_LIST_HEAD(&pool->list_blocks);
+    } else {
+        errno = ENOMEM;
     }
     return pool;
 }
@@ -74,11 +73,9 @@ pool_t *pool_create(const char *name, u32 growsize, size_t eltsize)
 static u32 _pool_add(pool_t *pool, struct list_head *elt)
 {
 #   ifdef DEBUG_POOL
-    log_f(6, "pool=%p &head=%p elt=%p off1=%lu off2=%lu\n",
-          (void *)pool,
-          (void *)&pool->list_available,
-          (void *)elt,
-          (void *)&pool->list_available-(void *)pool,
+    log_f(6, "pool=%p &head=%p elt=%p off1=%zu off2=%zu\n",
+          (void *)pool, (void *)&pool->list_available, (void *)elt,
+          (void *)&pool->list_available - (void *)pool,
           offsetof(pool_t, list_available));
 #   endif
 
@@ -105,9 +102,6 @@ void *pool_get(pool_t *pool)
         return NULL;
     if (!pool->available) {
         block_t *block = malloc(sizeof(block_t) + pool->eltsize * pool->growsize);
-        void *cur;
-        u32 i;
-
         if (!block) {
 #           ifdef DEBUG_POOL
             log_f(1, "[%s]: failed block allocation\n", pool->name);
@@ -131,16 +125,15 @@ void *pool_get(pool_t *pool)
 #       endif
 
         pool->allocated += pool->growsize;
-        for (i = 0; i < pool->growsize; ++i) {
-            cur = block->data + i * pool->eltsize;
+        for (u32 i = 0; i < pool->growsize; ++i) {
+            void *cur = block->data + i * pool->eltsize;
 #           ifdef DEBUG_POOL
             log_f(7, "alloc=%p cur=%p\n", block, cur);
 #           endif
             _pool_add(pool, (struct list_head *)cur);
         }
-        //pool_stats(pool);
     }
-    /* this is the effective address if the object (and also the
+    /* this is the effective address of the object (and also the
      * pool list_head address)
      */
     return _pool_get(pool);
@@ -157,11 +150,11 @@ void pool_destroy(pool_t *pool)
     log(5, "blocks:");
 #   endif
     list_for_each_entry_safe(block, tmp, &pool->list_blocks, list_blocks) {
-        list_del(&block->list_blocks);
-        free(block);
 #       ifdef DEBUG_POOL
         log(5, " %p", block);
 #       endif
+        list_del(&block->list_blocks);
+        free(block);
     }
 #   ifdef DEBUG_POOL
     log(5, "\n");
@@ -221,5 +214,6 @@ int main(int ac, char**av)
         }
     }
     pool_stats(pool);
+    pool_destroy(pool);
 }
 #endif
