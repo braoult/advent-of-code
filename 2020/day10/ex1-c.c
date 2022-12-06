@@ -63,7 +63,6 @@ struct list *add_val(list, val)
     struct list *list;
     unsigned long long val;
 {
-    //int val;
     unsigned cur, size;
     unsigned long long *ptr;
 
@@ -80,7 +79,6 @@ struct list *add_val(list, val)
         size+=BLOCKSIZE;
         list->size=size;
         list->list=realloc(list->list, sizeof(unsigned long long)*size);
-        fprintf(stderr, "realloc buf: cur=%d size=%d ptr=%p\n", cur, size, list->list);
     }
     ptr=list->list+cur;
 
@@ -91,10 +89,10 @@ struct list *add_val(list, val)
     return list;
 }
 
-unsigned *calc(list)
+unsigned long long *calc(list)
     struct list *list;
 {
-    static unsigned res[4];
+    static unsigned long long res[4];
     unsigned long long *ptr=list->list;
     unsigned last=list->last, i;
 
@@ -113,10 +111,9 @@ int main(ac, av)
 {
     char line[80];
     struct list *list=NULL;
-    unsigned long long res, last;
-    unsigned *result;
+    unsigned long long res, last, *result;
 
-    list=add_val(list, 0);
+    list=add_val(list, 0llu);
     while (fgets(line, sizeof line, stdin)) {
         sscanf(line, "%llu", &res);
         list=add_val(list, res);
@@ -126,7 +123,7 @@ int main(ac, av)
     list=add_val(list, last+3);
     //print_list(list);
     result=calc(list);
-    printf("%s : diff1=%u diff2=%u res=%u\n", *av, result[1], result[3],
+    printf("%s : diff1=%llu diff2=%llu res=%llu\n", *av, result[1], result[3],
            result[1]*result[3]);
     exit (0);
 }

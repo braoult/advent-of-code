@@ -131,7 +131,7 @@ int main(ac, av)
     struct list *list=NULL;
     unsigned long long res, last;
 
-    list=add_val(list, 0);
+    list=add_val(list, 0ll);
     while (fgets(line, sizeof line, stdin)) {
         sscanf(line, "%llu", &res);
         list=add_val(list, res);
