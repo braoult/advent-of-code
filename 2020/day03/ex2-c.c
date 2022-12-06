@@ -32,7 +32,7 @@ int main(ac, av)
     char **av;
 {
     int line=1, linelen=0, mod=0, i;
-    unsigned long res=1;
+    unsigned long long res=1;
     char str[80];
 
     scanf("%s", str);          /* ignore 1st line */
@@ -51,6 +51,6 @@ int main(ac, av)
     }
     for (i=0; set[i].dx != -1; ++i)
         res*=set[i].count;
-    printf ("%s : lines=%d res=%lu\n", *av, line, res);
+    printf ("%s : lines=%d res=%llu\n", *av, line, res);
     exit (0);
 }
