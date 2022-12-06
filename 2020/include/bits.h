@@ -75,6 +75,27 @@ static __always_inline int popcount64(u64 n)
 #   endif
 }
 
+static __always_inline int popcount32(u32 n)
+{
+#   if __has_builtin(__builtin_popcount)
+#   ifdef DEBUG_BITS
+    log_f(1, "builtin.\n");
+#   endif
+    return __builtin_popcount(n);
+
+#   else
+#   ifdef DEBUG_BITS
+    log_f(1, "emulated.\n");
+#   endif
+    int count = 0;
+    while (n) {
+        count++;
+        n &= (n - 1);
+    }
+    return count;
+#   endif
+}
+
 /* char is a special case, as it can be signed or unsigned
  */
 typedef signed char schar;
@@ -241,27 +262,6 @@ static __always_inline uint ffs32(u32 n)
     log_f(1, "emulated.\n");
 #   endif
     return popcount32(n ^ ~-n);
-#   endif
-}
-
-static __always_inline int popcount32(u32 n)
-{
-#   if __has_builtin(__builtin_popcount)
-#   ifdef DEBUG_BITS
-    log_f(1, "builtin.\n");
-#   endif
-    return __builtin_popcount(n);
-
-#   else
-#   ifdef DEBUG_BITS
-    log_f(1, "emulated.\n");
-#   endif
-    int count = 0;
-    while (n) {
-        count++;
-        n &= (n - 1);
-    }
-    return count;
 #   endif
 }
 
