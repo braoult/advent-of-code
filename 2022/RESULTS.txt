@@ -19,3 +19,25 @@ aoc.bash: res=198551
 aoc-c: res=198551
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+87
+
+=========================================
+================= day02 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc.bash: res=11841
+	time: 0:00.05 real, 0.05 user, 0.00 sys
+	context-switch:	7+1, page-faults: 0+273
+
+aoc-c: res=11841
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+87
+
++++++++++++++++++ part 2
+aoc.bash: res=13022
+	time: 0:00.05 real, 0.03 user, 0.01 sys
+	context-switch:	9+1, page-faults: 0+272
+
+aoc-c: res=13022
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+87
