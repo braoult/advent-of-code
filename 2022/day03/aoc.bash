@@ -15,6 +15,7 @@
 
 export LANG=C
 declare -a tot=(1 2)
+declare -a input
 
 # get priority value for an item
 # $1: character
@@ -31,39 +32,73 @@ prio() {
 }
 
 parse() {
-    local input half1 half2 result=""
-    local -i len half i j=1 prio part1=0 line=1
+    readarray -t input
+}
 
-    while read -r input; do
-        (( len = ${#input}, half = len/2 ))
-        half1="${input:0:half}"
-        half2="${input:half}"
+part1() {
+    local line half1 half2 result=""
+    local -i len half i prio
+
+    res=0
+    for line in "${input[@]}"; do
+        echo "$line"
+        (( len = ${#line}, half = len/2 ))
+        half1="${line:0:half}"
+        half2="${line:half}"
         result=""
 
-        #printf "[%d] l=%d h=%d [%s / %s]\n" "$line" "$len" "$half" "$half1" "$half2"
+        printf "[%d] l=%d h=%d [%s / %s]\n" "$num" "$len" "$half" "$half1" "$half2"
 
         #c="${half1//[^${half2}]}"
         #prio prio "${c:0:1}"
         #(( part1 += prio ))
 
-        for ((i = 0; i < half; ++i)); do
+        for (( i = 0; i < half; ++i )); do
             c=${half1:$i:1}
             if [[ $result != *$c* && $half2 == *$c* ]]; then
                 echo "found $c"
                 result=$result$c
                 prio prio "${c:0:1}"
-                (( part1 += prio ))
+                (( res += prio ))
                 #printf "%d prio(%c)=%d tot=%d\n" "$line" "$c" "$prio" "$part1"
             fi
         done
-        ((j++, line++))
-        echo
     done
-    echo "result=$part1"
+}
+
+part2() {
+    local common one two three
+    local -i len half i prio
+
+    res=0
+    for (( i = ${#input[@]} - 1; i > 1; i -= 3)); do
+        three=${input[i]}
+        two=${input[i - 1]}
+        one=${input[i - 2]}
+        common=${three//[^${two}]}
+        common=${common//[^${one}]}
+        #common=${}
+        #echo "$line"
+        #(( len = ${#line}, half = len/2 ))
+        #half1="${line:0:half}"
+        #half2="${line:half}"
+        #result=""
+
+        printf "[%d] 1=%s 2=%s 3=%s c=%s\n" "$i" "$one" "$two" "$three" "$common"
+
+        #c="${half1//[^${half2}]}"
+        prio prio "${common:0:1}"
+        (( res += prio ))
+    done
 }
 
 solve() {
-    res="${tot[$1]}"
+    if (($1 == 1)); then
+        part1
+    else
+        part2
+    fi
+    #res="${tot[$1]}"
 }
 
 main "$@"
