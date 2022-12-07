@@ -71,7 +71,7 @@ int main(int ac, char **av)
     pool_t *pool_tot = pool_create("total", 128, sizeof(struct plist_node));
     parse(pool_tot);
 
-    printf("%s : res=%d\n", *av, calc_top_plist(part == 1? 1: 3));
+    printf("%s: res=%d\n", *av, calc_top_plist(part == 1? 1: 3));
     pool_destroy(pool_tot);
     exit(0);
 }
