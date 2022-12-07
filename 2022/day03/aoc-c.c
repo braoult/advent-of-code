@@ -12,92 +12,85 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 
-#include "plist.h"
-#include "debug.h"
-#include "pool.h"
 #include "aoc.h"
 
 #define NCHARS ('Z' - 'A' + 1 + 'z' - 'a' + 1)
 
+/* convert item to map position, and vice versa */
 #define CHAR2POS(c) ((c) > 'Z'? (c) - 'a': (c) - 'A' + 26)
 #define POS2CHAR(p) ((p) < 26? (p) + 'a': (p) - 26 + 'A')
 
-#define SET_EXISTS(ex, c) ((ex)[CHAR2POS(c)] = 1)
+/* set a map from char */
+#define SET_MAP(ex, c) ((ex)[CHAR2POS(c)] = 1)
 
-static void exists_init(char *p)
+static void map_init(char *p)
 {
     memset(p, 0, NCHARS);
 }
 
-static void exists_populate(char *ex, char *p, int len)
+static void map_populate(char *ex, char *p, int len)
 {
-    exists_init(ex);
-    for (; len; --len) {
-        char c = p[len - 1];
-        SET_EXISTS(ex, c);
-    }
+    map_init(ex);
+    for (; len; --len)
+        SET_MAP(ex, p[len - 1]);
 }
 
-/* match c1 and c2 maps. If dest is NULL, return first match,
- * otherwise populate dest with matching chars
+/* match map1 and map2 maps. If dest is NULL, return first match,
+ * otherwise populate dest with matching chars.
+ * TODO: replace map2 with the initial items string, this would avoid
+ * a loop.
  */
-static int exists_match(char *dest, char *c1, char *c2)
+static int map_match(char *dest, char *map1, char *map2)
 {
-    int count = 0;
     if (dest)
-        exists_init(dest);
+        map_init(dest);
 
     for (int i = 0; i < NCHARS; ++i) {
-        if (c1[i] && c2[i]) {
-            if (dest) {
-                dest[i] = 1;
-            } else {
-                return i;
-            }
+        if (map1[i] && map2[i]) {
+            if (dest)
+                dest[i] = 1;                      /* fill dest array */
+            else
+                return i;                         /* ont match only */
         }
     }
-    return count;
+    return -1;                                    /* unused if dest != NULL */
 }
 
-static int *parse(int *res)
+static int parse(int part)
 {
     size_t alloc = 0;
     char *buf = NULL;
     ssize_t buflen;
-    int curc2 = 0;                                   /* counter for part2 */
-    char c1[2][NCHARS], c2[3][NCHARS], ctmp[NCHARS]; /* char exists in set */
+    int line = 0, res = 0, half;
+    char map[3][NCHARS], ctmp[NCHARS];
 
     while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
         buf[--buflen] = 0;
-        int half = buflen / 2;
-
-        /* populate c1 */
-        exists_populate(c1[0], buf, half);
-        exists_populate(c1[1], buf + half, half);
-        /* calculate part 1 */
-        res[0] += exists_match(NULL, c1[0], c1[1]) + 1;
-
-        /* populate c2 */
-        exists_populate(c2[curc2], buf, buflen);
-
-        if (!(++curc2 % 3)) {                     /* calculate part 2 */
-            exists_match(ctmp, c2[0], c2[1]);
-            res[1] += exists_match(NULL, ctmp, c2[2]) + 1;
-            curc2 = 0;
+        if (part == 1) {
+            half = buflen / 2;
+            /* populate c1 */
+            map_populate(map[0], buf, half);
+            map_populate(map[1], buf + half, half);
+            /* calculate part 1 */
+            res += map_match(NULL, map[0], map[1]) + 1;
+        } else {
+            /* populate c2 */
+            map_populate(map[line % 3], buf, buflen);
+            if ((++line % 3))
+                continue;
+            /* calculate part 2 */
+            map_match(ctmp, map[0], map[1]);
+            res += map_match(NULL, ctmp, map[2]) + 1;
         }
     }
     free(buf);
     return res;
 }
 
-
 int main(int ac, char **av)
 {
-    int res[2] = { 0, 0 };
-
-    printf("%s: res=%d\n", *av, parse(res)[parseargs(ac, av) - 1]);
+    printf("%s: res=%d\n", *av, parse(parseargs(ac, av)));
     exit(0);
 }
