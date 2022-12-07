@@ -22,10 +22,6 @@
 
 #define NCHARS ('Z' - 'A' + 1 + 'z' - 'a' + 1)
 
-static char c1[2][NCHARS];                        /* char exists in set */
-static char c2[3][NCHARS];
-static char ctmp[NCHARS];
-
 #define CHAR2POS(c) ((c) > 'Z'? (c) - 'a': (c) - 'A' + 26)
 #define POS2CHAR(p) ((p) < 26? (p) + 'a': (p) - 26 + 'A')
 
@@ -66,56 +62,34 @@ static int exists_match(char *dest, char *c1, char *c2)
     return count;
 }
 
-
-static void exists_print(char *ex)
-{
-    printf("found:");
-    for (int i = 0; i < NCHARS; ++i) {
-        if (ex[i])
-            printf(" %c", POS2CHAR(i));
-    }
-    printf("\n");
-}
-
 static int *parse(int *res)
 {
     size_t alloc = 0;
-    char *buf[3] = { NULL, NULL, NULL };
+    char *buf = NULL;
     ssize_t buflen;
-    int curc2 = 0;
-    int foo;
+    int curc2 = 0;                                   /* counter for part2 */
+    char c1[2][NCHARS], c2[3][NCHARS], ctmp[NCHARS]; /* char exists in set */
 
-    while ((buflen = getline(&buf[curc2], &alloc, stdin)) > 0) {
-        buf[curc2][--buflen] = 0;
+    while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
+        buf[--buflen] = 0;
         int half = buflen / 2;
-        //printf("half=%lu/%d\n", buflen, half);
+
         /* populate c1 */
-        exists_populate(c1[0], buf[curc2], half);
-        exists_populate(c1[1], buf[curc2] + half, half);
-        //exists_print(c1[0]);
-        //exists_print(c1[1]);g
-        foo = exists_match(NULL, c1[0], c1[1]);
-        res[0] += foo + 1;
-        //printf("match=%c\n", POS2CHAR(exists_match(NULL, c1[0], c1[1])));
-        //exit(0);
-        /* populate c2 */
-        //exists_init(c2[curc2]);
-        exists_populate(c2[curc2], buf[curc2], buflen);
-
+        exists_populate(c1[0], buf, half);
+        exists_populate(c1[1], buf + half, half);
         /* calculate part 1 */
+        res[0] += exists_match(NULL, c1[0], c1[1]) + 1;
 
-        if (!(++curc2 % 3)) {                   /* calculate part 2 */
-            //printf("curc2=%d, part2\n", curc2);
+        /* populate c2 */
+        exists_populate(c2[curc2], buf, buflen);
+
+        if (!(++curc2 % 3)) {                     /* calculate part 2 */
             exists_match(ctmp, c2[0], c2[1]);
-            foo = exists_match(NULL, ctmp, c2[2]);
-            res[1] += foo + 1;
-            //printf("match 2 =%c\n", POS2CHAR(foo));
+            res[1] += exists_match(NULL, ctmp, c2[2]) + 1;
             curc2 = 0;
         }
-        //printf("\n");
     }
-    for (int i = 0; i < 3; ++i)
-        free(buf[i]);
+    free(buf);
     return res;
 }
 
@@ -123,13 +97,7 @@ static int *parse(int *res)
 int main(int ac, char **av)
 {
     int res[2] = { 0, 0 };
-    printf("a=%d z=%d A=%d Z=%d\n", CHAR2POS('a'), CHAR2POS('z'),
-           CHAR2POS('A'), CHAR2POS('Z'));
-    printf("NCHARS=%d 0=%c 25=%c 26=%c 51=%c\n", NCHARS, POS2CHAR(0),
-           POS2CHAR(25), POS2CHAR(26), POS2CHAR(51));
-    //  printf("%s: res=%d\n", *av, parse(res)[parseargs(ac, av) - 1]);
-    //int part = parseargs(ac, av);
-    printf("%s: res=%d\n", *av, parse(res)[parseargs(ac, av) - 1]);
 
+    printf("%s: res=%d\n", *av, parse(res)[parseargs(ac, av) - 1]);
     exit(0);
 }
