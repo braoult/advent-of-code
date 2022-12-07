@@ -12,9 +12,9 @@ declare floor
 
 function adj() {
 	local -i r="$1" n="$2" c="$3" count=0
-	local -a prow=(${rows[r-1]})
-	local -a row=(${rows[r]})
-	local -a nrow=(${rows[r+1]})
+	local -a prow=("${rows[r-1]}")
+	local -a row=("${rows[r]}")
+	local -a nrow=("${rows[r+1]}")
 	#echo
 	#echo p="${prow[*]}"
 	#echo r="${row[*]}"
@@ -51,7 +51,7 @@ function run() {
 		changed=0
 		seated=0
 		for ((r=1; r<=NROWS; ++r)); do
-			row=(${rows[r]})
+			row=("${rows[r]}")
 			newrow=(0)
 			for ((c=1; c<=RLENGTH; ++c)); do
 				newrow+=("${row[c]}")
@@ -61,13 +61,13 @@ function run() {
 				case ${row[c]} in
 					0) continue
 					   ;;
-					1) if (( $(adj $r $c 2) == 0 )); then
+					1) if (( $(adj "$r" "$c" 2) == 0 )); then
 						   ((++changed))
 						   newrow[c]=2
 					   fi
 					   #printf "[%d][%d]: %s %s %d\n" $r $c "${row[c]}" "${newrow[c]}" $(adj $r $c 2)
 					   ;;
-					2) if (( $(adj $r $c 2) >= 4 )); then
+					2) if (( $(adj "$r" "$c" 2) >= 4 )); then
 						   ((++changed))
 						   newrow[c]=1
 					   fi

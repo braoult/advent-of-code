@@ -1,6 +1,6 @@
 /* debug.c - debug/log management
  *
- * Copyright (C) 2021 Bruno Raoult ("br")
+ * Copyright (C) 2021-2022 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
  * Some rights reserved. See COPYING.
  *
@@ -22,8 +22,9 @@
 #include "bits.h"
 #include "debug.h"
 
-#define NANOSEC  1000000000                       /* nano sec in sec */
-#define MILLISEC 1000000                          /* milli sec in sec */
+#define NS_SEC   1000000000                       /* nano sec in sec */
+#define MS_SEC   1000000                          /* microsec in sec */
+#define NS_MS    1000                             /* nano in micro */
 
 static long long timer_start;                     /* in nanosecond */
 static u32 debug_level=0;
@@ -41,7 +42,7 @@ void debug_init(u32 level)
 
     debug_level_set(level);
     if (!clock_gettime(CLOCK_MONOTONIC, &timer)) {
-        timer_start = timer.tv_sec * NANOSEC + timer.tv_nsec;
+        timer_start = timer.tv_sec * NS_SEC + timer.tv_nsec;
     }
     else {
         timer_start = 0;
@@ -54,9 +55,8 @@ inline static long long timer_elapsed()
     struct timespec timer;
 
     clock_gettime(CLOCK_MONOTONIC, &timer);
-    return (timer.tv_sec * NANOSEC + timer.tv_nsec) - timer_start;
+    return (timer.tv_sec * NS_SEC + timer.tv_nsec) - timer_start;
 }
-
 
 /* void debug - log function
  * @timestamp : boolean
@@ -77,8 +77,8 @@ void debug(u32 level, bool timestamp, u32 indent, const char *src,
 
     if (timestamp) {
         long long diff = timer_elapsed();
-        printf("%lld.%03lld ", diff/NANOSEC, (diff/1000000)%1000);
-        printf("%010lld ", diff);
+        printf("%lld.%03lld ", diff / NS_SEC, (diff % NS_SEC) / NS_MS);
+        printf("%010lldμs ", diff / NS_MS);
     }
 
     if (src) {
