@@ -63,3 +63,17 @@ aoc.bash: res=2760
 aoc-c: res=2760
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+88
+
+=========================================
+================= day04 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc.bash: res=444
+	time: 0:00.04 real, 0.04 user, 0.00 sys
+	context-switch:	5+1, page-faults: 0+338
+
++++++++++++++++++ part 2
+aoc.bash: res=801
+	time: 0:00.04 real, 0.03 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+336

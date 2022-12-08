@@ -67,8 +67,6 @@ pairs.
 
 Your puzzle answer was =444=.
 
-The first half of this puzzle is complete! It provides one gold star: *
-
 ** --- Part Two ---
 It seems like there is still quite a bit of duplicate work planned.
 Instead, the Elves would like to know the number of pairs that /overlap
@@ -87,4 +85,6 @@ So, in this example, the number of overlapping assignment pairs is =4=.
 
 /In how many assignment pairs do the ranges overlap?/
 
-Answer:
+Your puzzle answer was =801=.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
