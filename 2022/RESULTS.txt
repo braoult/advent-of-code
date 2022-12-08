@@ -85,3 +85,17 @@ aoc.bash: res=801
 aoc-c: res=801
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+87
+
+=========================================
+================= day04 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc.bash: res=VQZNJMWTR
+	time: 0:00.08 real, 0.07 user, 0.00 sys
+	context-switch:	11+1, page-faults: 0+274
+
++++++++++++++++++ part 2
+aoc.bash: res=NLCDCLVMQ
+	time: 0:00.04 real, 0.03 user, 0.01 sys
+	context-switch:	11+1, page-faults: 0+273
