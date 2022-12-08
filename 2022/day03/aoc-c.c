@@ -37,22 +37,21 @@ static void map_populate(char *ex, char *p, int len)
         SET_MAP(ex, p[len - 1]);
 }
 
-/* match map1 and map2 maps. If dest is NULL, return first match,
+/* match map with items list. If dest is NULL, return first match,
  * otherwise populate dest with matching chars.
- * TODO: replace map2 with the initial items string, this would avoid
- * a loop.
  */
-static int map_match(char *dest, char *map1, char *map2)
+static int map_match(char *dest, char *map, char *items, int ilen)
 {
     if (dest)
         map_init(dest);
 
-    for (int i = 0; i < NCHARS; ++i) {
-        if (map1[i] && map2[i]) {
+    for (int i = 0; i < ilen; ++i) {
+        int pos = CHAR2POS(items[i]);
+        if (map[pos]) {                           /* already exists */
             if (dest)
-                dest[i] = 1;                      /* fill dest array */
+                dest[pos] = 1;                    /* fill dest array */
             else
-                return i;                         /* ont match only */
+                return pos + 1;                   /* one match only: return prio */
         }
     }
     return -1;                                    /* unused if dest != NULL */
@@ -63,26 +62,28 @@ static int parse(int part)
     size_t alloc = 0;
     char *buf = NULL;
     ssize_t buflen;
-    int line = 0, res = 0, half;
-    char map[3][NCHARS], ctmp[NCHARS];
+    int line = 0, res = 0;
+    char map[2][NCHARS];
 
     while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
         buf[--buflen] = 0;
         if (part == 1) {
-            half = buflen / 2;
-            /* populate c1 */
-            map_populate(map[0], buf, half);
-            map_populate(map[1], buf + half, half);
-            /* calculate part 1 */
-            res += map_match(NULL, map[0], map[1]) + 1;
-        } else {
-            /* populate c2 */
-            map_populate(map[line % 3], buf, buflen);
-            if ((++line % 3))
-                continue;
-            /* calculate part 2 */
-            map_match(ctmp, map[0], map[1]);
-            res += map_match(NULL, ctmp, map[2]) + 1;
+            int half = buflen / 2;
+            map_populate(*map, buf, half);        /* populate and calculate */
+            res += map_match(NULL, *map, buf + half, half);
+            continue;
+        }
+        /* Part 2 here */
+        switch (++line % 3) {                     /* group lines by 3 */
+            case 1:                               /* line 1: populate *map */
+                map_populate(*map, buf, buflen);
+                break;
+            case 2:                               /* line 2: merge #1 into map[1] */
+                map_match(*(map + 1), *map, buf, buflen);
+                break;
+            case 0:                               /* line 3: final merge & calc */
+                res += map_match(NULL, *(map + 1), buf, buflen);
+                break;
         }
     }
     free(buf);
