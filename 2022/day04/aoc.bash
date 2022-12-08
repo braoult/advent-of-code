@@ -18,7 +18,7 @@ export LANG=C
 parse() {
     local -i _part="$1"
     local -a _arr
-    global -ig res=0
+    declare -ig res=0
 
     while IFS=-, read -ra _arr; do
         # shellcheck disable=2068
@@ -26,7 +26,7 @@ parse() {
         if (( _part == 1 )); then
             (( ( ($1 >= $3 && $2 <= $4) || ($1 <= $3 && $2 >= $4) ) && res++ ))
         else
-            (( ( ($1 >= $3 && $1 <= $4) || ($3 >= $1 && $3 <= $2) ) && res++ ))
+            (( ( ($1 >= $3 && $1 <= $4) || ($1 <= $3 && $2 >= $3) ) && res++ ))
         fi
     done
 }
