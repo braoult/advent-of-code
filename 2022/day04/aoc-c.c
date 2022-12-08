@@ -1,4 +1,4 @@
-/* aoc-c.c: Advent of Code 2022, day 3
+/* aoc-c.c: Advent of Code 2022, day 4
  *
  * Copyright (C) 2022 Bruno Raoult ("br")
  * Licensed under the GNU General Public License v3.0 or later.
