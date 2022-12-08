@@ -13,8 +13,6 @@
 
 . common.bash
 
-export LANG=C
-
 parse() {
     local -i _part="$1"
     local -a _arr

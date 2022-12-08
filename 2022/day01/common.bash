@@ -15,6 +15,7 @@
 export cmdname=${0##*/}
 export debug=0
 export res
+export LANG=C
 
 shopt -s extglob
 set -o noglob
@@ -25,7 +26,7 @@ usage() {
 }
 
 checkargs() {
-    local part
+    local part=1
     while getopts p:d: todo; do
         case "$todo" in
             d)

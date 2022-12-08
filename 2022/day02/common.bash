@@ -15,6 +15,7 @@
 export cmdname=${0##*/}
 export debug=0
 export res
+export LANG=C
 
 shopt -s extglob
 set -o noglob

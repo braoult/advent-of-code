@@ -13,7 +13,6 @@
 
 . common.bash
 
-export LANG=C
 declare -a input
 
 # prio - get priority value for an item
