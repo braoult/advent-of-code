@@ -14,52 +14,25 @@
 . common.bash
 
 export LANG=C
-declare -a sections
 
 parse() {
+    local -i _part="$1"
     local -a _arr
-    local -i _tmp
+    global -ig res=0
 
     while IFS=-, read -ra _arr; do
-        # arrange the two sections so that the lowest is the first
-        if ((_arr[0] > _arr[2])); then
-            ((_tmp=_arr[0], _arr[0]=_arr[2], _arr[2]=_tmp))
-            ((_tmp=_arr[1], _arr[1]=_arr[3], _arr[3]=_tmp))
+        # shellcheck disable=2068
+        set -- ${_arr[@]}
+        if (( _part == 1 )); then
+            (( ( ($1 >= $3 && $2 <= $4) || ($1 <= $3 && $2 >= $4) ) && res++ ))
+        else
+            (( ( ($1 >= $3 && $1 <= $4) || ($3 >= $1 && $3 <= $2) ) && res++ ))
         fi
-        sections+=("${_arr[*]}")
-    done
-    #readarray -t input
-}
-
-part1() {
-    declare -ig res=0
-    local -a _sect
-
-    for line in "${sections[@]}"; do
-        # shellcheck disable=SC2206
-        _sect=($line)
-        (( _sect[1] >= _sect[3] ||
-               (_sect[0] == _sect[2] && _sect[3] >= _sect[1]) )) && (( res++ ))
-    done
-}
-
-part2() {
-    declare -ig res=0
-    local -a _sect
-
-    for line in "${sections[@]}"; do
-        # shellcheck disable=SC2206
-        _sect=($line)
-        (( _sect[2] <= _sect[1] )) && (( res++ ))
     done
 }
 
 solve() {
-    if (($1 == 1)); then
-        part1
-    else
-        part2
-    fi
+    :
 }
 
 main "$@"
