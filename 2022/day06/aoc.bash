@@ -32,7 +32,7 @@ solve() {
         for ((j = 0; j < lcur; ++j)); do          # compare with previous ones
             if [[ $next == "${cur:j:1}" ]]; then  # duplicate
                 cur="${cur:j+1}$next"             # keep str after dup + new char
-                (( lcur = lcur - j ))
+                (( lcur -= j ))
                 continue 2
             fi
         done

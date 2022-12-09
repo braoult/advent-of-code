@@ -117,7 +117,15 @@ aoc.bash: res=1658
 	time: 0:00.06 real, 0.06 user, 0.00 sys
 	context-switch:	1+1, page-faults: 0+266
 
+aoc-c: res=1658
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+87
+
 +++++++++++++++++ part 2
 aoc.bash: res=2260
 	time: 0:00.09 real, 0.09 user, 0.00 sys
 	context-switch:	1+1, page-faults: 0+265
+
+aoc-c: res=2260
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+87
