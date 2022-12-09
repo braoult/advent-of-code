@@ -13,59 +13,33 @@
 
 . common.bash
 
-declare -a stacks=() rules=()
+declare input                                     # datastream
+declare -i len                                    # len of datastream
 
 parse() {
-    local -i _queue _state=1
-    local _input
-    local -a _parse
-    local cur=""
-    local -i lcur=0 i
-
-    read -r _input
-    len=${#_input}
-
-    lcur=0
-    for (( i = 0; i < len - 4; ++i )); do
-        echo
-        nextc=${_input:i:1}                       # get next char
-        printf "next=%s cur=%s lcur=%d\n" "$nextc" "$cur" "$lcur"
-        for ((j = 0; j < lcur; ++j)); do          # compare with previous ones
-            printf "compare %s with %d:%s\n" "$nextc" "$j" "${cur:j:1}"
-            if [[ $nextc == "${cur:j:1}" ]]; then
-                cur=${cur:j+1}$nextc
-                (( lcur = lcur - (j + 1) + 1))
-                printf "\t-> equal cur=%d:%s" "$lcur" "$cur"
-                continue 2
-            fi
-        done
-        cur+=$nextc
-        ((lcur++))
-        ((lcur == 4)) && break
-    done
-    echo "$cur" $((i + 1))
+    read -r input
+    len=${#input}
 }
 
 solve() {
-    local -i _part="$1" _i=0 _j=0 _nb _from _to
-    local -a _rule
+    declare -ig res
+    local -i mark=4 lcur=0 part="$1"
+    local cur next
 
-    for ((; _i < ${#rules[@]}; ++_i )); do
-        read -ra _rule <<< "${rules[$_i]}"
-        (( _nb = _rule[0], _from = _rule[1] - 1, _to = _rule[2] - 1 ))
-        if ((_part == 1)); then
-            # move elements one by one
-            for ((_j = 0; _j < _nb; ++_j)); do
-                stacks[$_to]="${stacks[$_from]:0:1}${stacks[$_to]}"
-                stacks[$_from]=${stacks[$_from]:1}
-            done
-        else
-            # move elements by block
-            stacks[$_to]="${stacks[$_from]:0:_nb}${stacks[$_to]}"
-            stacks[$_from]=${stacks[$_from]:_nb}
-        fi
+    ((part == 2)) && mark=14
+    for (( i = 0; i < len - mark; ++i )); do      # loop on all chars
+        next=${input:i:1}                         # next char
+        for ((j = 0; j < lcur; ++j)); do          # compare with previous ones
+            if [[ $next == "${cur:j:1}" ]]; then  # duplicate
+                cur="${cur:j+1}$next"             # keep str after dup + new char
+                (( lcur = lcur - j ))
+                continue 2
+            fi
+        done
+        cur+="$next"                              # add new char
+        ((++lcur == mark)) && break               # mark len found
     done
-    printf -v res "%c" "${stacks[@]}"
+    ((res = i + 1))
 }
 
 main "$@"
