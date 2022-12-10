@@ -37,18 +37,18 @@ do_cd() {
 }
 
 do_ls() {
-    local info file remain
+    local remain
+    local -i size
     ((curline++))
     while [[ $curline -lt ${#lines[@]} && ${lines[$curline]:0:1} != "\$" ]]; do
-        read -r info file <<< "${lines[$curline]}"
-        if [[ $info != dir ]]; then          # file
-            remain="$curdir/$file"
-            remain=${remain//+(\/)/\/}
+        if [[ "${lines[$curline]}" != dir* ]]; then
+            size=${lines[$curline]% *}
+            remain="$curdir"
             while [[ -n $remain ]]; do        # recurse up curdir and adjust sizes
-                ((sizes[$remain] += info))
+                ((sizes[$remain] += size))
                 remain=${remain%/*}
             done
-            (( sizes["/"] += info ))
+            (( sizes["/"] += size ))
         fi
         ((curline++))
     done
