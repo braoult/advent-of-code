@@ -22,32 +22,21 @@ parse() {
     size=${#trees[@]}
 }
 
-        # y=${trees[0]:i:1}
-        # xrev=${trees[i]:size-1:1}
-        # yrev=${trees[size-1]:i:1}
-        # printf "x=%d\n" "$x"
-        # printf "y=%d\n" "$y"
-        # printf "xrev=%d\n" "$xrev"
-# printf "yrev=%d\n" "$yrev"
-
 # height - return height of a tree
 # $1: reference of return value
 # $2, $3: x, y
 # x is column, y is row
 height() {
     local -n _ret="$1"
-    local -i _x="$2" _y="$3"
-    _ret=${trees[_y]:_x:1}
+    _ret=${trees[$3]:$2:1}
 }
 
 check_visible() {
     local -n _max="$1"
     local -i _x="$2" _y="$3" _c
-    echo "m=$_max x=$x y=$y"
+
     height _c "$x" "y"
-    printf "(%d,%d)=%d\n" "$x" "$y" "$_c"
     if (( _c > _max )); then
-        printf "right visible (%d,%d)=%d\n" "$x" "$y" "$_c"
         (( visible[$x-$y]++, _max=_c ))
         (( _max == 9 )) && return 1
     fi
@@ -58,42 +47,31 @@ part1() {
     declare -ig res
     local -i x y max c
 
-    # left to right
-    for ((y = 1; y < size -1; ++y)); do           # row
+    for ((y = 1; y < size -1; ++y)); do           # left to right
         height max 0 "$y"
-        printf "**** left=%d max=%d\n" "$i" "$max"
         (( max == 9 )) && continue
-        for ((x = 1; x < size -1; ++x)); do       # column
+        for ((x = 1; x < size -1; ++x)); do
             check_visible max "$x" "$y" || break
         done
     done
-    echo
-    # right to left
-    for ((y = 1; y < size -1; ++y)); do           # row
+    for ((y = 1; y < size -1; ++y)); do           # right to left
         height max $((size - 1)) "$y"
-        printf "**** right=%d max=%d\n" "$i" "$max"
         (( max == 9 )) && continue
-        for ((x = size - 2; x > 0; --x)); do       # column
+        for ((x = size - 2; x > 0; --x)); do
             check_visible max "$x" "$y" || break
         done
     done
-    echo
-    # top to bottom
-    for ((x = 1; x < size -1; ++x)); do           # column
+    for ((x = 1; x < size -1; ++x)); do           # top to bottom
         height max "$x" 0
-        printf "**** top=%d max=%d\n" "$i" "$max"
         (( max == 9 )) && continue
-        for ((y = 1; y < size -1; ++y)); do       # column
+        for ((y = 1; y < size -1; ++y)); do
             check_visible max "$x" "$y" || break
         done
     done
-    echo
-    # bottom to top
-    for ((x = 1; x < size -1; ++x)); do           # row
+    for ((x = 1; x < size -1; ++x)); do           # bottom to top
         height max "$x" $((size - 1))
-        printf "**** bottom=%d max=%d\n" "$i" "$max"
         (( max == 9 )) && continue
-        for ((y = size - 2; y > 0; --y)); do       # column
+        for ((y = size - 2; y > 0; --y)); do
             check_visible max "$x" "$y" || break
         done
     done
@@ -106,55 +84,28 @@ check_tree() {
     local -ai vis=()
 
     height h "$X" "$Y"
-    printf "********** part2(%d,%d) h=%d\n" "$X" "$Y" "$h"
-
-    # east
-    for ((x = X + 1; x < size ; ++x)); do
+    for ((x = X + 1; x < size ; ++x)); do         # east
         height c "$x" "Y"
-        printf "(%d,%d)=%d " "$x" "$Y" "$c"
         (( vis[0]++ ))
         ((c >= h)) && break
     done
-    (( res *= vis[0] ))
-    echo
-    printf "east=%d\n" "${vis[0]}"
-
-    # west
-    for ((x = X - 1; x >= 0; --x)); do
+    for ((x = X - 1; x >= 0; --x)); do            # west
         height c "$x" "Y"
-        printf "(%d,%d)=%d " "$x" "$Y" "$c"
         (( vis[1]++ ))
         ((c >= h)) && break
     done
-    (( res *= vis[1] ))
-    echo
-    printf "west=%d\n" "${vis[1]}"
-
-    # south
-    for ((y = Y + 1; y < size; ++y)); do
+    for ((y = Y + 1; y < size; ++y)); do          # south
         height c "$X" "$y"
-        printf "(%d,%d)=%d " "$X" "$y" "$c"
         (( vis[2]++ ))
         ((c >= h)) && break
     done
-    (( res *= vis[2] ))
-    echo
-    printf "south=%d\n" "${vis[2]}"
-
-    # north
-    for ((y = Y - 1; y >= 0; --y)); do
+    for ((y = Y - 1; y >= 0; --y)); do            # north
         height c "$X" "$y"
-        printf "(%d,%d)=%d " "$X" "$y" "$c"
         (( vis[3]++ ))
         ((c >= h)) && break
     done
-    (( res *= vis[3] ))
-    echo
-    printf "north=%d\n" "${vis[3]}"
     # shellcheck disable=1102
     res=$(( "${vis[@]/%/ *}" 1))
-    printf "res(%d,%d)=%d * %d * %d * %d = %d\n" "$X" "$Y" "${vis[0]}" "${vis[1]}" "${vis[2]}" "${vis[3]}" "$res"
-    echo
 }
 
 
@@ -164,16 +115,12 @@ part2() {
 
     for ((x = 1; x < size - 1; ++x)); do
         for ((y = 1; y < size - 1; ++y)); do
-            #echo "ZOB $x $y"
             check_tree tmp "$x" "$y"
             if ((tmp > res)); then
                 ((res = tmp))
-                printf "NEW MAX at (%d,%d)=%d\n" "$x" "$y" "$tmp"
             fi
         done
     done
-
-    #check_tree tmp 2 3
 }
 
 solve() {
@@ -186,26 +133,3 @@ solve() {
 
 main "$@"
 exit 0
-
-    for k in "${!visible[@]}"; do
-        printf "k=%s %d\n" "$k" "${visible[$k]}"
-    done
-    echo
-    for (( i = 1; i < size - 1; ++i )); do
-        max=${trees[i]:size-1:1}
-        printf "i=%d max=%d\n" "$i" "$max"
-        for (( j = size - 2; j > 0; --j )); do
-            if (( ${trees[i]:j:1} > max)); then
-                printf "(%d,%d)=%d max=%d\n" "$i" "$j" "${trees[i]:j:1}" "$max"
-                (( visible[$i-$j]++ ))
-                max=${trees[i]:j:1}
-                printf "new max=%d\n" "$max"
-                (( max == 9 )) && break
-            fi
-        done
-    done
-    echo
-    for k in "${!visible[@]}"; do
-        printf "k=%s %d\n" "$k" "${visible[$k]}"
-    done
-    res=${#visible[@]}

@@ -151,3 +151,17 @@ aoc.bash: res=7490863
 aoc-c: res=7490863
 	time: 0:00.00 real, 0.00 user, 0.00 sys
 	context-switch:	0+1, page-faults: 0+98
+
+=========================================
+================= day07 =================
+=========================================
+
++++++++++++++++++ part 1
+aoc.bash: res=1698
+	time: 0:01.10 real, 1.10 user, 0.00 sys
+	context-switch:	5+1, page-faults: 0+319
+
++++++++++++++++++ part 2
+aoc.bash: res=672280
+	time: 0:03.54 real, 3.53 user, 0.00 sys
+	context-switch:	48+1, page-faults: 0+284
