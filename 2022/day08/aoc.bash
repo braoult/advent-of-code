@@ -45,30 +45,30 @@ check_visible() {
 
 part1() {
     declare -ig res
-    local -i x y max c
+    local -i x y max
 
-    for ((y = 1; y < size -1; ++y)); do           # left to right
+    for ((y = 1; y < size -1; ++y)); do           # to east
         height max 0 "$y"
         (( max == 9 )) && continue
         for ((x = 1; x < size -1; ++x)); do
             check_visible max "$x" "$y" || break
         done
     done
-    for ((y = 1; y < size -1; ++y)); do           # right to left
+    for ((y = 1; y < size -1; ++y)); do           # to west
         height max $((size - 1)) "$y"
         (( max == 9 )) && continue
         for ((x = size - 2; x > 0; --x)); do
             check_visible max "$x" "$y" || break
         done
     done
-    for ((x = 1; x < size -1; ++x)); do           # top to bottom
+    for ((x = 1; x < size -1; ++x)); do           # to south
         height max "$x" 0
         (( max == 9 )) && continue
         for ((y = 1; y < size -1; ++y)); do
             check_visible max "$x" "$y" || break
         done
     done
-    for ((x = 1; x < size -1; ++x)); do           # bottom to top
+    for ((x = 1; x < size -1; ++x)); do           # to north
         height max "$x" $((size - 1))
         (( max == 9 )) && continue
         for ((y = size - 2; y > 0; --y)); do
