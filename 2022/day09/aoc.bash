@@ -17,84 +17,46 @@ declare -a h{0..10}                               # h0 is head
 declare -A visited=()                             # keep count of visited
 declare -i last=1                                 # tail (last knot)
 
-add_pos() {
-    local -n queue="$1"
-    visited["${queue[0]}"/"${queue[1]}"]=1
-}
-
-direction() {
-    local -n _dx="$1" _dy="$2"
-    local dir="$3"
-    (( _dx=0, _dy=0 ))
-    case "$dir" in
-        L) _dx=-1 ;;
-        R) _dx=1 ;;
-        U) _dy=1 ;;
-        D) _dy=-1 ;;
-    esac
-}
-
-do_tail() {
-    local -n _h="$1" _t="$2"
-    local -i dx dy sx sy
-
-    (( dx = _h[0] - _t[0], dy = _h[1] - _t[1] ))
-    (( sx = dx > 0? 1: -1 ))
-    (( sy = dy > 0? 1: -1 ))
-    if (( sx * dx > 1 || sy * dy > 1)); then
-        (( dx > 0 )) && (( _t[0]++ ))
-        (( dx < 0 )) && (( _t[0]-- ))
-        (( dy > 0 )) && (( _t[1]++ ))
-        (( dy < 0 )) && (( _t[1]-- ))
-    fi
-}
-
-move_t() {
-    local -i _n
-
-    for (( _n = 0; _n < last; ++_n )); do
-        do_tail "h$_n" "h$((_n + 1))"
-    done
-    add_pos "h$last"
-    return
-}
-
-move_h() {
+move() {
     local -i _dx="$1" _dy="$2" _m="$3" _i _n
-    for ((_i = 0; _i < _m; ++_i)); do
-        (( h0[0] += _dx, h0[1] += _dy ))
-        move_t
+    local -i __dx __dy __sx __sy
+    local -n _l="h$last"
+
+    for ((_i = 0; _i < _m; ++_i)); do             # for each move
+        (( h0[0] += _dx, h0[1] += _dy ))          # head move
+        for (( _n = 0; _n < last; ++_n )); do     # for each other node
+            local -n _h="h$_n" _t="h$((_n+1))"
+            (( __dx = _h[0] - _t[0], __dy = _h[1] - _t[1] ))
+            (( __sx = __dx? __dx > 0? 1: -1 : 0 ))
+            (( __sy = __dy? __dy > 0? 1: -1 : 0 ))
+            if (( __sx * __dx > 1 || __sy * __dy > 1)); then
+                (( _t[0] += __sx ))
+                (( _t[1] += __sy ))
+            fi
+        done
+        visited["${_l[0]}"/"${_l[1]}"]=1
     done
 }
 
 parse() {
     local dir moves dx dy
-    (( last = $1 == 1? 1: 9 ))
+
+    (( $1 == 2)) && last=9
     while read -r dir moves; do
-        direction dx dy "$dir"
-        move_h "$dx" "$dy" "$moves"
+        dx=0
+        dy=0
+        case "$dir" in
+            L) dx=-1 ;;
+            R) dx=1 ;;
+            U) dy=1 ;;
+            D) dy=-1 ;;
+        esac
+        move "$dx" "$dy" "$moves"
     done
 }
 
-part1() {
-    local -n _t="h$last"
-    res=${#visited[@]}
-}
-
-part2() {
-    local -n _t="h$last"
-    res=${#visited[@]}
-}
-
-
 solve() {
-    local part="$1"
-    add_pos "h$last"
-    if ((part == 1)); then
-        part1
-    else
-        part2
-    fi
+    res=${#visited[@]}
 }
 
 main "$@"
