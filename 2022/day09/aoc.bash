@@ -13,11 +13,13 @@
 
 . common.bash
 
-declare -i xh=0 yh=0 xt=0 yt=0
-declare -A visited=()
+declare -a h{0..10}                               # h0 is head
+declare -A visited=()                             # keep count of visited
+declare -i last=1                                 # tail (last knot)
 
 add_pos() {
-    (( visited["$1-$2"]++ ))
+    local -n queue="$1"
+    visited["${queue[0]}"/"${queue[1]}"]=1
 }
 
 direction() {
@@ -32,62 +34,62 @@ direction() {
     esac
 }
 
-move_t() {
+do_tail() {
+    local -n _h="$1" _t="$2"
     local -i dx dy sx sy
 
-    (( dx = xh - xt, dy = yh - yt ))
+    (( dx = _h[0] - _t[0], dy = _h[1] - _t[1] ))
     (( sx = dx > 0? 1: -1 ))
     (( sy = dy > 0? 1: -1 ))
-
-    #printf " [move_t: dx=%d dy=%d " "$dx" "$dy"
     if (( sx * dx > 1 || sy * dy > 1)); then
-        (( dx > 0 )) && (( xt++ ))
-        (( dx < 0 )) && (( xt-- ))
-        (( dy > 0 )) && (( yt++ ))
-        (( dy < 0 )) && (( yt-- ))
+        (( dx > 0 )) && (( _t[0]++ ))
+        (( dx < 0 )) && (( _t[0]-- ))
+        (( dy > 0 )) && (( _t[1]++ ))
+        (( dy < 0 )) && (( _t[1]-- ))
     fi
-    #printf "xt=%d yt=%d] " "$xt" "$yt"
-    add_pos "$xt" "$yt"
+}
+
+move_t() {
+    local -i _n
+
+    for (( _n = 0; _n < last; ++_n )); do
+        do_tail "h$_n" "h$((_n + 1))"
+    done
+    add_pos "h$last"
+    return
 }
 
 move_h() {
-    local -i dx="$1" dy="$2" n="$3" i
-    #printf "\tmove_h dx=%d dy=%d n=%d\n" "$dx" "$dy" "$n"
-    for ((i = 0; i < n; ++i)); do
-        (( xh += dx, yh += dy ))
-        #printf -- "(%d,%d)" "$xh" "$yh"
+    local -i _dx="$1" _dy="$2" _m="$3" _i _n
+    for ((_i = 0; _i < _m; ++_i)); do
+        (( h0[0] += _dx, h0[1] += _dy ))
         move_t
-        #printf -- "/(%d,%d)\n" "$xt" "$yt"
     done
 }
 
 parse() {
     local dir moves dx dy
-
+    (( last = $1 == 1? 1: 9 ))
     while read -r dir moves; do
-        #printf "(%d,%d)/(%d,%d) %s/%d\n" "$xh" "$yh" "$xt" "$yt" "$dir" "$moves"
         direction dx dy "$dir"
-        #printf "\tafter direction dx=%d dy=%d\n" "$dx" "$dy"
         move_h "$dx" "$dy" "$moves"
-        #printf "\th: (%d,%d)/(%d,%d)\n" "$xh" "$yh" "$xt" "$yt"
-        add_pos "$xt" "$yt"
     done
 }
 
 part1() {
-    declare -ig res
-    parse
-    #echo FINAL
-    #echo "${!visited[@]}"
+    local -n _t="h$last"
     res=${#visited[@]}
 }
 
 part2() {
-    :
+    local -n _t="h$last"
+    res=${#visited[@]}
 }
 
+
 solve() {
-    add_pos 0 0
+    local part="$1"
+    add_pos "h$last"
     if ((part == 1)); then
         part1
     else
