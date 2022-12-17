@@ -24,12 +24,13 @@
 #define _pjw_inline static inline
 #endif
 
-_pjw_inline unsigned int pjwhash(const char* str, uint length)
+_pjw_inline unsigned int pjwhash(const void* key, uint length)
 {
    uint hash = 0, high;
+   const u8 *k = key;
 
-   for (uint i = 0; i < length; ++str, ++i) {
-      hash = (hash << ONE_EIGHTH) + *str;
+   for (uint i = 0; i < length; ++k, ++i) {
+       hash = (hash << ONE_EIGHTH) + *k;
       high = hash & HIGH_BITS;
       if (high != 0) {
           hash ^= high >> THREE_QUARTERS;

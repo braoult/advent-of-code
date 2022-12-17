@@ -15,6 +15,6 @@
 
 #include "bits.h"
 
-extern unsigned int  pjwhash(const char* str, uint length);
+extern unsigned int  pjwhash (const void* key, uint length)
 
 #endif  /* _PJWHASH_H */
