@@ -186,28 +186,6 @@ static int parse()
     return count;
 }
 
-/*
- * static int solve(int part)
- * {
- *     ulong bucket;
- *     dir_t *cur;
- *     int res = 0, needed;
- *
- *     if (part == 1) {
- *         hash_for_each(hasht_dir, bucket, cur, hlist)
- *             if (cur->size <= 100000)
- *                 res += cur->size;
- *     } else {
- *         res = find_dirname("/", 1)->size;
- *         needed = res - (70000000-30000000);
- *         hash_for_each(hasht_dir, bucket, cur, hlist)
- *             if (cur->size >= needed && cur->size < res)
- *                 res = cur->size;
- *     }
- *     return res;
- * }
- */
-
 int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
