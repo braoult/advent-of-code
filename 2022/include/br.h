@@ -31,6 +31,17 @@
 #define __PASTE(x, y)       ___PASTE(x, y)
 #define __UNIQUE_ID(prefix) __PASTE(__PASTE(__UNIQUE_ID_, prefix), __COUNTER__)
 
+/* unused/used parameters/functions
+ * https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-unused-function-attribute
+ * https://gcc.gnu.org/onlinedocs/gcc/Common-Type-Attributes.html#index-unused-type-attribute
+ * https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-unused-variable-attribute
+ * https://gcc.gnu.org/onlinedocs/gcc/Label-Attributes.html#index-unused-label-attribute
+ * https://gcc.gnu.org/onlinedocs/gcc/Common-Function-Attributes.html#index-used-function-attribute
+ * https://gcc.gnu.org/onlinedocs/gcc/Common-Variable-Attributes.html#index-used-variable-attribute
+ */
+#define __unused             __attribute__((__unused__))
+#define __used               __attribute__((__used__))
+
 /* see https://lkml.org/lkml/2018/3/20/845 for explanation of this monster
  */
 #define __is_constexpr(x) \
