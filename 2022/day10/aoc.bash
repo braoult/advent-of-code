@@ -18,11 +18,10 @@ declare -i cycle=0 regx=1
 draw() {
     local -i pos
 
-    if (( cycle % 40 )); then
-        (( pos = cycle % 40 - regx - 1, pos = pos < 0? -pos: pos ))
-        (( pos < 2 )) && res+="#" || res+="."
-    else
-        res+=.$'\n'
+    (( pos = cycle % 40 - regx - 1, pos = pos < 0? -pos: pos ))
+    (( pos < 2 )) && res+="#" || res+="."
+    if ! (( cycle % 40 )); then
+        res+=$'\n'
     fi
 }
 
