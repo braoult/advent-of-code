@@ -16,63 +16,45 @@
 declare -ai div ttrue tfalse inspect
 declare -a items                                  # (1 2) is "1 2"
 declare -a op1 op op2
-declare -i reduce=1
+declare -i reduce=1 nmonkeys=0 divisor=3
 
-print() {
-    for i in "${!items[@]}"; do
-        printf "Monkey %d: %s\n" "$i" "${items[$i]}"
-    done
-}
-
-calc1() {
-    local -i m1=0 m2=0 i
+calc() {
     local -n _res="$1"
-    for i in "${inspect[@]}"; do
-        if ((i > m1)); then
-            ((m2 = m1, m1 = i))
-        elif ((i > m2)); then
-            ((m2 = i))
+    local -i _m1=0 _m2=0 _i
+
+    for _i in "${inspect[@]}"; do                 # find the 2 biggest numbers
+        if ((_i > _m1)); then
+            ((_m2 = _m1, _m1 = _i))
+        elif ((_i > _m2)); then
+            ((_m2 = _i))
         fi
     done
-    echo "m1=$m1 m2=$m2"
-    (( _res = m1 * m2 ))
+    (( _res = _m1 * _m2 ))
 }
 
 inspect() {
     local -i _part="$1" monkey="$2" item _tmp
     local -i _op1=${op1[$monkey]} _op2=${op2[$monkey]}
     local -a _items
-    read -ra _items <<< "${items[$monkey]}"
-    printf "ITEMS [%s] %d:(%s)\n" "${items[$monkey]}" "${#_items[@]}" "${_items[*]}"
+
+    read -ra _items <<< "${items[$monkey]}"       # convert to array
     for item in "${_items[@]}"; do
         (( inspect[monkey]++ ))
-        echo "M=$monkey items=(${items[$monkey]})/$item"
         [[ -v op1[$monkey] ]] || _op1=$item
         [[ -v op2[$monkey] ]] || _op2=$item
-        echo "old=$item/op1=$_op1 op2=$_op2"
-        case "${op[$monkey]}" in
-            \+)
-                (( _tmp = _op1 + _op2 ))
-                printf "%d + %d = %d " "$_op1" "$_op2" "$_tmp"
-                ;;
-            \*)
-                (( _tmp = _op1 * _op2 ))
-                printf "%d * %d = %d " "$_op1" "$_op2" "$_tmp"
-                ;;
-        esac
-        ((_part == 1)) && (( _tmp /= 3 ))
-        (( _tmp %= reduce ))
+        if [[ "${op[$monkey]}" == "+" ]]; then
+            (( _tmp = _op1 + _op2 ))
+        else
+            (( _tmp = _op1 * _op2 ))
+        fi
+        (( _tmp /= divisor, _tmp %= reduce ))
         if ! (( _tmp % div[monkey] )); then
             items[${ttrue[$monkey]}]+=" $_tmp"
         else
             items[${tfalse[$monkey]}]+=" $_tmp"
         fi
-        printf "/3 = %d\n" "$_tmp"
-        printf "M=%d new=%d\n" "$monkey" "$_tmp"
     done
     items[$monkey]=""
-    print
-    echo
 }
 
 parse() {
@@ -84,17 +66,17 @@ parse() {
         IFS=" :," read -ra _items                 # starting items
 
         items[$monkey]="${_items[*]:2}"
-        echo -n "items[$monkey]=${items[$monkey]} "
+        #echo -n "items[$monkey]=${items[$monkey]} "
         IFS=" :=" read -r _ _ op1[$monkey] op[$monkey] op2[$monkey]          # operator and operand
         [[ ${op1[$monkey]} == old ]] && unset "op1[$monkey]"
         [[ ${op2[$monkey]} == old ]] && unset "op2[$monkey]"
-        echo -n "op=${op[$monkey]} ops=${op1[$monkey]}/${op2[$monkey]} "
+        #echo -n "op=${op[$monkey]} ops=${op1[$monkey]}/${op2[$monkey]} "
         IFS=" :=" read -r _ _ _ div[$monkey]      # divisor
         (( reduce *= div[monkey] ))
-        echo -n "div=${div[$monkey]} "
+        #echo -n "div=${div[$monkey]} "
         read -r _ _ _ _ _ ttrue[$monkey]          # throw if true
         read -r _ _ _ _ _ tfalse[$monkey]
-        echo "T=${ttrue[$monkey]} F=${tfalse[$monkey]}"
+        #echo "T=${ttrue[$monkey]} F=${tfalse[$monkey]}"
         read -r
         (( monkey++ ))
         #break
@@ -103,16 +85,14 @@ parse() {
 
 solve() {
     local -i _loops=20
-    (( part == 2 )) && (( _loops = 10000 ))
+    (( part == 2 )) && (( _loops = 10000, divisor = 1 ))
     for ((round = 0; round < _loops; ++round)); do
         for ((monkey = 0; monkey < ${#div[@]}; ++monkey)); do
             inspect "$part" "$monkey"
         done
     done
-    printf "inspect=%s\n" "${inspect[*]}"
-    # remove last '\n', add starting '\n'
-    calc1 res
-    #(( part == 2 )) && res=$'\n'${res::-1}
+    #printf "inspect=%s\n" "${inspect[*]}"
+    calc res
 }
 
 main "$@"
