@@ -13,16 +13,16 @@
 
 . common.bash
 
-declare -ai div ttrue tfalse inspect
-declare -a items                                  # (1 2) is "1 2"
+declare -ai div ttrue tfalse vis
+declare -a it                                     # (1 2) is "1 2"
 declare -a op1 op op2
-declare -i reduce=1 nmonkeys=0 divisor=3
+declare -i lcm=1 monks=0 divisor=3
 
 calc() {
     local -n _res="$1"
     local -i _m1=0 _m2=0 _i
 
-    for _i in "${inspect[@]}"; do                 # find the 2 biggest numbers
+    for _i in "${vis[@]}"; do                     # find the 2 biggest numbers
         if ((_i > _m1)); then
             ((_m2 = _m1, _m1 = _i))
         elif ((_i > _m2)); then
@@ -32,66 +32,53 @@ calc() {
     (( _res = _m1 * _m2 ))
 }
 
-inspect() {
-    local -i _part="$1" monkey="$2" item _tmp
-    local -i _op1=${op1[$monkey]} _op2=${op2[$monkey]}
-    local -a _items
-
-    read -ra _items <<< "${items[$monkey]}"       # convert to array
-    for item in "${_items[@]}"; do
-        (( inspect[monkey]++ ))
-        [[ -v op1[$monkey] ]] || _op1=$item
-        [[ -v op2[$monkey] ]] || _op2=$item
-        if [[ "${op[$monkey]}" == "+" ]]; then
-            (( _tmp = _op1 + _op2 ))
-        else
-            (( _tmp = _op1 * _op2 ))
-        fi
-        (( _tmp /= divisor, _tmp %= reduce ))
-        if ! (( _tmp % div[monkey] )); then
-            items[${ttrue[$monkey]}]+=" $_tmp"
-        else
-            items[${tfalse[$monkey]}]+=" $_tmp"
-        fi
-    done
-    items[$monkey]=""
-}
-
 parse() {
-    local -i monkey=0
-    local -a _items
+    local -a _it
 
     while read -r; do                             # ignore Monkey number
-        #echo -n "monkey=$monkey "
-        IFS=" :," read -ra _items                 # starting items
-
-        items[$monkey]="${_items[*]:2}"
-        #echo -n "items[$monkey]=${items[$monkey]} "
-        IFS=" :=" read -r _ _ op1[$monkey] op[$monkey] op2[$monkey]          # operator and operand
-        [[ ${op1[$monkey]} == old ]] && unset "op1[$monkey]"
-        [[ ${op2[$monkey]} == old ]] && unset "op2[$monkey]"
-        #echo -n "op=${op[$monkey]} ops=${op1[$monkey]}/${op2[$monkey]} "
-        IFS=" :=" read -r _ _ _ div[$monkey]      # divisor
-        (( reduce *= div[monkey] ))
-        #echo -n "div=${div[$monkey]} "
-        read -r _ _ _ _ _ ttrue[$monkey]          # throw if true
-        read -r _ _ _ _ _ tfalse[$monkey]
-        #echo "T=${ttrue[$monkey]} F=${tfalse[$monkey]}"
+        IFS=" :," read -ra _it                    # starting items
+        it[$monks]="${_it[*]:2}"
+        IFS=" :=" read -r _ _ op1[$monks] op[$monks] op2[$monks]
+        [[ ${op[$monks]} == "+" ]] && unset "op[$monks]"
+        [[ ${op1[$monks]} == old ]] && unset "op1[$monks]"
+        [[ ${op2[$monks]} == old ]] && unset "op2[$monks]"
+        IFS=" :=" read -r _ _ _ div[$monks]       # divisor
+        (( lcm *= div[monks] ))
+        read -r _ _ _ _ _ ttrue[$monks]           # throw if true
+        read -r _ _ _ _ _ tfalse[$monks]
         read -r
-        (( monkey++ ))
-        #break
+        (( monks++ ))
     done
 }
 
 solve() {
-    local -i _loops=20
+    local -i _loops=20 round m _op1 _op2 i
+
     (( part == 2 )) && (( _loops = 10000, divisor = 1 ))
     for ((round = 0; round < _loops; ++round)); do
-        for ((monkey = 0; monkey < ${#div[@]}; ++monkey)); do
-            inspect "$part" "$monkey"
+        for ((m = 0; m < monks; ++m)); do
+            _op1=${op1[$m]}
+            _op2=${op2[$m]}
+
+            # shellcheck disable=SC2068
+            for i in ${it[$m]}; do
+                (( vis[m]++ ))
+                [[ -v op1[$m] ]] || _op1=$i
+                [[ -v op2[$m] ]] || _op2=$i
+                if [[ -v op[$m] ]]; then
+                    (( _tmp = (_op1 * _op2) / divisor % lcm ))
+                else
+                    (( _tmp = (_op1 + _op2) / divisor % lcm ))
+                fi
+                if (( _tmp % div[m] )); then
+                    it[${tfalse[$m]}]+=" $_tmp"
+                else
+                    it[${ttrue[$m]}]+=" $_tmp"
+                fi
+            done
+            it[$m]=""
         done
     done
-    #printf "inspect=%s\n" "${inspect[*]}"
     calc res
 }
 
