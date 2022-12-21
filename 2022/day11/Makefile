@@ -71,11 +71,11 @@ assembly: aoc-c.s
 
 part1: aoc-c
 	@$(TIME) aoc.bash -p 1 < $(INPUT) 2>&1
-	@#$(TIME) aoc-c -p 1 < $(INPUT)
+	@$(TIME) aoc-c -p 1 < $(INPUT)
 
 part2: aoc-c
-	@#$(TIME) aoc.bash -p 2 < $(INPUT) 2>&1
-	@#$(TIME) aoc-c -p 2 < $(INPUT)
+	@$(TIME) aoc.bash -p 2 < $(INPUT) 2>&1
+	@$(TIME) aoc-c -p 2 < $(INPUT)
 
 ccls: $(CCLSFILE)
 

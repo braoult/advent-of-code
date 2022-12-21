@@ -23,110 +23,33 @@
 
 #define MAXMONKEYS 8
 
-static int part1()
-{
-    return 1;
-}
-
-static int part2()
-{
-    return 2;
-}
-
 typedef struct monkey {
     char op;                                      /* '+' or '*' */
     long values[2];                               /* formula operands */
+    uint visits;                                  /* total visits */
     int div;                                      /* divisor */
     struct list_head *dest[2];                    /* destination monkey */
-    uint visits;                                  /* total visits */
     struct list_head items;                       /* monkey items */
 } monkey_t;
 
 typedef struct item {
-    int item;
+    long item;
     struct list_head list;
 } item_t;
 
-static monkey_t monkeys[MAXMONKEYS];
-static int nmonkeys;
-static u64 lcm = 1, divide = 3;
 static pool_t *pool_item;
 
+/* TODO: the following 3 variables should not be global
+ */
+static monkey_t monkeys[MAXMONKEYS];
+static int nmonkeys;
+static u64 lcm = 1;
 
-static void print_monkeys()
-{
-    monkey_t *m = monkeys;
-    item_t *item;
-
-    for (int i = 0; i < nmonkeys; ++i, m++) {
-        printf("Monkey %d visits:%u\n\titems: ", i, m->visits);
-        list_for_each_entry(item, &m->items, list) {
-            printf("%d ", item->item);
-        }
-        putchar('\n');
-        printf("\ttrue=%ld false=%ld\n",
-               container_of(&m->dest[0], monkey_t, dest[0]) - monkeys,
-               container_of(&m->dest[0], monkey_t, dest[1]) - monkeys);
-
-        //printf("\top: %ld %c %ld\n", m->values[0], m->op, m->values[1]);
-        //printf("\tdiv = %d\n", m->div);
-        //printf("\ttrue:%ld false:%ld\n", m->dest[1]-monkeys, m->dest[0]-monkeys);
-    }
-    //putchar('\n');
-}
-
-static u64 result()
-{
-    u64 max1 = 0, max2 = 0;
-    monkey_t *m = monkeys;
-    for (int i = 0; i < nmonkeys; ++i, m++) {
-        if (m->visits > max1) {
-            max2 = max1;
-            max1 = m->visits;
-        } else if (m->visits > max2) {
-            max2 = m->visits;
-        }
-    }
-    printf("max1=%lu max2=%lu res=%lu", max1, max2, max1*max2);
-    return max1 * max2;
-}
-
-static void inspect(monkey_t *m)
-{
-    item_t *item, *tmp;
-    long op1, op2, res;
-
-    list_for_each_entry_safe(item, tmp, &m->items, list) {
-        list_del(&item->list);
-        //printf("Monkey %ld inspects %d\n", m - monkeys, item->item);
-        m->visits++;
-        printf("Monkey %ld inspect=%d visits=%d ", m - monkeys,
-               item->item, m->visits);
-        op1 = m->values[0] < 0 ? item->item: m->values[0];
-        op2 = m->values[1] < 0 ? item->item: m->values[1];
-        if (m->op == '+') {
-            res = op1 + op2;
-        } else {
-            res = op1 * op2;
-        }
-        printf("op1=%ld op2=%ld op=%c res=%ld ", op1, op2, m->op, res);
-        res = (res / divide) % lcm;
-        //printf("final=%ld div=%d dest=%ld\n", res, m->div,
-        //       m->dest[!!(res % m->div)] - monkeys);
-        item->item = res;
-        //if (res % m->div) {
-        list_add_tail(&item->list, m->dest[!!(res % m->div)]);
-            //}
-        //print_monkeys();
-    }
-}
-
-static char *skip(char *buf, int n)
+static char *getnth(char *buf, int n)
 {
     char *ret;
     for (; n >= 0; n--) {
         ret = strtok(buf, " ,\n");
-        //printf("skip %d=%s\n", n, ret);
         buf = NULL;
     }
     return ret;
@@ -141,86 +64,101 @@ static int parse()
 {
     size_t alloc = 0;
     char *buf = NULL, *tok;
-    //ssize_t buflen;
     monkey_t *m = monkeys;
 
     while (getline(&buf, &alloc, stdin) > 0) {
-        printf("monkey %d\n", nmonkeys);
         INIT_LIST_HEAD(&m->items);
 
         getline(&buf, &alloc, stdin);             /* starting items */
-        tok = skip(buf, 2);
-        printf("skip=%s\n", tok);
+        tok = getnth(buf, 2);
         while (tok) {
             item_t *item = pool_get(pool_item);
             item->item = atoi(tok);
             list_add_tail(&item->list, &m->items);
-            printf("val = %d\n", item->item);
             tok = getnext();
         }
 
         getline(&buf, &alloc, stdin);             /* operation */
-        tok = skip(buf, 3);
-        printf("skip=%s\n", tok);
-        //tok = getnext();
-        //printf("tok=%p %c\n", tok, *tok);
+        tok = getnth(buf, 3);
         m->values[0] = (*tok == 'o') ? -1: atoi(tok); /* first operand */
-        printf("val1 = %ld\n", m->values[0]);
-        //tok = getnext();
         m->op = *getnext();                       /* operator */
         tok = getnext();
         m->values[1] = *tok == 'o' ? -1: atoi(tok); /* second operand */
-        printf("val2 = %ld\n", m->values[1]);
 
         getline(&buf, &alloc, stdin);             /* divisible */
-        tok=skip(buf, 3);
-        //printf("skip div=%s\n", tok);
-        m->div = atoi(tok);
+        m->div = atoi(getnth(buf, 3));
         lcm *= m->div;
 
         getline(&buf, &alloc, stdin);             /* true */
-        //puts(buf);
-        tok = skip(buf, 5);
-        //printf("skip true=%s\n", tok);
-        m->dest[0] = &(monkeys + atoi(tok))->items;
-        //printf("true = %ld\n", m->dest[0] - monkeys);
+        m->dest[0] = &(monkeys + atoi(getnth(buf, 5)))->items;
 
         getline(&buf, &alloc, stdin);             /* false */
-        tok = skip(buf, 5);
-        //printf("skip false=%s\n", tok);
-        m->dest[1] = &(monkeys + atoi(tok))->items;
-        //printf("false = %ld\n", m->dest[1] - monkeys);
+        m->dest[1] = &(monkeys + atoi(getnth(buf, 5)))->items;
 
         getline(&buf, &alloc, stdin);             /* skip empty line */
 
         nmonkeys++;
         m++;
-        printf("\n");
-        //print_monkeys();
-        //exit(0);
     }
-    printf("lcm = %ld\n", lcm);
-    print_monkeys();
     free(buf);
     return 1;
 }
 
+static __always_inline void inspect(monkey_t *m, int divide)
+{
+    item_t *item, *tmp;
+    long op1, op2;
+
+    list_for_each_entry_safe(item, tmp, &m->items, list) {
+        m->visits++;
+        /* I wonder if we could not find some mathematical properties to
+         * simplify the following three lines
+         */
+        op1 = m->values[0] < 0 ? item->item: m->values[0];
+        op2 = m->values[1] < 0 ? item->item: m->values[1];
+        item->item = (((m->op == '+')? op1 + op2: op1 * op2) / divide ) % lcm;
+        list_move_tail(&item->list, m->dest[!!(item->item % m->div)]);
+    }
+}
+
+static u64 doit(int rounds, int divide)
+{
+    u64 max1 = 0, max2 = 0;
+    monkey_t *m = monkeys;
+
+    for (int r = 0; r < rounds; ++r)
+        for (int i = 0; i < nmonkeys; ++i)
+            inspect(monkeys + i, divide);
+
+    for (int i = 0; i < nmonkeys; ++i, m++) {
+        if (m->visits > max1) {
+            max2 = max1;
+            max1 = m->visits;
+        } else if (m->visits > max2) {
+            max2 = m->visits;
+        }
+    }
+    return max1 * max2;
+}
+
+static u64 part1()
+{
+    return doit(20, 3);
+}
+
+static u64 part2()
+{
+    return doit(10000, 1);
+}
+
+
 int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
-    int rounds = part == 1? 20: 10000;
-    if (part == 2)
-        divide = 1;
     pool_item =  pool_create("item", 64, sizeof(item_t));
 
     parse();
-    for (int r = 0; r < rounds; ++r) {
-        for (int i = 0; i < nmonkeys; ++i) {
-            inspect(monkeys + i);
-        }
-        printf("+++++++ after round %d\n", r + 1);
-        print_monkeys();
-    }
-    printf("%s: res=%lu\n", *av, result());
+    printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
+    pool_destroy(pool_item);
     exit(0);
 }
