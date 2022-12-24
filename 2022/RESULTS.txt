@@ -261,7 +261,15 @@ aoc.bash: res=408
 	time: 0:00.81 real, 0.80 user, 0.00 sys
 	context-switch:	223+1, page-faults: 0+486
 
+aoc-c: res=408
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+170
+
 +++++++++++++++++ part 2
 aoc.bash: res=399
-	time: 0:00.57 real, 0.56 user, 0.00 sys
-	context-switch:	35+1, page-faults: 0+459
+	time: 0:00.55 real, 0.54 user, 0.01 sys
+	context-switch:	25+1, page-faults: 0+460
+
+aoc-c: res=399
+	time: 0:00.00 real, 0.00 user, 0.00 sys
+	context-switch:	0+1, page-faults: 0+171
