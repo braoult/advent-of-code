@@ -28,7 +28,7 @@ export LD_LIBRARY_PATH = $(LIBDIR)
 
 CFLAGS  += -std=gnu11
 CFLAGS  += -O2
-CFLAGS  += -g
+#CFLAGS  += -g
 # for gprof
 # CFLAGS += -pg
 CFLAGS  += -Wall
@@ -50,7 +50,7 @@ VALGRINDFLAGS := --leak-check=full --show-leak-kinds=all --track-origins=yes \
 TIME    := \time -f "\ttime: %E real, %U user, %S sys\n\tcontext-switch:\t%c+%w, page-faults: %F+%R\n"
 export PATH := .:$(PATH)
 
-.PHONY: clean all compile assembly memcheck memcheck1 memcheck2 part1 part2 ccls bear org
+.PHONY: clean cleanall all compile assembly memcheck memcheck1 memcheck2 part1 part2 ccls bear org
 
 all: README.org ccls part1 part2
 
@@ -80,7 +80,10 @@ part2: aoc-c
 ccls: $(CCLSFILE)
 
 clean:
-	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html compile_commands.json
+	@rm -f aoc-c core* vgcore* gmon.out aoc-c.s aoc-c.i README.html
+
+cleanall: clean
+	@rm -f compile_commands.json
 
 aoc-c: aoc-c.c common.c
 	@echo compiling $<
