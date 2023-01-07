@@ -15,6 +15,16 @@
 
 #include "bits.h"
 
-extern unsigned int  pjwhash (const void* key, uint length)
+/**
+ * unsigned int pjwhash - PJW hash function
+ * @key:    the key address.
+ * @length: the length of key.
+ *
+ * This hash was created by Peter Jay Weinberger (AT&T Bell Labs):
+ * https://en.wikipedia.org/wiki/PJW_hash_function
+ *
+ * Return: the PJW hash.
+ */
+extern uint  pjwhash (const void* key, uint length);
 
 #endif  /* _PJWHASH_H */

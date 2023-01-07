@@ -34,7 +34,7 @@
  *
  * Return: the PJW hash.
  */
-_pjw_inline unsigned int pjwhash(const void* key, uint length)
+_pjw_inline uint pjwhash(const void* key, uint length)
 {
    uint hash = 0, high;
    const u8 *k = key;

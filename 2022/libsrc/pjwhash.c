@@ -13,4 +13,8 @@
 
 #define _pjw_inline extern
 
+//#include "bits.h"
+//extern unsigned int  pjwhash (const void* key, uint length);
+
+#include "pjwhash.h"
 #include "pjwhash-inline.h"
