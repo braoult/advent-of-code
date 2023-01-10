@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <unistd.h>
 
 #include "br.h"
 #include "debug.h"
@@ -26,26 +25,8 @@
 typedef enum {
     NIL,
     LIST,
-    //SUBLIST,
     INT
 } type_t;
-
-char *types[] = {
-    "NIL",
-    "LIST",
-    //"SUBLIST",
-    "INT"
-};
-
-struct node;
-typedef struct cons {
-    type_t type;
-    union {
-        //struct list_head node;                    /* same level node */
-        struct node *sub;
-        int value;
-    };
-} cons_t;
 
 #define CAR 0                                     /* always NUM or SUBLIST */
 #define CDR 1                                     /* always LIST */
@@ -57,19 +38,26 @@ typedef struct node {
         int value;
     } car;
     struct list_head cdr;
-    //cons_t cons[2];
 } node_t;
 
-typedef struct line {
-    int pos;                                      /* position to parse */
-    char *s;
-} line_t;
+typedef struct nodes {
+    struct list_head node;
+    struct list_head list;
+} nodes_t;
+LIST_HEAD(nodes);
 
-pool_t *pool_nodes;
+/* dummy nodes for integer vs list */
+static struct list_head dummy_list;               /* tentative definition */
+static node_t dummy = {
+    .car_t = INT, .car.value = 0, .cdr = LIST_HEAD_INIT(dummy_list)
+};
+static struct list_head dummy_list = LIST_HEAD_INIT(dummy.cdr);
+
+pool_t *pool_node, *pool_nodes;
 
 static node_t *getnode()
 {
-    node_t *node = pool_get(pool_nodes);
+    node_t *node = pool_get(pool_node);
     node->car_t = NIL;
     INIT_LIST_HEAD(&node->cdr);
     log_f(4, "\n");
@@ -90,9 +78,6 @@ static void print_tree(struct list_head *head, int level)
         else
             print_tree(&cur->car.sub, level + 2);
     }
-    //} else {
-    //printf("nil ");
-    //}
     printf(") ");
     if (!level)
         printf("\n");
@@ -101,30 +86,14 @@ static void print_tree(struct list_head *head, int level)
 static int compare_tree(struct list_head *h1, struct list_head *h2)
 {
     struct list_head *cur1, *cur2;
-    //struct list_head *h1, *h2;
-    node_t *tmp, *n1, *n2;
+    node_t *n1, *n2;
     int res;
     log_f(3, "h1=%p h2=%p\n", h1, h2);
 
-    /* check for NIL */
-    /*
-     * if (n1->car_t == NIL) {
-     *     log(3, "n1 is NIL\n");
-     *     return n2->car_t == NIL? 0: 1;
-     * }
-     * if (n2->car_t == NIL) {
-     *     log(3, "n2 is NIL\n");
-     *     return -1;
-     * }
-     */
-
-    //h1 = &n1->cdr;
-    //h2 = &n2->cdr;
     /* get lists first entries */
     cur1 = h1->next;
     cur2 = h2->next;
 
-    //if (!list_empty(h1) && !list_empty(h2)) {
      while (cur1 != h1 && cur2 != h2) {
         n1 = container_of(cur1, node_t, cdr);
         n2 = container_of(cur2, node_t, cdr);
@@ -147,37 +116,21 @@ static int compare_tree(struct list_head *h1, struct list_head *h2)
                     return res;
             }
         } else {                                  /* one number, one list */
-            tmp = getnode();
-            //INIT_LIST_HEAD(&tmp->car.sub);
-            tmp->car_t = INT;
             if (n1->car_t == INT) {
-                log(3, "car1 == INT, adding a node\n");
-                tmp->car.value = n1->car.value;
-                n1->car_t = LIST;
-                INIT_LIST_HEAD(&n1->car.sub);
-                list_add(&tmp->cdr, &n1->car.sub);
-                //n1->car.sub = tmp;
-                //print_tree()
+                log(3, "car1 == INT, using dummy\n");
+                dummy.car.value = n1->car.value;
+                res = compare_tree(&dummy_list, &n2->car.sub);
             } else {
-                log(3, "car2 == INT, adding a node\n");
-                tmp->car.value = n2->car.value;
-                n2->car_t = LIST;
-                INIT_LIST_HEAD(&n2->car.sub);
-                list_add(&tmp->cdr, &n2->car.sub);
-                //n2->car.sub = tmp;
+                log(3, "car2 == INT, using dummy\n");
+                dummy.car.value = n2->car.value;
+                res = compare_tree(&n1->car.sub, &dummy_list);
             }
-            res = compare_tree(&n1->car.sub, &n2->car.sub);
             if (res)
                 return res;
-            //continue;
         }
-        //next:
         cur1 = cur1->next;
         cur2 = cur2->next;
     }
-//} else {
-    //      log(3, "some list empty\n");
-//}
     /* at least one list came to end */
      if (cur1 == h1 && cur2 == h2) {              /* both are ending */
         log(3, "Both sides Left side ran out of items, undecided\n");
@@ -191,6 +144,52 @@ static int compare_tree(struct list_head *h1, struct list_head *h2)
     }
 }
 
+static void print_nodes()
+{
+    nodes_t *cur;
+    log_f(3, "+++++++++++\n");
+    list_for_each_entry(cur, &nodes, list) {
+        print_tree(&cur->node, 0);
+    }
+}
+
+static int add_node(nodes_t *h)
+{
+    nodes_t *first, *iter, *prev;
+    struct list_head *node_next = &nodes;
+    int num = 1;
+
+    log_f(3, "adding ");
+    print_tree(&h->node, 0);
+
+    if (list_empty(&nodes)) {
+        log_f(3, "adding first entry\n");
+        goto ins_node;
+    }
+    first = iter = list_first_entry(&nodes, nodes_t, list);
+    do {
+        if (compare_tree(&h->node, &iter->node) > 0) {
+            node_next = &iter->list;
+            break;
+        }
+        prev = iter;
+        iter = list_entry(iter->list.next, nodes_t, list);
+        num++;
+    } while (iter != first);
+ins_node:
+    log_f(3, "adding entry before ");
+    if (node_next == &nodes)
+        log(3, "head\n");
+    else
+        print_tree(&list_entry(node_next, nodes_t, list)->node, 0);
+    //&n->node, 0);
+    //            list_add_tail(&h->list, &n->list);
+    log_f(3, "position = %d\n", num);
+    list_add_tail(&h->list, node_next);
+    return num;
+}
+
+
 static struct list_head *create_tree(char *s, int *consumed, int level, struct list_head *head)
 {
     node_t *node = NULL;
@@ -198,10 +197,10 @@ static struct list_head *create_tree(char *s, int *consumed, int level, struct l
     int num = 0, val, depth = 0, subconsumed;
     //LIST_HEAD(head);
     *consumed = 1;
-    if (*s != '[') {
-        printf("error 0\n");
-        exit(0);
-    }
+    //if (*s != '[') {
+    //    printf("error 0\n");
+    //    exit(0);
+    //}
     INIT_LIST_HEAD(head);
     //head = getnode();
     log_f(3, "create_tree(%s)\n", s);
@@ -221,18 +220,9 @@ static struct list_head *create_tree(char *s, int *consumed, int level, struct l
                         s += subconsumed - 1;
                         *consumed += subconsumed - 1;
                         log(4, "after create_tree: cons=%d s=%s\n", subconsumed, s);
-                        //if (num == 0) {
-                        //    head->car_t = SUBLIST;
-                        //    head->car.sub = sub;
-                        //} else {
-                        //list_add(&sub, &node->car.sub); /* add sublist to new node */
                         list_add_tail(&node->cdr, head); /* add node to current level */
-                        puts("ZOBI");
-                        print_tree(&node->car.sub, 0);
-                        puts("ZOBa");
-                        //sleep(1);
-                        print_tree(head, 0);
-                        //}
+                        //print_tree(&node->car.sub, 0);
+                        //print_tree(head, 0);
                         depth--;
                         num++;
                         break;
@@ -254,16 +244,10 @@ static struct list_head *create_tree(char *s, int *consumed, int level, struct l
                 *consumed += subconsumed - 1;
                 s += subconsumed - 1;
                 log(4, "got integer=%d num=%d depth=%d chars=%d\n", val, num, depth, subconsumed);
-                //if (num == 0) {
-                //    head->car_t = INT;
-                //    head->car.value = val;
-                //} else {
                 node = getnode();
                 node->car_t = INT;
                 node->car.value = val;
                 list_add_tail(&node->cdr, head);
-                //}
-                //print_tree(head, 0);
                 num++;
                 break;
         }
@@ -279,76 +263,87 @@ static int parse()
     ssize_t buflen;
     char *buf = NULL;
     int i = 0;
-    struct list_head head[2];
-    int consumed;
-    int group = 1, res = 0, tmp;
-    //line_t line;
+    //struct list_head h[2];
+    nodes_t *head[2];
+    int dummy, group = 1, res = 0, tmp;
 
-    while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
-        buf[--buflen] = 0;
-        if (!buflen) {
-            //i = 0;
-            //printf("++++ node 1 = %p\n", node[1]);
-            printf("++++ node 0 = %p\n", &head[0]);
-            print_tree(&head[0], 0);
-            printf("++++ node 1 = %p\n", &head[1]);
-            print_tree(&head[1], 0);
-            tmp = compare_tree(&head[0], &head[1]);
-            printf("group = %d compare_tree() = %d\n", group, tmp);
-            if (tmp == 1) {
-                res += group;
-                printf("group = %d: right order res:%d -> %d\n", group, res - group, res);
-            }
-            group++;
-            printf("\n\n");
-            //pool_add(pool_nodes, node[0]);
-            //pool_add(pool_nodes, node[1]);
-            //node[0] = node[1] = NULL;
-            //exit(0);
-        } else {
-            //node[i % 2] = getnode();
-            create_tree(buf, &consumed, 0, &head[i % 2]);
-            printf("setting node %d\n\n", i%2);
-            i++;
+    while (1) {
+        buflen = getline(&buf, &alloc, stdin);
+        if (--buflen > 0) {
+            head[ i % 2] = pool_get(pool_nodes);
+            create_tree(buf, &dummy, 0, &head[i % 2]->node);
+            add_node(head[i %2]);
+            //create_tree(buf, &dummy, 0, &head[i % 2]);
+
+            printf("setting node %d\n\n", i % 2);
         }
+        if (buflen != 0) {
+            if (i % 2) {
+                printf("++++ node 0 = %p\n", &head[0]);
+                print_tree(&head[0]->node, 0);
+                printf("++++ node 1 = %p\n", &head[1]);
+                print_tree(&head[1]->node, 0);
+                tmp = compare_tree(&head[0]->node, &head[1]->node);
+                printf("group = %d compare_tree() = %d\n", group, tmp);
+                if (tmp == 1) {
+                    res += group;
+                    printf("group = %d: right order res:%d -> %d\n", group, res - group, res);
+                    printf("\n\n");
+                }
+                group++;
+            }
+            i++;
+
+        }
+        if (buflen < 0)
+            break;
     }
-    printf("++++ node 0 = %p\n", &head[0]);
-    print_tree(&head[0], 0);
-    printf("++++ node 1 = %p\n", &head[1]);
-    print_tree(&head[1], 0);
-    tmp = compare_tree(&head[0], &head[1]);
-    printf("group = %d compare_tree() = %d\n", group, tmp);
-    if (tmp == 1) {
-        res += group;
-        printf("group = %d: right order res:%d -> %d\n", group, res - group, res);
-    }
-    printf("\n\n");
-    return 1;
+    return res;
 }
 
-static u64 doit()
+static int part1()
 {
-    return 1;
+    return parse();
 }
 
-static u64 part1()
+static int part2()
 {
-    return doit();
+    int dummy, res;
+    struct nodes *h;
+    parse();
+    h = pool_get(pool_nodes);
+    create_tree("[2]", &dummy, 0, &h->node);
+    res = add_node(h);
+    h = pool_get(pool_nodes);
+    create_tree("[6]", &dummy, 0, &h->node);
+    res *= add_node(h);
+    return res;
 }
 
-static u64 part2()
-{
-    return doit();
-}
-
+/*
+static struct list_head dummy_head;
+static node_t dummy = {
+    .car_t = INT, .car.value = 0, .cdr = LIST_HEAD_INIT(dummy_head)
+};
+static struct list_head dummy_head = LIST_HEAD_INIT(dummy.car.sub);
+*/
 
 int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
-    pool_nodes =  pool_create("nodes", 512, sizeof(node_t));
+    pool_node =  pool_create("node", 512, sizeof(node_t));
+    pool_nodes =  pool_create("nodes", 512, sizeof(nodes_t));
     //u32 foo=0x12345678;
-    parse();
-    printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
+    printf("&dummy->cdr=%p next=%p prev=%p\n",
+           &dummy.cdr, dummy.cdr.next, dummy.cdr.prev);
+    printf("&dummy_head=%p next=%p prev=%p\n",
+           &dummy_list, dummy_list.next, dummy_list.prev);
+    //parse();
+    //printf("&dummy->cdr=%p next=%p prev=%p\n",
+    //       &dummy.cdr, dummy.cdr.next, dummy.cdr.prev);
+    printf("%s: res=%d\n", *av, part == 1? part1(): part2());
+    print_nodes();
+    pool_destroy(pool_node);
     pool_destroy(pool_nodes);
     exit(0);
 }

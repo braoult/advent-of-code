@@ -144,8 +144,6 @@ is the sum of the indices of those pairs?/
 
 Your puzzle answer was =5843=.
 
-The first half of this puzzle is complete! It provides one gold star: *
-
 ** --- Part Two ---
 Now, you just need to put /all/ of the packets in the right order.
 Disregard the blank lines in your list of received packets.
@@ -195,3 +193,7 @@ the divider packets are /10th/ and /14th/, and so the decoder key is
 
 Organize all of the packets into the correct order. /What is the decoder
 key for the distress signal?/
+
+Your puzzle answer was =26289=.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
