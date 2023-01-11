@@ -21,7 +21,7 @@ For example:
 [[1],4]
 
 [9]
-[[8,7,6]]
+[[[[8,7,6]]]]
 
 [[4,4],4,4]
 [[4,4],4,4,4]
@@ -86,7 +86,7 @@ are in the right order:
         - Left side is smaller, so inputs are in the right order
 
 == Pair 3 ==
-- Compare [9] vs [[8,7,6]]
+- Compare [9] vs [[[[8,7,6]]]]
   - Compare 9 vs [8,7,6]
     - Mixed types; convert left to [9] and retry comparison
     - Compare [9] vs [8,7,6]
@@ -152,8 +152,8 @@ The distress signal protocol also requires that you include two
 additional /divider packets/:
 
 #+begin_example
-[[2]]
-[[6]]
+[[[[2]]]]
+[[[[6]]]]
 #+end_example
 
 Using the same rules as before, organize all packets - the ones in your
@@ -173,14 +173,14 @@ order is:
 [1,[2,[3,[4,[5,6,0]]]],8,9]
 [1,[2,[3,[4,[5,6,7]]]],8,9]
 [[1],4]
-[[2]]
+[[[[2]]]]
 [3]
 [[4,4],4,4]
 [[4,4],4,4,4]
-[[6]]
+[[[[6]]]]
 [7,7,7]
 [7,7,7,7]
-[[8,7,6]]
+[[[[8,7,6]]]]
 [9]
 #+end_example
 
