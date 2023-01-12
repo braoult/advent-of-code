@@ -21,47 +21,56 @@
 
 #include "aoc.h"
 
-typedef enum {
-    NIL,
-    LIST,
-    INT
-} type_t;
+typedef enum { SUBLIST, INT } type_t;
 
-#define CAR 0                                     /* always NUM or SUBLIST */
-#define CDR 1                                     /* always LIST */
-
-typedef struct node {
+typedef struct node {                             /* node */
     type_t car_t;
-    union {
-        struct list_head sub;
-        int value;
-    } car;
-    struct list_head cdr;
+    union {                                       /* CAR */
+        struct list_head sub;                     /* sublist */
+        int value;                                /* value */
+    };
+    struct list_head cdr;                         /* CDR */
 } node_t;
 
-typedef struct nodes {
-    struct list_head node;
-    struct list_head list;
-} nodes_t;
-LIST_HEAD(nodes);
+typedef struct {                                  /* packets ordered list */
+    struct list_head node;                        /* packet head */
+    struct list_head list;                        /* packets lists */
+} packets_t;
+LIST_HEAD(packets);
 
-/* dummy nodes for integer vs list */
+/* dummy node for integer vs list */
 static struct list_head dummy_list;               /* tentative definition */
 static node_t dummy = {
-    .car_t = INT, .car.value = 0, .cdr = LIST_HEAD_INIT(dummy_list)
+    .car_t = INT, .value = 0, .cdr = LIST_HEAD_INIT(dummy_list)
 };
 static struct list_head dummy_list = LIST_HEAD_INIT(dummy.cdr);
 
-pool_t *pool_node, *pool_nodes;
+pool_t *pool_node, *pool_packets;
 
-static node_t *getnode()
+/* int getnode - allocate and initialize a new node
+ * @type: The node type_t (INT/LIST)
+ * @val:  The value if @type is INT
+ *
+ * Return: The new node.
+ */
+static node_t *getnode(type_t type, int val)
 {
     node_t *node = pool_get(pool_node);
-    node->car_t = NIL;
+    node->car_t = type;
     INIT_LIST_HEAD(&node->cdr);
+    if (type == INT)
+        node->value = val;
+    else
+        INIT_LIST_HEAD(&node->sub);
     return node;
 }
 
+/* int compare tree - compare two packets trees
+ * @h1: The first packet list head
+ * @h2: The second packet list head
+ *
+ * Return: 1 if h1 and h2 are ordered, -1 if not ordered, 0 if undecided
+ */
 static int compare_tree(struct list_head *h1, struct list_head *h2)
 {
     struct list_head *cur1, *cur2;
@@ -72,29 +81,28 @@ static int compare_tree(struct list_head *h1, struct list_head *h2)
     cur1 = h1->next;
     cur2 = h2->next;
 
-     while (cur1 != h1 && cur2 != h2) {
+    while (cur1 != h1 && cur2 != h2) {
         n1 = container_of(cur1, node_t, cdr);
         n2 = container_of(cur2, node_t, cdr);
 
         if (n1->car_t == n2->car_t) {
             if (n1->car_t == INT) {
-                if (n1->car.value < n2->car.value) {
+                if (n1->value < n2->value) {
                     return 1;
-                } else if (n1->car.value > n2->car.value) {
+                } else if (n1->value > n2->value) {
                     return -1;
                 }
             } else {                              /* both sublists */
-                res = compare_tree(&n1->car.sub, &n2->car.sub);
-                if (res)
+                if ((res = compare_tree(&n1->sub, &n2->sub)))
                     return res;
             }
         } else {                                  /* one number, one list */
             if (n1->car_t == INT) {
-                dummy.car.value = n1->car.value;
-                res = compare_tree(&dummy_list, &n2->car.sub);
+                dummy.value = n1->value;
+                res = compare_tree(&dummy_list, &n2->sub);
             } else {
-                dummy.car.value = n2->car.value;
-                res = compare_tree(&n1->car.sub, &dummy_list);
+                dummy.value = n2->value;
+                res = compare_tree(&n1->sub, &dummy_list);
             }
             if (res)
                 return res;
@@ -103,68 +111,59 @@ static int compare_tree(struct list_head *h1, struct list_head *h2)
         cur2 = cur2->next;
     }
     /* at least one list came to end */
-     if (cur1 == h1 && cur2 == h2) {              /* both are ending */
+    if (cur1 == h1 && cur2 == h2)                /* both are ending */
         return 0;
-     } else if (cur1 == h1) {                         /* first list did end */
+    else if (cur1 == h1)                         /* first list did end */
         return 1;
-    } else {
+    else
         return -1;
-    }
 }
 
-static int add_node(nodes_t *h)
+/* int add_node - add a packet to the sorted packets list
+ * @new: The new packets list head
+ *
+ * Return: The new packet position in list (first is 1)
+ */
+static int add_node(packets_t *new)
 {
-    nodes_t *first, *iter;
-    struct list_head *node_next = &nodes;
+    packets_t *first, *iter;
+    struct list_head *node_next = &packets;
     int num = 1;
 
-    if (list_empty(&nodes))
+    if (list_empty(&packets))
         goto ins_node;
-    first = iter = list_first_entry(&nodes, nodes_t, list);
+    first = iter = list_first_entry(&packets, packets_t, list);
     do {
-        if (compare_tree(&h->node, &iter->node) > 0) {
+        if (compare_tree(&new->node, &iter->node) > 0) {
             node_next = &iter->list;
             break;
         }
-        iter = list_entry(iter->list.next, nodes_t, list);
+        iter = list_entry(iter->list.next, packets_t, list);
         num++;
     } while (iter != first);
 ins_node:
-    list_add_tail(&h->list, node_next);
+    list_add_tail(&new->list, node_next);
     return num;
 }
 
-
-static struct list_head *create_tree(char *s, int *consumed, int level, struct list_head *head)
+static struct list_head *create_tree(char *s, int *consumed, struct list_head *head)
 {
     node_t *node = NULL;
     LIST_HEAD(sub);
-    int num = 0, val, depth = 0, subconsumed;
+    int val, depth = 0, subconsumed;
 
     *consumed = 1;
     INIT_LIST_HEAD(head);
     for (; *s; s++, (*consumed)++) {
-        val = 0;
         switch (*s) {
             case '[':
-                switch (++depth) {
-                    case 1:                       /* first level */
-                        break;
-                    case 2:                       /* second level (nested list) */
-                        node = getnode();
-                        node->car_t = LIST;
-                        INIT_LIST_HEAD(&node->car.sub);
-                        create_tree(s, &subconsumed, level + 1, &node->car.sub);
-                        s += subconsumed - 1;
-                        *consumed += subconsumed - 1;
-                        list_add_tail(&node->cdr, head);
-                        depth--;
-                        num++;
-                        break;
-                    default:                      /* should not happen */
-                        printf("error 1\n");
-                        exit(0);
-                        break;                    /* not reached */
+                if (++depth == 2) {               /* we skip first depth level */
+                    node = getnode(SUBLIST, 0);
+                    list_add_tail(&node->cdr, head);
+                    create_tree(s, &subconsumed, &node->sub);
+                    s += subconsumed - 1;
+                    *consumed += subconsumed - 1;
+                    depth--;
                 }
                 break;
             case ',':
@@ -177,11 +176,8 @@ static struct list_head *create_tree(char *s, int *consumed, int level, struct l
                 sscanf(s, "%d%n", &val, &subconsumed);
                 *consumed += subconsumed - 1;
                 s += subconsumed - 1;
-                node = getnode();
-                node->car_t = INT;
-                node->car.value = val;
+                node = getnode(INT, val);
                 list_add_tail(&node->cdr, head);
-                num++;
                 break;
         }
     }
@@ -194,28 +190,21 @@ static int parse()
     size_t alloc = 0;
     ssize_t buflen;
     char *buf = NULL;
-    int i = 0;
-    nodes_t *head[2];
-    int dummy, group = 1, res = 0;
+    packets_t *head[2];
+    int i = 0, dummy, res = 0;
 
-    while (1) {
-        buflen = getline(&buf, &alloc, stdin);
-        if (--buflen > 0) {
-            head[ i % 2] = pool_get(pool_nodes);
-            create_tree(buf, &dummy, 0, &head[i % 2]->node);
-            add_node(head[i %2]);
+    while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
+        buf[--buflen] = 0;
+        if (buflen > 0) {                         /* non empty line */
+            head[i % 2] = pool_get(pool_packets);
+            create_tree(buf, &dummy, &head[i % 2]->node);
+            add_node(head[i % 2]);
         }
-        if (buflen != 0) {
-            if (i % 2) {
-                if (compare_tree(&head[0]->node, &head[1]->node) == 1)
-                    res += group;
-                group++;
-            }
+        if (buflen != 0) {                        /* non empty line or EOF */
+            if (i % 2 && compare_tree(&head[0]->node, &head[1]->node) == 1)
+                res += (i >> 1) + 1;              /* (i / 2) + 1 */
             i++;
-
         }
-        if (buflen < 0)
-            break;
     }
     return res;
 }
@@ -227,15 +216,14 @@ static int part1()
 
 static int part2()
 {
-    int dummy, res;
-    struct nodes *h;
+    char *dividers[] = { "[[2]]", "[[6]]" };
+    int dummy, res = 1;
     parse();
-    h = pool_get(pool_nodes);
-    create_tree("[2]", &dummy, 0, &h->node);
-    res = add_node(h);
-    h = pool_get(pool_nodes);
-    create_tree("[6]", &dummy, 0, &h->node);
-    res *= add_node(h);
+    for (ulong i = 0; i < ARRAY_SIZE(dividers); ++i) {
+        packets_t *h = pool_get(pool_packets);
+        create_tree(dividers[i], &dummy, &h->node);
+        res *= add_node(h);
+    }
     return res;
 }
 
@@ -243,10 +231,10 @@ int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
     pool_node =  pool_create("node", 512, sizeof(node_t));
-    pool_nodes =  pool_create("nodes", 512, sizeof(nodes_t));
+    pool_packets =  pool_create("packets", 512, sizeof(packets_t));
 
     printf("%s: res=%d\n", *av, part == 1? part1(): part2());
     pool_destroy(pool_node);
-    pool_destroy(pool_nodes);
+    pool_destroy(pool_packets);
     exit(0);
 }
