@@ -16,4 +16,5 @@
  - `C`: All (days 1-25)
 
 #### Advent of Code 2022
+ - `Bash`: All (days 1-12)
  - `C`: All (days 1-14)
