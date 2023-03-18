@@ -14,3 +14,6 @@
 
 #### Advent of Code 2021
  - `C`: All (days 1-25)
+
+#### Advent of Code 2022
+ - `C`: All (days 1-14)
