@@ -13,5 +13,5 @@
 #define _AOC_H_
 
 extern int parseargs(int ac, char**av);
-
+extern int testmode(void);
 #endif  /* _AOC_H_ */

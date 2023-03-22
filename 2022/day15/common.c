@@ -17,18 +17,28 @@
 #include "aoc.h"
 #include "debug.h"
 
+static int _testmode = 0;
+
 static int usage(char *prg)
 {
-    fprintf(stderr, "Usage: %s [-d debug_level] [-p part] [-i input]\n", prg);
+    fprintf(stderr, "Usage: %s [-t][-d debug_level] [-p part] [-i input]\n", prg);
     return 1;
+}
+
+int testmode(void)
+{
+    return _testmode;
 }
 
 int parseargs(int ac, char **av)
 {
     int opt, part = 1;
 
-    while ((opt = getopt(ac, av, "d:p:")) != -1) {
+    while ((opt = getopt(ac, av, "td:p:")) != -1) {
         switch (opt) {
+            case 't':
+                _testmode = 1;
+                break;
             case 'd':
                 debug_level_set(atoi(optarg));
                 break;
