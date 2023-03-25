@@ -35,6 +35,11 @@ void debug_level_set(u32 level)
     log(1, "debug level set to %u\n", level);
 }
 
+u32 debug_level_get()
+{
+    return debug_level;
+}
+
 void debug_init(u32 level)
 {
     struct timespec timer;
