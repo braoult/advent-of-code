@@ -41,7 +41,8 @@ struct map {
     int xmin, xmax, ymin, ymax;
     struct hlist_head *hash;
 } map = {
-    INT_MAX, INT_MIN, INT_MAX, INT_MIN, hasht_rows
+    //INT_MAX, INT_MIN, INT_MAX, INT_MIN, hasht_rows
+    INT_MIN, INT_MAX, INT_MIN, INT_MAX, hasht_rows
 };
 
 /**
@@ -89,33 +90,60 @@ static struct row *find_row(struct hlist_head *head, int row)
     return NULL;
 }
 
-static void print_map()
+static void print_segments()
 {
+    struct row *prow;
     struct segment *s;
 
-    printf("XXXXXXX ");
-    for (int x = map.xmin; x < 0; ++x)
-        putchar(' ');
-    printf("0\n");
-    for (int y = map.ymin; y <= map.ymax; ++y) {
-        printf("%7d ", y);
-        struct row *row = find_row(&map.hash[hash_32(y, HBITS)], y);
-        int x = map.xmin;
-        list_for_each_entry(s, &row->segments, list) {
-            for (; x < s->start; ++x) {
-                putchar('.');
+    //log_f(1, "xmin=%d xmax=%d\n", map.xmin, map.xmax);
+    if (! testmode())
+        return;
+
+    for (int y = -3; y <= 22; ++y) {
+        if ((prow = find_row(&map.hash[hash_32(y, HBITS)], y))) {
+            log(1, "%2d ", y);
+            log(5, "prow(%d->%d)=%p\n", y, hash_32(y, HBITS), prow);
+            int count = 0;
+            list_for_each_entry(s, &prow->segments, list) {
+                log(1, "%s (%d,%d)", count? " -> ":"", s->start, s->end);
             }
-            for (; x <= s->end; ++x) {
-                putchar('#');
-            }
+            log(1, "\n");
         }
-        for (; x <= map.xmax; ++x) {
-            putchar('.');
-        }
-        putchar('\n');
     }
 }
 
+static void print_map()                           /* for test mode only */
+{
+    struct row *prow;
+    struct segment *s;
+
+    //log_f(1, "xmin=%d xmax=%d\n", map.xmin, map.xmax);
+    if (! testmode())
+        return;
+    log(1, "    -              1    1    2    2    3\n");
+    log(1, "    5    0    5    0    5    0    5    0\n");
+
+    for (int y = -3; y <= 22; ++y) {
+        if ((prow = find_row(&map.hash[hash_32(y, HBITS)], y))) {
+            log(1, "%2d ", y);
+            log(5, "prow(%d->%d)=%p\n", y, hash_32(y, HBITS), prow);
+            int x = -6;
+            list_for_each_entry(s, &prow->segments, list) {
+                //log_f(1, "segment start=%d end=%d\n", s->start, s->end);
+                for (; x <= 30 && x < s->start; ++x) {
+                    log(1, ".");
+                }
+                for (; x <= 30 && x <= s->end; ++x) {
+                    log(1, "#");
+                }
+            }
+            for (; x <= 30; ++x) {
+                log(1, ".");
+            }
+            log(1, "\n");
+        }
+    }
+}
 
 static struct segment *get_segment(int row, int x1, int x2)
 {
@@ -129,169 +157,97 @@ static struct segment *get_segment(int row, int x1, int x2)
     return new;
 }
 
-static int merge_segment(struct row *prow, int x1, int x2)
+static int merge_segment(struct row *prow, int start, int end)
 {
-    struct segment *seg, *seg2, *new;
-    struct list_head *cur, *tmp, *next;
+    struct segment *seg, *new;
+    struct list_head *cur, *tmp;
+    int l;
 
-    log_f(3, "merging segment (%d,%d) on row (%d)\n", x1, x2, prow->row);
-    new = get_segment(prow->row, x1, x2);
+    l = debug_level_get();
+    //if (prow->row != 9)
+        l++;
+
+    log_f(l, "merging segment (%d,%d) on row (%d)\n", start, end, prow->row);
+    new = get_segment(prow->row, start, end);
     if (list_empty(&prow->segments)) {
-        log_f(3, "  first segment\n");
+        log_f(l, "  first segment\n");
         list_add(&new->list, &prow->segments);
-        return 1;
+        goto end;
     }
     list_for_each_safe(cur, tmp, &prow->segments) {
         seg = list_entry(cur, struct segment, list);
-        log_f(3, "compare to (start=%d end=%d)\n", seg->start, seg->end);
-        if (x1 > seg->end) {
-            log_f(3, "  skipping to next\n");
+        log_f(l, "compare to (start=%d end=%d)\n", seg->start, seg->end);
+
+        /* 1) check for disjoint segments */
+        if (start > seg->end + 1) {
+            log_f(l, "  skipping (%d,%d)\n", seg->start, seg->end);
             continue;
         }
-        if (x2 < seg->start) {
-            log_f(3, "  adding to left\n");
+        if (end < seg->start - 1) {
+            log_f(l, "  adding before (%d,%d)\n", seg->start, seg->end);
             list_add_tail(&new->list, &seg->list);
-            return 2;
+            goto end;
         }
-        /* we know here there is at least an overlap */
 
         /* new is inside cur: do nothing */
-        if (x1 >= seg->start && x2 <= seg->end) {
-            log_f(3, "  overlap IN, do nothing\n");
+        if (start >= seg->start && end <= seg->end) {
+            log_f(l, "  overlap IN, do nothing\n");
             pool_add(pool_segment, new);
-            return 3;
+            goto end;
         }
         /* cur inside new: remove cur */
-        if (x1 <= seg->start && x2 >= seg->end) {
-            log_f(3, "  overlap OUT, remove current\n");
+        if (start <= seg->start && end >= seg->end) {
+            log_f(l, "  overlap OUT, remove current\n");
             // TODO: avoid this
             list_del(cur);
             pool_add(pool_segment, seg);
             continue;
         }
 
+        /* 2) adjacent block */
+        if (start >= seg->start && start <= seg->end + 1) {
+            log_f(l, "  setting new start to %d\n", seg->start);
+            new->start = seg->start;
+            list_del(cur);
+            pool_add(pool_segment, seg);
+            continue;
+        }
+        if (end == seg->start - 1) {
+            seg->start = start;
+            pool_add(pool_segment, new);
+            goto end;
+        }
+
+        /* we know here there is at least one overlap or contiguous */
+        log_f(l, "  could merge new=(%d,%d) with cur=(%d,%d)\n",
+              start, end, seg->start, seg->end);
+
         /* exactly one overlap */
         log_f(3, "  exactly one overlap\n");
 
-        if (x1 > seg->start) {
-            log_f(3, "  overlap left new=(%d,%d)\n", new->start, new->end);
+        if (start >= seg->start) {
+            log_f(l, "  overlap left new=(%d,%d)\n", new->start, new->end);
             new->start = seg->start;
         }
-        if (x2 >= seg->end){
-            log_f(3, "  overlap right: delete cur\n");
+        if (end >= seg->end){
+            log_f(l, "  overlap right: delete cur\n");
             list_del(cur);
             pool_add(pool_segment, seg);
             continue;
         }
         /* we stop here */
-        log_f(3, "  stop here\n");
+        log_f(l, "  stop here\n");
         new->end = seg->end;
         list_add_tail(&new->list, cur);
         list_del(cur);
         pool_add(pool_segment, seg);
-        return 4;
-
-        if (x2 <= seg->end) {
-            log_f(3, "  extending left side %d->%d\n", seg->start, x1);
-            list_add(&new->list, cur);
-            list_del(cur);
-        }
-        if (x1 < seg->start) {
-            log_f(3, "  extending left side %d->%d\n", seg->start, x1);
-            seg->start = x1;
-            if (x2 <= seg->end) {
-            } else {
-                log_f(3, "  already covered\n");
-            }
-            return 3;
-        }
-        /* here we know that 1) x2 > end and 2) x1 <= start */
-        if (x1 < seg->start) {
-            log_f(3, "  extending temp left side %d->%d\n", seg->start, x1);
-            seg->start = x1;
-        }
-        /* now x1 and cur->start are fixed: only x2 is left, and > end */
-        log_f(3, "  fixing end\n");
-        next = cur;
-        do {
-            seg2 = list_entry(next, struct segment, list);
-
-            if (x2 <= seg2->end) {                /* we stop here */
-                log_f(3, "  found end\n");
-                if (next != cur) {
-                    log_f(3, "  extending cur end\n");
-                    seg->end = seg2->end;
-                    list_del(next);
-                    pool_add(pool_segment, seg2);
-                }
-                return 6;
-            }
-            if (list_is_last(next, &prow->segments)) {
-                if (x2 > seg2->end) {
-                    log_f(3, "  extending cur end\n");
-                    seg->end = x2;
-                    if (next != cur) {
-                        log_f(3, "  removing element\n");
-                        list_del(next);
-                        pool_add(pool_segment, seg2);
-                    }
-                    return 5;
-                }
-            }
-            //next:
-            next = next->next;
-        } while (1);
+        goto end;
     }
-    log_f(3, "  adding at end of list\n");
+    log_f(l, "  adding at end of list\n");
     list_add_tail(&new->list, &prow->segments);
+end:
+    //print_segments();
     return 10;
-}
-
-static int _add_segment(int row, int center, int half)
-{
-    int x1 = center - half, x2 = center + half;
-    uint hash = row, bucket = hash_32(hash, HBITS);
-    struct row *prow = find_row(&map.hash[bucket], hash);
-
-    log_f(3, "adding segment (%d,%d) on row (%d) - bucket(%u) = %u prow=%p\n",
-          x1, x2, row, hash, bucket, prow);
-    if (row < map.ymin) {
-        log(5, "new ymin=%d->%d\n", map.ymin, row);
-        map.ymin = row;
-    }
-    if (row > map.ymax) {
-        log(5, "new ymax=%d->%d\n", map.ymax, row);
-        map.ymax = row;
-    }
-    if (x1 < map.xmin) {
-        log(5, "new xmin=%d->%d\n", map.xmin, x1);
-        map.xmin = x1;
-    }
-    if (x2 > map.xmax) {
-        log(5, "new xmax=%d->%d\n", map.xmax, x2);
-        map.xmax = x2;
-    }
-    log(3, "map borders: xmin=%d xmax=%d ymin=%d ymax=%d\n",
-        map.xmin, map.xmax, map.ymin, map.ymax);
-    if (!prow) {
-        prow = pool_get(pool_row);
-        prow->row = row;
-        prow->nbeacons = 0;
-        INIT_HLIST_NODE(&prow->hlist);
-        INIT_LIST_HEAD(&prow->segments);
-        hlist_add_head(&prow->hlist, &map.hash[bucket]);
-    }
-    merge_segment(prow, x1, x2);
-    /*
-     * struct segment *segment = pool_get(pool_segment);
-     * segment->start = x1;
-     * segment->end = x2;
-     * segment->row = row;
-     * hlist_add_head(&map.hash, &segment->list, &map.hash[bucket]);
-     */
-
-
-    return 1;
 }
 
 static void add_beacon(int bx, int by)
@@ -310,72 +266,101 @@ static void add_beacon(int bx, int by)
     prow->beacons[prow->nbeacons++] = bx;
 }
 
-static int add_segment(int sx, int sy, int bx, int by)
+static int add_segment(int row, int center, int half)
 {
-    int manhattan;
+    int x1, x2;
+    uint hash = row, bucket = hash_32(hash, HBITS);
+    struct row *prow = find_row(&map.hash[bucket], hash);
 
-    log_f(3, "sensor4=(%d, %d) beacon=(%d, %d) - ", sx, sy, bx, by);
-    manhattan = abs(bx - sx) + abs(by - sy);
-    printf("manhattan=%u\n", manhattan);
-    _add_segment(sy, sx, manhattan);
-    for (int dy = 1, half = manhattan - 1; dy <= manhattan; ++dy, half--) {
-        _add_segment(sy - dy, sx, half);
-        _add_segment(sy + dy, sx, half);
+    x1 = max(center - half, map.xmin);
+    x2 = min(center + half, map.xmax);
+    if (x1 != center - half || x2 != center + half)
+        log(1, "adjust x: min:%d->%d max:%d->%d\n",
+            center - half, x1, center + half, x2);
+    log_f(3, "adding segment (%d,%d) on row (%d) - bucket(%u) = %u prow=%p\n",
+          x1, x2, row, hash, bucket, prow);
+    /*
+     * if (row < map.ymin) {
+     *     log(5, "new ymin=%d->%d\n", map.ymin, row);
+     *     map.ymin = row;
+     * }
+     * if (row > map.ymax) {
+     *     log(5, "new ymax=%d->%d\n", map.ymax, row);
+     *     map.ymax = row;
+     * }
+     * if (x1 < map.xmin) {
+     *     log(5, "new xmin=%d->%d\n", map.xmin, x1);
+     *     map.xmin = x1;
+     * }
+     * if (x2 > map.xmax) {
+     *     log(5, "new xmax=%d->%d\n", map.xmax, x2);
+     *     map.xmax = x2;
+     * }
+     */
+    log(3, "map borders: xmin=%d xmax=%d ymin=%d ymax=%d\n",
+        map.xmin, map.xmax, map.ymin, map.ymax);
+    if (!prow) {
+        prow = pool_get(pool_row);
+        prow->row = row;
+        prow->nbeacons = 0;
+        INIT_HLIST_NODE(&prow->hlist);
+        INIT_LIST_HEAD(&prow->segments);
+        hlist_add_head(&prow->hlist, &map.hash[bucket]);
     }
-    add_beacon(bx, by);
+    merge_segment(prow, x1, x2);
     return 1;
 }
 
-static int parse(int part)
+static int add_segments(int sx, int sy, int bx, int by)
 {
-    int scanned, sx, sy, bx, by;
-    int line = 1;
-    //while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
-    //    buf[--buflen] = 0;
-    while (1) {
-        scanned = scanf("%*[^-0-9]%d%*[^-0-9]%d%*[^-0-9]%d%*[^-0-9]%d",
-                        &sx, &sy, &bx, &by);
-        if (scanned != 4)
-            break;
-        printf("line %d scanned=%d sx=%d sy=%d bx=%d by=%d\n",
-            line++, scanned, sx, sy, bx, by);
-        if (part == 1) {
-            int row = 2000000;
-            map.xmin = -2;
-            map.xmax = 25;
-            int manhattan = abs(bx - sx) + abs(by - sy);
-            log(3, "m=%d : ", manhattan);
-            if (row >= sy && row <= (sy + manhattan)) {
-                int half = manhattan - (row - sy);
-                log(3, "min ok half=%d\n", half);
-                _add_segment(row, sx, half);
-            } else if (row < sy && row >= (sy - manhattan)) {
-                int half = manhattan - (sy - row);
-                log(3, "max ok half=%d\n", half);
-                _add_segment(row, sx, half);
-            } else {
-                log(3, "OUT\n");
-            }
-            if (by == row)
-                add_beacon(bx, by);
+    int manhattan = abs(bx - sx) + abs(by - sy);
+    int ymin = max(sy - manhattan, map.ymin);
+    int ymax = min(sy + manhattan, map.ymax);
 
-        }
-        //add_segment(sx, sy, bx, by);
+    log_f(2, "sensor4=(%d, %d) beacon=(%d, %d) - ", sx, sy, bx, by);
+    log(2, "manhattan=%u ymin=%d ymax=%d\n", manhattan, ymin, ymax);
+    //add_segment(sy, sx, manhattan);
+
+    for (int y = ymin; y <= ymax; ++y) {
+        int half = manhattan - abs(y - sy);
+        add_segment(y, sx, half);
+        if (y == by)
+            add_beacon(bx, by);
+        //add_segment(y, sx, half);
     }
-    //free(buf);
+    //for (int dy = 1, half = manhattan - 1; dy <= manhattan; ++dy, half--) {
+    //       add_segment(sy - dy, sx, half);
+    //  add_segment(sy + dy, sx, half);
+    //}
+    //add_beacon(bx, by);
     return 1;
 }
 
-static int doit(int part)
+static inline int parse(int *sx, int *sy, int *bx, int *by)
 {
-    int res = 0;
-    parse(part);
+    int ret = scanf("%*[^-0-9]%d%*[^-0-9]%d%*[^-0-9]%d%*[^-0-9]%d",
+                    sx, sy, bx, by);
 
-    uint row = 2000000, bucket = hash_32(row, HBITS);
+    return ret;
+}
+
+static ulong part1()
+{
+    ulong res = 0;
+    int row = testmode() ? 10: 2000000;
+    uint bucket = hash_32(row, HBITS);
+    int sx, sy, bx, by;
+
+    map.ymin = row - 1;
+    map.ymax = row + 1;
+    while (parse(&sx, &sy, &bx, &by) > 0) {
+        int manhattan = abs(bx - sx) + abs(by - sy);
+        add_segments(sx, sy, bx, by);
+        log(3, "m=%d : ", manhattan);
+    }
     struct row *prow = find_row(&map.hash[bucket], row);
-    struct segment *cur;
-
     if (prow) {
+        struct segment *cur;
         print_map();
         list_for_each_entry(cur, &prow->segments, list) {
             printf("counting segment (%d,%d) = %d nbeac=%d\n", cur->start, cur->end,
@@ -384,7 +369,41 @@ static int doit(int part)
         }
         res -= prow->nbeacons;
     }
-    print_map();
+    return res;
+}
+
+static ulong part2()
+{
+    ulong res = 0;
+    int sx, sy, bx, by;
+
+    map.xmin = map.ymin =  0;
+    map.xmax = map.ymax = testmode()? 20: 4000000;
+    while ((parse(&sx, &sy, &bx, &by)) > 0) {
+        int manhattan = abs(bx - sx) + abs(by - sy);
+
+        add_segments(sx, sy, bx, by);
+        log(3, "m=%d : ", manhattan);
+    }
+    for (int row = map.ymin; row <= map.ymax; ++row) {
+        uint bucket = hash_32(row, HBITS);
+        struct row *prow = find_row(&map.hash[bucket], row);
+        if (!prow) {
+            printf("fuck 1: prow(%d)=NULL\n", row);
+            exit(1);
+        }
+        struct segment *cur;
+        if (list_empty(&prow->segments)) {
+            puts("fuck 2\n");
+            continue;
+        }
+
+        cur = list_first_entry(&prow->segments, struct segment, list);
+        if (cur->end != map.xmax) {
+            res = ((u64)cur->end + 1UL) * 4000000UL + (u64)row;
+            break;
+        }
+    }
     return res;
 }
 
@@ -393,10 +412,10 @@ int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
 
-    pool_row =  pool_create("rows", 512, sizeof(struct row));
-    pool_segment =  pool_create("segments", 512, sizeof(struct segment));
+    pool_row =  pool_create("rows", 8192, sizeof(struct row));
+    pool_segment =  pool_create("segments", 8192, sizeof(struct segment));
 
-    printf("%s: res=%d\n", *av, doit(part));
+    printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
     pool_destroy(pool_row);
     pool_destroy(pool_segment);
     exit(0);

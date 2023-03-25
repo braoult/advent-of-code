@@ -140,8 +140,6 @@ Consult the report from the sensors you just deployed. /In the row where
 
 Your puzzle answer was =5176944=.
 
-The first half of this puzzle is complete! It provides one gold star: *
-
 ** --- Part Two ---
 Your handheld device indicates that the distress signal is coming from a
 beacon nearby. The distress beacon is not detected by any sensor, but
@@ -159,3 +157,7 @@ The tuning frequency for this distress beacon is =56000011=.
 
 Find the only possible position for the distress beacon. /What is its
 tuning frequency?/
+
+Your puzzle answer was =13350458933732=.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
