@@ -27,6 +27,7 @@
 #include "aoc.h"
 
 static pool_t *pool_segment, *pool_row, *pool_pair;
+static int inner_count;
 
 #define HBITS 20                                  /* 20 bits: 1,048,576 buckets */
 static DEFINE_HASHTABLE(hasht_rows, HBITS);
@@ -35,35 +36,36 @@ struct coord {
     int x, y;
 };
 
+#define TOP    0
+#define RIGHT  1
+#define BOTTOM 2
+#define LEFT   3
 /**
  * struct pair - input file pair list
  * @sensor, @beacon: struct coord sensor and beacon coordinates.
  * @manhattan: manhattan distance between sensor and beacon.
  * @parity: beacon coordinates parity (as bishop color in chess).
- * @top, @right, @bottom, @left: coordinates of rhombus immediately out
- *                        range of sensor.
+ * @corners: coordinates of rhombus immediately out of sensor range (clockwise).
  * @list: list of pairs.
  */
 struct pair {
     struct coord sensor, beacon;
     int manhattan;
     int parity;
-    struct coord top, bottom, left, right;
+    struct coord corners[4];
     struct list_head list;
 };
 LIST_HEAD(pairs_head);
 
 /**
  * struct map - full map
- * @xmin, @xmax: most left/right x-coordinates.
- * @ymin, @ymax: most top/bottom y-coordinates.
+ * @min, @max: map's min and max coordinates.
  * @hash: rows hash table
  */
 struct map {
-    struct coord min, max; //int xmin, xmax, ymin, ymax;
+    struct coord min, max;
     struct hlist_head *hash;
 } map = {
-    //INT_MAX, INT_MIN, INT_MAX, INT_MIN, hasht_rows
     .min = { INT_MIN, INT_MIN }, .max = {INT_MAX, INT_MAX }, hasht_rows
 };
 
@@ -231,6 +233,7 @@ static struct row *add_segment(int row, int center, int half)
     int x1, x2;
     uint hash = row, bucket = hash_32(hash, HBITS);
     struct row *prow = find_row(&map.hash[bucket], hash);
+    inner_count++;
 
     x1 = max(center - half, map.min.x);
     x2 = min(center + half, map.max.x);
@@ -254,13 +257,21 @@ static struct row *add_segment(int row, int center, int half)
 }
 
 /**
- * is_off_range() - test if a point is off range from a sensor
+ * is_off_range() - test if a point is off range from all sensors.
  */
-static int is_off_range(struct pair *pair, struct coord *point)
+static int is_off_range(struct coord *point)
 {
-    return (abs(point->x - pair->sensor.x)
-            + abs(point->y - pair->sensor.y)) > pair->manhattan;
+    struct pair *pair;
+
+    /* reverse loop, because higher manhattan means higher chances to fail */
+    list_for_each_entry_reverse(pair, &pairs_head, list) {
+        if ((abs(point->x - pair->sensor.x) +
+             abs(point->y - pair->sensor.y)) <= pair->manhattan)
+            return 0;
+    }
+    return 1;
 }
+
 
 static int add_segments(struct pair *pair)
 {
@@ -293,8 +304,10 @@ static void print_pairs()
                pair->sensor.x, pair->sensor.y,
                pair->beacon.x, pair->beacon.y);
         printf("  top=(%d,%d) bottom=(%d,%d) left=(%d,%d) right=(%d,%d)\n",
-               pair->top.x, pair->top.y, pair->bottom.x, pair->bottom.y,
-               pair->left.x, pair->left.y, pair->right.x, pair->right.y);
+               pair->corners[TOP].x, pair->corners[TOP].y,
+               pair->corners[BOTTOM].x, pair->corners[BOTTOM].y,
+               pair->corners[LEFT].x, pair->corners[LEFT].y,
+               pair->corners[RIGHT].x, pair->corners[RIGHT].y);
     }
 }
 
@@ -312,19 +325,18 @@ static struct pair *parse()
         pair->beacon = beacon;
         pair->manhattan = abs(beacon.x - sensor.x) + abs(beacon.y - sensor.y);
         pair->parity = (pair->beacon.x + pair->beacon.y) % 2;
-        pair->top    = (struct coord) { sensor.x, sensor.y - pair->manhattan - 1 };
-        pair->bottom = (struct coord) { sensor.x, sensor.y + pair->manhattan + 1 };
-        pair->right  = (struct coord) { sensor.x + pair->manhattan + 1, sensor.y };
-        pair->left   = (struct coord) { sensor.x - pair->manhattan - 1, sensor.y };
+        pair->corners[TOP]    = (struct coord) { sensor.x, sensor.y - pair->manhattan - 1 };
+        pair->corners[BOTTOM] = (struct coord) { sensor.x, sensor.y + pair->manhattan + 1 };
+        pair->corners[RIGHT]  = (struct coord) { sensor.x + pair->manhattan + 1, sensor.y };
+        pair->corners[LEFT]   = (struct coord) { sensor.x - pair->manhattan - 1, sensor.y };
 
-        if (list_empty(&pairs_head)) {
-            list_add(&pair->list, &pairs_head);
-            goto end;
-        }
-        list_for_each_entry(cur, &pairs_head, list) {
-            if (cur->manhattan > pair->manhattan) {
-                list_add_tail(&pair->list, &cur->list);
-                goto end;
+        /* keep list ordered by manhattan */
+        if (!list_empty(&pairs_head)) {
+            list_for_each_entry(cur, &pairs_head, list) {
+                if (cur->manhattan > pair->manhattan) {
+                    list_add_tail(&pair->list, &cur->list);
+                    goto end;
+                }
             }
         }
         list_add_tail(&pair->list, &pairs_head);
@@ -382,75 +394,144 @@ static ulong part2()
 }
 
 /**
- * intersect() - return two segments intersection.
+ *                                    /#\
+ *                           /#\     /# #\
+ *                          /# #\   /#   #\
+ *                         /#   #\O/#        <--- O is a possible point
+ *                               #X#
+ *                       rhomb A /#\ rhom B
+ *                              /# #\
+ *                             /#   #\
+ *                            /#     #\
+ *                           /#       #\
+ *                          /# rhombs  #\
+ *                             A & B
+ *                          (intersection)
  */
-static int intersect(float p0_x, float p0_y, float p1_x, float p1_y,
-                     float p2_x, float p2_y, float p3_x, float p3_y, float *i_x, float *i_y)
+
+/**
+ * intersect() - find intersection of two segments
+ *
+ */
+static struct coord *intersect(struct coord *p1, struct coord *p2,
+                               struct coord *q1, struct coord *q2,
+                               struct coord *ret)
 {
-    float s02_x, s02_y, s10_x, s10_y, s32_x, s32_y, s_numer, t_numer, denom, t;
-    s10_x = p1_x - p0_x;
-    s10_y = p1_y - p0_y;
-    s32_x = p3_x - p2_x;
-    s32_y = p3_y - p2_y;
+    int a1, a2, b1, b2, x, y;
+    a1 = (p2->y - p1->y) / (p2->x - p1->x);
+    a2 = (q2->y - q1->y) / (q2->x - q1->x);
+    b1 = p1->y - p1->x * a1;
+    b2 = q1->y - q1->x * a2;
+    x  = (b2 - b1) / (a1 - a2);
+    y  = a1 * x + b1;
+    inner_count++;
 
-    denom = s10_x * s32_y - s32_x * s10_y;
-    if (denom == 0)
-        return 0; // Collinear
-    bool denomPositive = denom > 0;
-
-    s02_x = p0_x - p2_x;
-    s02_y = p0_y - p2_y;
-    s_numer = s10_x * s02_y - s10_y * s02_x;
-    if ((s_numer < 0) == denomPositive)
-        return 0; // No collision
-
-    t_numer = s32_x * s02_y - s32_y * s02_x;
-    if ((t_numer < 0) == denomPositive)
-        return 0; // No collision
-
-    if (((s_numer > denom) == denomPositive) || ((t_numer > denom) == denomPositive))
-        return 0; // No collision
-    // Collision detected
-    t = t_numer / denom;
-    if (i_x != NULL)
-        *i_x = p0_x + (t * s10_x);
-    if (i_y != NULL)
-        *i_y = p0_y + (t * s10_y);
-
-    return 1;
+    log_f(3, "p1=(%d,%d) p2=(%d,%d) q1=(%d,%d) q2=(%d,%d)\n",
+          p1->x, p1->y, p2->x, p2->y,
+          q1->x, q1->y, q2->x, q2->y);
+    log(3, "\ta1=%d b1=%d a2=%d b2=%d\n", a1, b1, a2, b2);
+    /* Intersection is at:
+     * (x * a1) + b1 = (x * a2) + b2
+     * x * (a1 - a2) = b2 - b1
+     * x = (b2 - b1) / (a1 - a2)
+     */
+    if (x >= min(p1->x, p2->x) && x >= min(q1->x, q2->x) &&
+        x <= max(p1->x, p2->x) && x <= max(q1->x, q2->x) &&
+        y >= min(p1->y, p2->y) && y >= min(q1->y, q2->y) &&
+        y <= max(p1->y, p2->y) && y <= max(q1->y, q2->y) &&
+        x >= map.min.x && x <= map.max.x &&
+        y >= map.min.y && y <= map.max.y) {
+        log(3, "\tintersection=(%d,%d)\n", ret->x, ret->y);
+        *ret = (struct coord) {x, y};
+    } else {
+        log(3, "\tOUT=(%d,%d)\n", x, y);
+        log(3, "xmin(p)=%d xmax(p)=%d xmin(q)=%d, xmax(q)=%d\n",
+            min(p1->x, p2->x), max(p1->x, p2->x),
+            min(q1->x, q2->x), max(q1->x, q2->x));
+        log(3, "ymin(p)=%d ymax(p)=%d ymin(q)=%d, ymax(q)=%d\n",
+            min(p1->y, p2->y), max(p1->y, p2->y),
+            min(q1->y, q2->y), max(q1->y, q2->y));
+        log(3, "xmin=%d xmax=%d ymin=%d, ymax=%d\n",
+            map.min.x, map.max.x, map.min.y, map.max.y);
+        ret = NULL;
+    }
+    return ret;
 }
 
-//static int is_inside(int x, int y, )
+#define T_R(p) &p->corners[TOP], &p->corners[RIGHT]
+#define R_B(p) &p->corners[RIGHT], &p->corners[BOTTOM]
+#define B_L(p) &p->corners[BOTTOM], &p->corners[LEFT]
+#define L_T(p) &p->corners[LEFT], &p->corners[TOP]
+
+struct coord *check_intersect(struct coord *ret)
+{
+    struct pair *pair, *second;
+
+    log_f(1, "****************\n");
+    list_for_each_entry(pair, &pairs_head, list) {
+        int i = 0;
+        if (pair->corners[TOP].x == 3036853 ||
+            pair->corners[RIGHT].x == 3036853 ||
+            pair->corners[BOTTOM].x == 3036853 ||
+            pair->corners[LEFT].x == 3036853) {
+            printf("m=%d p=%s s=(%d,%d) b=(%d,%d)\n",
+                   pair->manhattan,
+                   pair->parity? "WHITE": "BLACK",
+                   pair->sensor.x, pair->sensor.y,
+                   pair->beacon.x, pair->beacon.y);
+            printf("  top=(%d,%d) bottom=(%d,%d) left=(%d,%d) right=(%d,%d)\n",
+                   pair->corners[TOP].x, pair->corners[TOP].y,
+                   pair->corners[BOTTOM].x, pair->corners[BOTTOM].y,
+                   pair->corners[LEFT].x, pair->corners[LEFT].y,
+                   pair->corners[RIGHT].x, pair->corners[RIGHT].y);
+        }
+        second = list_prepare_entry(pair, &pairs_head, list);
+        list_for_each_entry_continue(second, &pairs_head, list) {
+            printf("\t\t%d -> m=%d p=%s s=(%d,%d) b=(%d,%d)\n",
+                   ++i,
+                   second->manhattan,
+                   second->parity? "WHITE": "BLACK",
+                   second->sensor.x, second->sensor.y,
+                   second->beacon.x, second->beacon.y);
+            if (second->parity == pair->parity) {
+                /* top right segment */
+                if ((intersect(T_R(pair), R_B(second), ret) && is_off_range(ret)) ||
+                    (intersect(T_R(pair), L_T(second), ret) && is_off_range(ret)))
+                    return ret;
+                 /* bottom left segment */
+                if ((intersect(B_L(pair), R_B(second), ret) && is_off_range(ret)) ||
+                    (intersect(B_L(pair), L_T(second), ret) && is_off_range(ret)))
+                    return ret;
+                 /* right bottom segment */
+                if ((intersect(R_B(pair), T_R(second), ret) && is_off_range(ret)) ||
+                    (intersect(R_B(pair), B_L(second), ret) && is_off_range(ret)))
+                    return ret;
+                /* left top segment */
+                if ((intersect(L_T(pair), T_R(second), ret) && is_off_range(ret)) ||
+                    (intersect(L_T(pair), B_L(second), ret) && is_off_range(ret)))
+                    return ret;
+            } else {
+                printf("parity skip\n");
+            }
+        }
+    }
+    return NULL;
+}
+
 static ulong part2_new()
 {
     ulong res = 0;
-    struct pair *pair;
+    struct coord result;
 
     map.min.x = map.min.y =  0;
     map.max.x = map.max.y = testmode()? 20: 4000000;
 
-    while ((pair = parse())) {
-        //int outside = pair->manhattan + 1;
-        //add_segments(pair);
-        //log(3, "m=%d : ", manhattan);
-    }
+    while (parse())
+        ;
     print_pairs();
-    return res;
-    for (int row = map.min.y; row <= map.max.y; ++row) {
-        uint bucket = hash_32(row, HBITS);
-        struct row *prow = find_row(&map.hash[bucket], row);
-        if (!prow) {
-            printf("fuck 1: prow(%d)=NULL\n", row);
-            exit(1);
-        }
-        struct segment *cur;
-
-        cur = list_first_entry(&prow->segments, struct segment, list);
-        if (cur->end != map.max.x) {
-            res = ((u64)cur->end + 1UL) * 4000000UL + (u64)row;
-            break;
-        }
-    }
+    check_intersect(&result);
+    printf("result=(%d,%d)\n", result.x, result.y);
+    res = ((u64)result.x) * 4000000UL + (u64)result.x;
     return res;
 }
 
@@ -463,9 +544,11 @@ int main(int ac, char **av)
     pool_segment =  pool_create("segments", 8192, sizeof(struct segment));
     pool_pair = pool_create("pair", 32, sizeof(struct pair));
 
-    part2_new();
-    exit(1);
+    //part2_new();
+    //printf("loops=%d\n", inner_count);
+    //exit(1);
     printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
+    printf("loops=%d\n", inner_count);
     pool_destroy(pool_row);
     pool_destroy(pool_segment);
     pool_destroy(pool_pair);
