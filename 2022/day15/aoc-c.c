@@ -27,7 +27,6 @@
 #include "aoc.h"
 
 static pool_t *pool_segment, *pool_row, *pool_pair;
-static int inner_count;
 
 #define HBITS 20                                  /* 20 bits: 1,048,576 buckets */
 static DEFINE_HASHTABLE(hasht_rows, HBITS);
@@ -126,45 +125,36 @@ static struct segment *get_segment(int row, int start, int end)
     return new;
 }
 
-static int merge_segment(struct row *prow, int start, int end)
+static void merge_segment(struct row *prow, int start, int end)
 {
     struct segment *seg, *new;
     struct list_head *cur, *tmp;
     static int l = 9;
 
-    //l = debug_level_get();
-    //if (prow->row != 9)
-    //    l++;
-
-    log_f(l, "merging segment (%d,%d) on row (%d)\n", start, end, prow->row);
     new = get_segment(prow->row, start, end);
     if (list_empty(&prow->segments)) {
-        log_f(l, "  first segment\n");
         list_add(&new->list, &prow->segments);
         goto end;
     }
     list_for_each_safe(cur, tmp, &prow->segments) {
         seg = list_entry(cur, struct segment, list);
-        log_f(l, "compare to (start=%d end=%d)\n", seg->start, seg->end);
 
         /* 1) check for disjoint segments */
         if (start > seg->end + 1) {
-            log_f(l, "  skipping (%d,%d)\n", seg->start, seg->end);
             continue;
         }
         if (end < seg->start - 1) {
-            log_f(l, "  adding before (%d,%d)\n", seg->start, seg->end);
             list_add_tail(&new->list, &seg->list);
             goto end;
         }
 
-        /* new is inside cur: do nothing */
+        /* 2) new is inside cur: do nothing */
         if (start >= seg->start && end <= seg->end) {
             log_f(l, "  overlap IN, do nothing\n");
             pool_add(pool_segment, new);
             goto end;
         }
-        /* cur inside new: remove cur */
+        /* 3) cur inside new: remove cur */
         if (start <= seg->start && end >= seg->end) {
             log_f(l, "  overlap OUT, remove current\n");
             // TODO: avoid this
@@ -173,53 +163,46 @@ static int merge_segment(struct row *prow, int start, int end)
             continue;
         }
 
-        /* 2) adjacent block */
+        /* 4) new segment start is within current one */
         if (start >= seg->start && start <= seg->end + 1) {
-            log_f(l, "  setting new start to %d\n", seg->start);
             new->start = seg->start;
             list_del(cur);
             pool_add(pool_segment, seg);
             continue;
         }
+
+        /* 5) new segment is left-adjacent to current */
         if (end == seg->start - 1) {
             seg->start = start;
             pool_add(pool_segment, new);
             goto end;
         }
 
-        /* we know here there is at least one overlap or contiguous */
-        log_f(l, "  could merge new=(%d,%d) with cur=(%d,%d)\n",
-              start, end, seg->start, seg->end);
+        /* from here, we know there is an overlap */
 
-        /* exactly one overlap */
-        log_f(3, "  exactly one overlap\n");
-
-        if (start >= seg->start) {
-            log_f(l, "  overlap left new=(%d,%d)\n", new->start, new->end);
+        /* 6) adjust new start to current start */
+        if (start >= seg->start)
             new->start = seg->start;
-        }
+
+        /* 7) remove current if covered by new */
         if (end >= seg->end){
-            log_f(l, "  overlap right: delete cur\n");
             list_del(cur);
             pool_add(pool_segment, seg);
             continue;
         }
-        /* we stop here */
-        log_f(l, "  stop here\n");
+        /* 8) replace current with new - finished */
         new->end = seg->end;
         list_add_tail(&new->list, cur);
         list_del(cur);
         pool_add(pool_segment, seg);
         goto end;
     }
-    log_f(l, "  adding at end of list\n");
     list_add_tail(&new->list, &prow->segments);
 end:
-    //print_segments();
-    return 10;
+    return;
 }
 
-static void add_beacon(struct row *prow, int bx)
+static __always_inline void add_beacon(struct row *prow, int bx)
 {
     for (int i = 0; i < prow->nbeacons; ++i) {
         if (prow->beacons[i] == bx)
@@ -228,12 +211,11 @@ static void add_beacon(struct row *prow, int bx)
     prow->beacons[prow->nbeacons++] = bx;
 }
 
-static struct row *add_segment(int row, int center, int half)
+static __always_inline struct row *add_segment(int row, int center, int half)
 {
     int x1, x2;
     uint hash = row, bucket = hash_32(hash, HBITS);
     struct row *prow = find_row(&map.hash[bucket], hash);
-    inner_count++;
 
     x1 = max(center - half, map.min.x);
     x2 = min(center + half, map.max.x);
@@ -293,24 +275,6 @@ static int add_segments(struct pair *pair)
     return 1;
 }
 
-static void print_pairs()
-{
-    struct pair *pair;
-    log_f(1, "**************** pairs\n");
-    list_for_each_entry(pair, &pairs_head, list) {
-        printf("m=%d p=%s s=(%d,%d) b=(%d,%d)\n",
-               pair->manhattan,
-               pair->parity? "WHITE": "BLACK",
-               pair->sensor.x, pair->sensor.y,
-               pair->beacon.x, pair->beacon.y);
-        printf("  top=(%d,%d) bottom=(%d,%d) left=(%d,%d) right=(%d,%d)\n",
-               pair->corners[TOP].x, pair->corners[TOP].y,
-               pair->corners[BOTTOM].x, pair->corners[BOTTOM].y,
-               pair->corners[LEFT].x, pair->corners[LEFT].y,
-               pair->corners[RIGHT].x, pair->corners[RIGHT].y);
-    }
-}
-
 static struct pair *parse()
 {
     int ret;
@@ -325,10 +289,18 @@ static struct pair *parse()
         pair->beacon = beacon;
         pair->manhattan = abs(beacon.x - sensor.x) + abs(beacon.y - sensor.y);
         pair->parity = (pair->beacon.x + pair->beacon.y) % 2;
-        pair->corners[TOP]    = (struct coord) { sensor.x, sensor.y - pair->manhattan - 1 };
-        pair->corners[BOTTOM] = (struct coord) { sensor.x, sensor.y + pair->manhattan + 1 };
-        pair->corners[RIGHT]  = (struct coord) { sensor.x + pair->manhattan + 1, sensor.y };
-        pair->corners[LEFT]   = (struct coord) { sensor.x - pair->manhattan - 1, sensor.y };
+        pair->corners[TOP]    = (struct coord) {
+            sensor.x, sensor.y - pair->manhattan - 1
+        };
+        pair->corners[BOTTOM] = (struct coord) {
+            sensor.x, sensor.y + pair->manhattan + 1
+        };
+        pair->corners[RIGHT]  = (struct coord) {
+            sensor.x + pair->manhattan + 1, sensor.y
+        };
+        pair->corners[LEFT]   = (struct coord) {
+            sensor.x - pair->manhattan - 1, sensor.y
+        };
 
         /* keep list ordered by manhattan */
         if (!list_empty(&pairs_head)) {
@@ -365,27 +337,34 @@ end:
  * intersect() - find intersection of two segments
  *
  */
-static struct coord *intersect(struct coord *p1, struct coord *p2,
-                               struct coord *q1, struct coord *q2,
-                               struct coord *ret)
+static __always_inline struct coord *intersect(struct coord *p1, struct coord *p2,
+                                               struct coord *q1, struct coord *q2,
+                                               struct coord *ret)
 {
     int a1, a2, b1, b2, x, y;
-    a1 = (p2->y - p1->y) / (p2->x - p1->x);
-    a2 = (q2->y - q1->y) / (q2->x - q1->x);
-    b1 = p1->y - p1->x * a1;
-    b2 = q1->y - q1->x * a2;
-    x  = (b2 - b1) / (a1 - a2);
-    y  = a1 * x + b1;
-    inner_count++;
 
-    log_f(3, "p1=(%d,%d) p2=(%d,%d) q1=(%d,%d) q2=(%d,%d)\n",
-          p1->x, p1->y, p2->x, p2->y,
-          q1->x, q1->y, q2->x, q2->y);
-    log(3, "\ta1=%d b1=%d a2=%d b2=%d\n", a1, b1, a2, b2);
-    /* Intersection is at:
+    /* a1, b1, a2, b2 are the formulas of (p1, p2) and (q1, q2), such as:
+     *     y = ax + b
+     * a = (y2 - y1) / (x2 - x1)     x2 ≠ x1
+     * b = y - a * x                 We can take either p1 or p2 coordinates
+     */
+    a1 = (p2->y - p1->y) / (p2->x - p1->x);
+    b1 = p1->y - p1->x * a1;
+    a2 = (q2->y - q1->y) / (q2->x - q1->x);
+    b2 = q1->y - q1->x * a2;
+
+    /* Lines intersection (x,y) is at:
      * (x * a1) + b1 = (x * a2) + b2
      * x * (a1 - a2) = b2 - b1
      * x = (b2 - b1) / (a1 - a2)
+     * Then we find y = ax + b
+     */
+    x  = (b2 - b1) / (a1 - a2);
+    y  = a1 * x + b1;
+
+    /* check if intersection is:
+     * 1) Within p1-p2 and q1-q2 segments
+     * 2) Within map area
      */
     if (x >= min(p1->x, p2->x) && x >= min(q1->x, q2->x) &&
         x <= max(p1->x, p2->x) && x <= max(q1->x, q2->x) &&
@@ -393,18 +372,8 @@ static struct coord *intersect(struct coord *p1, struct coord *p2,
         y <= max(p1->y, p2->y) && y <= max(q1->y, q2->y) &&
         x >= map.min.x && x <= map.max.x &&
         y >= map.min.y && y <= map.max.y) {
-        log(3, "\tintersection=(%d,%d)\n", ret->x, ret->y);
         *ret = (struct coord) {x, y};
     } else {
-        log(3, "\tOUT=(%d,%d)\n", x, y);
-        log(3, "xmin(p)=%d xmax(p)=%d xmin(q)=%d, xmax(q)=%d\n",
-            min(p1->x, p2->x), max(p1->x, p2->x),
-            min(q1->x, q2->x), max(q1->x, q2->x));
-        log(3, "ymin(p)=%d ymax(p)=%d ymin(q)=%d, ymax(q)=%d\n",
-            min(p1->y, p2->y), max(p1->y, p2->y),
-            min(q1->y, q2->y), max(q1->y, q2->y));
-        log(3, "xmin=%d xmax=%d ymin=%d, ymax=%d\n",
-            map.min.x, map.max.x, map.min.y, map.max.y);
         ret = NULL;
     }
     return ret;
@@ -415,46 +384,23 @@ static struct coord *intersect(struct coord *p1, struct coord *p2,
 #define B_L(p) &p->corners[BOTTOM], &p->corners[LEFT]
 #define L_T(p) &p->corners[LEFT], &p->corners[TOP]
 
-struct coord *check_intersect(struct coord *ret)
+static struct coord *check_intersect(struct coord *ret)
 {
     struct pair *pair, *second;
 
-    log_f(1, "****************\n");
     list_for_each_entry(pair, &pairs_head, list) {
-        int i = 0;
-        if (pair->corners[TOP].x == 3036853 ||
-            pair->corners[RIGHT].x == 3036853 ||
-            pair->corners[BOTTOM].x == 3036853 ||
-            pair->corners[LEFT].x == 3036853) {
-            printf("m=%d p=%s s=(%d,%d) b=(%d,%d)\n",
-                   pair->manhattan,
-                   pair->parity? "WHITE": "BLACK",
-                   pair->sensor.x, pair->sensor.y,
-                   pair->beacon.x, pair->beacon.y);
-            printf("  top=(%d,%d) bottom=(%d,%d) left=(%d,%d) right=(%d,%d)\n",
-                   pair->corners[TOP].x, pair->corners[TOP].y,
-                   pair->corners[BOTTOM].x, pair->corners[BOTTOM].y,
-                   pair->corners[LEFT].x, pair->corners[LEFT].y,
-                   pair->corners[RIGHT].x, pair->corners[RIGHT].y);
-        }
         second = list_prepare_entry(pair, &pairs_head, list);
         list_for_each_entry_continue(second, &pairs_head, list) {
-            printf("\t\t%d -> m=%d p=%s s=(%d,%d) b=(%d,%d)\n",
-                   ++i,
-                   second->manhattan,
-                   second->parity? "WHITE": "BLACK",
-                   second->sensor.x, second->sensor.y,
-                   second->beacon.x, second->beacon.y);
             if (second->parity == pair->parity) {
                 /* top right segment */
                 if ((intersect(T_R(pair), R_B(second), ret) && is_off_range(ret)) ||
                     (intersect(T_R(pair), L_T(second), ret) && is_off_range(ret)))
                     return ret;
-                 /* bottom left segment */
+                /* bottom left segment */
                 if ((intersect(B_L(pair), R_B(second), ret) && is_off_range(ret)) ||
                     (intersect(B_L(pair), L_T(second), ret) && is_off_range(ret)))
                     return ret;
-                 /* right bottom segment */
+                /* right bottom segment */
                 if ((intersect(R_B(pair), T_R(second), ret) && is_off_range(ret)) ||
                     (intersect(R_B(pair), B_L(second), ret) && is_off_range(ret)))
                     return ret;
@@ -462,56 +408,47 @@ struct coord *check_intersect(struct coord *ret)
                 if ((intersect(L_T(pair), T_R(second), ret) && is_off_range(ret)) ||
                     (intersect(L_T(pair), B_L(second), ret) && is_off_range(ret)))
                     return ret;
-            } else {
-                printf("parity skip\n");
             }
         }
     }
     return NULL;
 }
 
-static ulong part1()
+static u64 part1(void)
 {
-    ulong res = 0;
+    u64 res = 0;
     int row = testmode() ? 10: 2000000;
     uint bucket = hash_32(row, HBITS);
     struct pair *pair;
 
     map.min.y = map.max.y = row;
 
-    while ((pair = parse())) {
+    while ((pair = parse()))
         add_segments(pair);
-    }
     struct row *prow = find_row(&map.hash[bucket], row);
     if (prow) {
         struct segment *cur;
-        list_for_each_entry(cur, &prow->segments, list) {
-            printf("counting segment (%d,%d) = %d nbeac=%d\n", cur->start, cur->end,
-                   cur->end - cur->start + 1, prow->nbeacons);
+        list_for_each_entry(cur, &prow->segments, list)
             res += cur->end - cur->start + 1;
-        }
         res -= prow->nbeacons;
     }
     return res;
 }
 
-static ulong part2()
+static u64 part2()
 {
-    ulong res = 0;
-    struct coord result;
+    u64 res = 0;
+    struct coord result = {0, 0};
 
     map.min.x = map.min.y =  0;
     map.max.x = map.max.y = testmode()? 20: 4000000;
 
     while (parse())
         ;
-    print_pairs();
     check_intersect(&result);
-    printf("result=(%d,%d)\n", result.x, result.y);
-    res = ((u64)result.x) * 4000000UL + (u64)result.x;
+    res = ((u64)result.x) * 4000000UL + (u64)result.y;
     return res;
 }
-
 
 int main(int ac, char **av)
 {
@@ -522,7 +459,6 @@ int main(int ac, char **av)
     pool_pair = pool_create("pair", 32, sizeof(struct pair));
 
     printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
-    printf("loops=%d\n", inner_count);
     pool_destroy(pool_row);
     pool_destroy(pool_segment);
     pool_destroy(pool_pair);
