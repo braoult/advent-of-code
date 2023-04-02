@@ -345,54 +345,6 @@ end:
     return pair;
 }
 
-static ulong part1()
-{
-    ulong res = 0;
-    int row = testmode() ? 10: 2000000;
-    uint bucket = hash_32(row, HBITS);
-    struct pair *pair;
-
-    map.min.y = map.max.y = row;
-
-    while ((pair = parse())) {
-        add_segments(pair);
-    }
-    struct row *prow = find_row(&map.hash[bucket], row);
-    if (prow) {
-        struct segment *cur;
-        list_for_each_entry(cur, &prow->segments, list) {
-            printf("counting segment (%d,%d) = %d nbeac=%d\n", cur->start, cur->end,
-                   cur->end - cur->start + 1, prow->nbeacons);
-            res += cur->end - cur->start + 1;
-        }
-        res -= prow->nbeacons;
-    }
-    return res;
-}
-
-static ulong part2()
-{
-    ulong res = 0;
-    struct pair *pair;
-
-    map.min.x = map.min.y =  0;
-    map.max.x = map.max.y = testmode()? 20: 4000000;
-    while ((pair = parse())) {
-        add_segments(pair);
-    }
-    for (int row = map.min.y; row <= map.max.y; ++row) {
-        uint bucket = hash_32(row, HBITS);
-        struct row *prow = find_row(&map.hash[bucket], row);
-        struct segment *cur;
-        cur = list_first_entry(&prow->segments, struct segment, list);
-        if (cur->end != map.max.x) {
-            res = ((u64)cur->end + 1UL) * 4000000UL + (u64)row;
-            break;
-        }
-    }
-    return res;
-}
-
 /**
  *                                    /#\
  *                           /#\     /# #\
@@ -518,7 +470,32 @@ struct coord *check_intersect(struct coord *ret)
     return NULL;
 }
 
-static ulong part2_new()
+static ulong part1()
+{
+    ulong res = 0;
+    int row = testmode() ? 10: 2000000;
+    uint bucket = hash_32(row, HBITS);
+    struct pair *pair;
+
+    map.min.y = map.max.y = row;
+
+    while ((pair = parse())) {
+        add_segments(pair);
+    }
+    struct row *prow = find_row(&map.hash[bucket], row);
+    if (prow) {
+        struct segment *cur;
+        list_for_each_entry(cur, &prow->segments, list) {
+            printf("counting segment (%d,%d) = %d nbeac=%d\n", cur->start, cur->end,
+                   cur->end - cur->start + 1, prow->nbeacons);
+            res += cur->end - cur->start + 1;
+        }
+        res -= prow->nbeacons;
+    }
+    return res;
+}
+
+static ulong part2()
 {
     ulong res = 0;
     struct coord result;
@@ -544,9 +521,6 @@ int main(int ac, char **av)
     pool_segment =  pool_create("segments", 8192, sizeof(struct segment));
     pool_pair = pool_create("pair", 32, sizeof(struct pair));
 
-    //part2_new();
-    //printf("loops=%d\n", inner_count);
-    //exit(1);
     printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
     printf("loops=%d\n", inner_count);
     pool_destroy(pool_row);
