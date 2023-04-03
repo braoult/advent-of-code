@@ -20,17 +20,13 @@
 #include "br.h"
 #include "list.h"
 #include "pool.h"
-#include "hashtable.h"
-#include "pjwhash-inline.h"
 #include "debug.h"
 
 #include "aoc.h"
 
-static pool_t *pool_segment, *pool_row, *pool_pair;
+static pool_t *pool_segment, *pool_pair;
 
 #define HBITS 20                                  /* 20 bits: 1,048,576 buckets */
-static DEFINE_HASHTABLE(hasht_rows, HBITS);
-
 struct coord {
     int x, y;
 };
@@ -39,6 +35,7 @@ struct coord {
 #define RIGHT  1
 #define BOTTOM 2
 #define LEFT   3
+
 /**
  * struct pair - input file pair list
  * @sensor, @beacon: struct coord sensor and beacon coordinates.
@@ -57,18 +54,6 @@ struct pair {
 LIST_HEAD(pairs_head);
 
 /**
- * struct map - full map
- * @min, @max: map's min and max coordinates.
- * @hash: rows hash table
- */
-struct map {
-    struct coord min, max;
-    struct hlist_head *hash;
-} map = {
-    .min = { INT_MIN, INT_MIN }, .max = {INT_MAX, INT_MAX }, hasht_rows
-};
-
-/**
  * struct row - row description
  * @row: row number.
  * @segments: segments list.
@@ -79,7 +64,20 @@ struct row {
     int beacons[64];
     int nbeacons;
     struct list_head segments;
-    struct hlist_node hlist;
+};
+
+/**
+ * struct map - full map
+ * @min, @max: map's min and max coordinates.
+ * @hash: rows hash table
+ */
+static struct map {
+    struct coord min, max;
+    struct row row;                               /* for part 1 */
+    //hlist_head *hash;
+} map = {
+    .min = { INT_MIN, INT_MIN }, .max = {INT_MAX, INT_MAX },
+    .row = { 0, {0}, 0, LIST_HEAD_INIT(map.row.segments) }
 };
 
 /**
@@ -104,15 +102,6 @@ struct segment {
     struct list_head list;
 };
 
-static struct row *find_row(struct hlist_head *head, int row)
-{
-    struct row *cur;
-    hlist_for_each_entry(cur, head, hlist)
-        if (cur->row == row)
-            return cur;
-    return NULL;
-}
-
 static struct segment *get_segment(int row, int start, int end)
 {
     struct segment *new = pool_get(pool_segment);
@@ -125,18 +114,18 @@ static struct segment *get_segment(int row, int start, int end)
     return new;
 }
 
-static void merge_segment(struct row *prow, int start, int end)
+static void merge_segment(int start, int end)
 {
     struct segment *seg, *new;
     struct list_head *cur, *tmp;
     static int l = 9;
 
-    new = get_segment(prow->row, start, end);
-    if (list_empty(&prow->segments)) {
-        list_add(&new->list, &prow->segments);
+    new = get_segment(map.row.row, start, end);
+    if (list_empty(&map.row.segments)) {
+        list_add(&new->list, &map.row.segments);
         goto end;
     }
-    list_for_each_safe(cur, tmp, &prow->segments) {
+    list_for_each_safe(cur, tmp, &map.row.segments) {
         seg = list_entry(cur, struct segment, list);
 
         /* 1) check for disjoint segments */
@@ -197,51 +186,24 @@ static void merge_segment(struct row *prow, int start, int end)
         pool_add(pool_segment, seg);
         goto end;
     }
-    list_add_tail(&new->list, &prow->segments);
+    list_add_tail(&new->list, &map.row.segments);
 end:
     return;
 }
 
-static __always_inline void add_beacon(struct row *prow, int bx)
+static __always_inline void add_beacon(int bx)
 {
-    for (int i = 0; i < prow->nbeacons; ++i) {
-        if (prow->beacons[i] == bx)
+    for (int i = 0; i < map.row.nbeacons; ++i) {
+        if (map.row.beacons[i] == bx)
             return;
     }
-    prow->beacons[prow->nbeacons++] = bx;
-}
-
-static __always_inline struct row *add_segment(int row, int center, int half)
-{
-    int x1, x2;
-    uint hash = row, bucket = hash_32(hash, HBITS);
-    struct row *prow = find_row(&map.hash[bucket], hash);
-
-    x1 = max(center - half, map.min.x);
-    x2 = min(center + half, map.max.x);
-    if (x1 != center - half || x2 != center + half)
-        log(1, "adjust x: min:%d->%d max:%d->%d\n",
-            center - half, x1, center + half, x2);
-    log_f(3, "adding segment (%d,%d) on row (%d) - bucket(%u) = %u prow=%p\n",
-          x1, x2, row, hash, bucket, prow);
-    log(3, "map borders: xmin=%d xmax=%d ymin=%d ymax=%d\n",
-        map.min.x, map.max.x, map.min.y, map.max.y);
-    if (!prow) {
-        prow = pool_get(pool_row);
-        prow->row = row;
-        prow->nbeacons = 0;
-        INIT_HLIST_NODE(&prow->hlist);
-        INIT_LIST_HEAD(&prow->segments);
-        hlist_add_head(&prow->hlist, &map.hash[bucket]);
-    }
-    merge_segment(prow, x1, x2);
-    return prow;
+    map.row.beacons[map.row.nbeacons++] = bx;
 }
 
 /**
  * is_off_range() - test if a point is off range from all sensors.
  */
-static int is_off_range(struct coord *point)
+static __always_inline int is_off_range(struct coord *point)
 {
     struct pair *pair;
 
@@ -250,27 +212,6 @@ static int is_off_range(struct coord *point)
         if ((abs(point->x - pair->sensor.x) +
              abs(point->y - pair->sensor.y)) <= pair->manhattan)
             return 0;
-    }
-    return 1;
-}
-
-
-static int add_segments(struct pair *pair)
-{
-    int manhattan = pair->manhattan,
-        ymin = max(pair->sensor.y - manhattan, map.min.y),
-        ymax = min(pair->sensor.y + manhattan, map.max.y);
-    struct row *prow;
-
-    log_f(2, "sensor4=(%d, %d) beacon=(%d, %d) - ",
-          pair->sensor.x, pair->sensor.y, pair->beacon.x, pair->beacon.y);
-    log(2, "manhattan=%u ymin=%d ymax=%d\n", manhattan, ymin, ymax);
-
-    for (int y = ymin; y <= ymax; ++y) {
-        int half = pair->manhattan - abs(y - pair->sensor.y);
-        prow = add_segment(y, pair->sensor.x, half);
-        if (y == pair->beacon.y)
-            add_beacon(prow, pair->beacon.x);
     }
     return 1;
 }
@@ -354,9 +295,9 @@ static __always_inline struct coord *intersect(struct coord *p1, struct coord *p
     b2 = q1->y - q1->x * a2;
 
     /* Lines intersection (x,y) is at:
-     * (x * a1) + b1 = (x * a2) + b2
+     * (a1 * x) + b1 = (a2 * x) + b2
      * x * (a1 - a2) = b2 - b1
-     * x = (b2 - b1) / (a1 - a2)
+     * x = (b2 - b1) / (a1 - a2)     a2 ≠ a1
      * Then we find y = ax + b
      */
     x  = (b2 - b1) / (a1 - a2);
@@ -366,10 +307,10 @@ static __always_inline struct coord *intersect(struct coord *p1, struct coord *p
      * 1) Within p1-p2 and q1-q2 segments
      * 2) Within map area
      */
-    if (x >= min(p1->x, p2->x) && x >= min(q1->x, q2->x) &&
-        x <= max(p1->x, p2->x) && x <= max(q1->x, q2->x) &&
-        y >= min(p1->y, p2->y) && y >= min(q1->y, q2->y) &&
-        y <= max(p1->y, p2->y) && y <= max(q1->y, q2->y) &&
+    if (x >= min(min(p1->x, p2->x), min(q1->x, q2->x)) &&
+        x <= max(max(p1->x, p2->x), max(q1->x, q2->x)) &&
+        y >= min(min(p1->y, p2->y), min(q1->y, q2->y)) &&
+        y <= max(max(p1->y, p2->y), max(q1->y, q2->y)) &&
         x >= map.min.x && x <= map.max.x &&
         y >= map.min.y && y <= map.max.y) {
         *ret = (struct coord) {x, y};
@@ -417,22 +358,25 @@ static struct coord *check_intersect(struct coord *ret)
 static u64 part1(void)
 {
     u64 res = 0;
-    int row = testmode() ? 10: 2000000;
-    uint bucket = hash_32(row, HBITS);
     struct pair *pair;
+    struct segment *cur;
 
-    map.min.y = map.max.y = row;
+    map.row.row = map.min.y = map.max.y = testmode() ? 10: 2000000;
 
-    while ((pair = parse()))
-        add_segments(pair);
-    struct row *prow = find_row(&map.hash[bucket], row);
-    if (prow) {
-        struct segment *cur;
-        list_for_each_entry(cur, &prow->segments, list)
-            res += cur->end - cur->start + 1;
-        res -= prow->nbeacons;
+    while ((pair = parse())) {
+        if (map.row.row >= pair->sensor.y - pair->manhattan &&
+            map.row.row <= pair->sensor.y + pair->manhattan) {
+            int half = pair->manhattan - abs(map.row.row - pair->sensor.y);
+            int x1 = max(pair->sensor.x - half, map.min.x);
+            int x2 = max(pair->sensor.x + half, map.min.x);
+            merge_segment(x1, x2);
+            if (map.row.row == pair->beacon.y)
+                add_beacon(pair->beacon.x);
+        }
     }
-    return res;
+    list_for_each_entry(cur, &map.row.segments, list)
+        res += cur->end - cur->start + 1;
+    return res - map.row.nbeacons;
 }
 
 static u64 part2()
@@ -454,12 +398,10 @@ int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
 
-    pool_row =  pool_create("rows", 8192, sizeof(struct row));
     pool_segment =  pool_create("segments", 8192, sizeof(struct segment));
     pool_pair = pool_create("pair", 32, sizeof(struct pair));
 
     printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
-    pool_destroy(pool_row);
     pool_destroy(pool_segment);
     pool_destroy(pool_pair);
     exit(0);

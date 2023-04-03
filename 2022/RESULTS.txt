@@ -309,9 +309,9 @@ aoc-c: res=25434
 +++++++++++++++++ part 1
 aoc-c: res=5176944
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+749
+	context-switch:	0+1, page-faults: 0+152
 
 +++++++++++++++++ part 2
 aoc-c: res=13350458933732
 	time: 0:00.00 real, 0.00 user, 0.00 sys
-	context-switch:	0+1, page-faults: 0+90
+	context-switch:	0+1, page-faults: 0+88
