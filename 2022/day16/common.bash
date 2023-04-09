@@ -2,7 +2,7 @@
 #
 # common.bash: Advent of Code 2022, common bash functions
 #
-# Copyright (C) 2022 Bruno Raoult ("br")
+# Copyright (C) 2022-2023 Bruno Raoult ("br")
 # Licensed under the GNU General Public License v3.0 or later.
 # Some rights reserved. See COPYING.
 #
