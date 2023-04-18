@@ -17,15 +17,11 @@
 #include "br.h"
 #include "list.h"
 #include "pool.h"
-#include "hashtable.h"
 #include "debug.h"
 #include "bits.h"
 
 #include "aoc.h"
 
-#define SEP " ,;="
-#define HBITS 6                                   /* 6 bits: 64 entries */
-static DEFINE_HASHTABLE(hasht_valves, HBITS);
 pool_t *pool_valve;
 
 union val {
@@ -38,6 +34,12 @@ enum state {
     OPENED
 };
 
+struct worker {
+    struct valve *pos;
+    int depth;
+    int time;
+};
+
 struct valve {
     int index;                                    /* -1 for zero flow rate */
     union val val;
@@ -48,8 +50,8 @@ struct valve {
     struct hlist_node hlist;
     struct list_head index_sorted;
     struct list_head flow_sorted;
-    struct list_head permute;
     struct list_head eval;
+    int worker;
     struct list_head played;
     int ntunnels, tottunnels;
     struct valve **tunnels;                       /* array */
@@ -58,28 +60,25 @@ struct valve {
 static struct graph {
     struct valve *aa;                             /* head ("AA") */
     int npositive;                                /* only "AA" & working valves */
-    int nzero;                                    /* TO REMOVE ? */
     int nvalves;
     u64 opened;                                   /* bitmask of opened valves */
     u64 openable;                                 /* bitmask of openable valves */
     struct list_head index_sorted;                /* TO REMOVE ? */
     struct list_head flow_sorted;
-    struct list_head permute;
     struct list_head eval;
-    struct list_head played;
-    struct valve **indexed;
+    struct list_head played[2];
+    struct valve **indexed_all;
     int *dist;                                   /* 2-D array */
 } graph = {
     .aa = NULL,
     .npositive = 0,
-    .nzero = 0,
     .nvalves = 0,
     .index_sorted = LIST_HEAD_INIT(graph.index_sorted),
     .flow_sorted = LIST_HEAD_INIT(graph.flow_sorted),
-    .permute = LIST_HEAD_INIT(graph.permute),
     .eval = LIST_HEAD_INIT(graph.eval),
-    .played = LIST_HEAD_INIT(graph.played),
-    .indexed = NULL,
+    .played[0] = LIST_HEAD_INIT(graph.played[0]),
+    .played[1] = LIST_HEAD_INIT(graph.played[1]),
+    .indexed_all = NULL,
     .dist = NULL
 };
 
@@ -88,17 +87,8 @@ static struct graph {
 
 static void print_valves()
 {
-    ulong  bucket;
     struct valve *cur;
-    printf("**** graph: .head=%p npositive=%d nzero=%d\n", graph.aa, graph.npositive,
-        graph.nzero);
-    hash_for_each(hasht_valves, bucket, cur, hlist) {
-        printf("Valve %s: rate=%d ntunnels=%d tottunnels=%d ( ",
-               cur->val.str, cur->rate, cur->ntunnels, cur->tottunnels);
-        for (int i=0; i < cur->ntunnels; ++i)
-            printf("%s ", cur->tunnels[i]->val.str);
-        printf(")\n");
-    }
+    printf("**** graph: .head=%p npositive=%d\n", graph.aa, graph.npositive);
     printf("index1: ");
     list_for_each_entry(cur, &graph.index_sorted, index_sorted) {
         printf("%d:%s ", cur->index, cur->val.str);
@@ -106,17 +96,17 @@ static void print_valves()
     printf("\n");
     printf("index2: ");
     for (int i = 0; i < graph.nvalves; ++i) {
-        printf("%d:%s ", graph.indexed[i]->index, graph.indexed[i]->val.str);
+        printf("%d:%s ", graph.indexed_all[i]->index, graph.indexed_all[i]->val.str);
     }
     printf("\n");
     if (testmode()) {
         printf("distances:\n   ");
         for (int i = 0; i < graph.nvalves; ++i) {
-            printf("    %s", graph.indexed[i]->val.str);
+            printf("    %s", graph.indexed_all[i]->val.str);
         }
         printf("\n");
         for (int i = 0; i < graph.nvalves; ++i) {
-            printf("%s  ", graph.indexed[i]->val.str);
+            printf("%s  ", graph.indexed_all[i]->val.str);
             for (int j = 0; j < graph.nvalves; ++j) {
                 printf("%5d ", DIST(i, j));
             }
@@ -125,11 +115,6 @@ static void print_valves()
     }
     printf("flow_sorted: ");
     list_for_each_entry(cur, &graph.flow_sorted, flow_sorted) {
-        printf("%s:%d ", cur->val.str, cur->rate);
-    }
-    printf("\n");
-    printf("permute: ");
-    list_for_each_entry(cur, &graph.permute, permute) {
         printf("%s:%d ", cur->val.str, cur->rate);
     }
     printf("\n");
@@ -143,15 +128,17 @@ static void print_valves()
 
 }
 
-//#define flow2valve(p) list_entry(p, struct valve, flow_sorted)
-
+#define PAD3  log(3, "%*s", _depth * 2, "")
+#define PAD4 log(4, "%*s", _depth * 2, "")
 
 /**
  * eval() - eval possible moves from @flow_sorted list.
+ * @_depth: recursivity depth (for debug only, TODO: remove).
  * @valve: &starting valve (where we are).
  * @depth: remaining depth (-1: full depth).
  * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
  * @time: remaining time.
+ * @pressure: total pressure per time unit so far.
  *
  * Find the "best" next move by evaluating up to @depth moves, using only the
  * first @pick elements in @flow_sorted list, and within @time remaining time.
@@ -161,18 +148,14 @@ static void print_valves()
  *
  * @Return: the current position eval.
  */
-#define PAD3  log(3, "%*s", _depth, "")
-#define PAD4 log(4, "%*s", _depth, "")
-
 static struct valve *eval(int _depth, struct valve *pos, int depth, int pick, int time, int pressure)
 {
     struct valve *cur, *best = NULL, *sub;
     struct list_head *list_flow, *tmp;
     int _pick = pick, val = 0, val1, max = 0;
 
-    PAD3;
-    log(3, "EVAL _depth=%d pos=%d[%s] depth=%d pick=%d time=%d pressure=%d\n",
-        _depth, pos->index, pos->val.str, depth, pick, time, pressure);
+    PAD3; log(3, "EVAL _depth=%d pos=%d[%s] depth=%d pick=%d time=%d pressure=%d\n",
+              _depth, pos->index, pos->val.str, depth, pick, time, pressure);
     list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
         cur = list_entry(list_flow, struct valve, flow_sorted);
         int d = DIST(pos->index, cur->index);
@@ -191,7 +174,7 @@ static struct valve *eval(int _depth, struct valve *pos, int depth, int pick, in
         if (depth > 0) {
             /* do not use list_del() here, to preserve prev/next pointers */
             __list_del_entry(list_flow);
-            sub = eval(_depth + 2, cur, depth - 1, pick - 1, time - d - 1, pressure + pos->rate);
+            sub = eval(_depth + 1, cur, depth - 1, pick, time - d - 1, pressure + pos->rate);
             list_flow->prev->next = list_flow;
             list_flow->next->prev = list_flow;
         } else {
@@ -210,75 +193,177 @@ static struct valve *eval(int _depth, struct valve *pos, int depth, int pick, in
     if (best) {
         best->evalflow = max;
         PAD3; log(3, "EVAL returning best [%s] eval=%d\n", best->val.str, max);
-        //best->evaltime = time - (d + 2);
     }
     return best;
 }
 
-static __unused void permute_prepare(int n)
+/**
+ * eval() - eval possible moves from @flow_sorted list.
+ * @_depth: recursivity depth (for debug only, TODO: remove).
+ * @valve: &starting valve (where we are).
+ * @depth: remaining depth (-1: full depth).
+ * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
+ * @time: remaining time.
+ * @pressure: total pressure per time unit so far.
+ *
+ * Find the "best" next move by evaluating up to @depth moves, using only the
+ * first @pick elements in @flow_sorted list, and within @time remaining time.
+ *
+ * @depth and @picked may be linked, for instance to fully explore the first N
+ * possibilities in @flow_sorted with a N depth.
+ *
+ * @Return: the current position eval.
+ */
+static struct valve *eval2(int _depth, struct worker *worker, int pick, int pressure)
 {
-    struct valve *cur;
-    INIT_LIST_HEAD(&graph.permute);
-    list_for_each_entry(cur, &graph.flow_sorted, flow_sorted) {
-        if (!n--)
-            break;
-        list_add_tail(&cur->permute, &graph.permute);
+    struct valve *cur, *best = NULL, *sub;
+    struct list_head *list_flow, *tmp;
+    int _pick = pick, val = 0, val1, max = 0;
+
+    PAD3; log(3, "EVAL _depth=%d pos=%d[%s] depth=%d pick=%d time=%d pressure=%d\n",
+              _depth, worker->pos->index, worker->pos->val.str, worker->depth,
+              pick, worker->time, pressure);
+    list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
+        cur = list_entry(list_flow, struct valve, flow_sorted);
+        int d = DIST(worker->pos->index, cur->index),
+            remain = worker->time - (d + 1);
+        PAD4; log(4, "dist(%s,%s) = %d\n", worker->pos->val.str, cur->val.str, d);
+        if (!--_pick) {
+            PAD4; log(4, "pick exhausted\n");
+            continue;
+        }
+        if (remain < 1) {
+            PAD4; log(4, "time exhausted\n");
+            continue;
+        }
+        val = remain * cur->rate;
+        PAD4; log(4, "val=%d\n", val);
+
+        if (worker->depth > 0) {
+            struct worker w = {
+                .pos = cur,
+                .depth = worker->depth - 1,
+                .time = remain
+            };
+            /* do not use list_del() here, to preserve prev/next pointers */
+            __list_del_entry(list_flow);
+            sub = eval2(_depth + 1, &w, pick, pressure + worker->pos->rate);
+            list_flow->prev->next = list_flow;
+            list_flow->next->prev = list_flow;
+        } else {
+            sub = NULL;
+        }
+        val1 = sub? sub->evalflow: 0;
+        PAD3; log(3, "eval2(%s->%s)= %5d = %d + %d", worker->pos->val.str, cur->val.str,
+                  val+val1, val, val1);
+        if (val + val1 > max) {
+            max = val + val1;
+            best = cur;
+            log(3, "  NEW MAX !");
+        }
+        log(3, "\n");
     }
+    if (best) {
+        best->evalflow = max;
+        best->worker = 0;                         /* FIXME */
+        PAD3; log(3, "EVAL returning best [%s] worker=%d eval=%d\n", best->val.str,
+                  best->worker, max);
+    }
+    return best;
 }
 
 /**
- * permute() - get next permutation in graph.permute list.
- * @n: permutation number (0 first first one)
+ * eval() - eval possible moves from @flow_sorted list.
+ * @_depth: recursivity depth (for debug only, TODO: remove).
+ * @valve: &starting valve (where we are).
+ * @depth: remaining depth (-1: full depth).
+ * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
+ * @time: remaining time.
+ * @pressure: total pressure per time unit so far.
  *
- * Construct next permutation in graph.permute list, following the
- * "lexicographic order algorithm" :
- * https://en.wikipedia.org/wiki/Permutation#Generation_in_lexicographic_order
+ * Find the "best" next move by evaluating up to @depth moves, using only the
+ * first @pick elements in @flow_sorted list, and within @time remaining time.
  *
- * Before first call for a given graph.permute list:
- * 1) the graph.flow_sorted should be (decreasing) sorted.
- * 2) permute_prepare() should have been called.
- * @Return: 0 if no more permutation, 1 otherwise.
+ * @depth and @picked may be linked, for instance to fully explore the first N
+ * possibilities in @flow_sorted with a N depth.
+ *
+ * @Return: the current position eval.
  */
-static __unused int permute(int n)
+static struct valve *eval3(int _depth, struct worker *worker, int pick, int pressure)
 {
-    struct valve *last, *first, *k, *l;
+    struct valve *cur, *best = NULL, *sub;
+    struct list_head *list_flow, *tmp;
+    int _pick = pick, val = 0, val1, max = 0, bestworker;
 
-    if (!n)
-        return 1;
-    last = list_last_entry(&graph.permute, struct valve, permute);
-    first = list_first_entry(&graph.permute, struct valve, permute);
-    l = last;
-    k = list_prev_entry(l, permute);
-
-    while (k->rate <= l->rate) {
-        if ((l = k) == first)
-            return 0;
-        k = list_prev_entry(l, permute);
-    }
-    l = last;
-    while (l != k && k->rate <= l->rate) {
-        l = list_prev_entry(l, permute);
-    }
-    printf("found k=%d l=%d ", k->rate, l->rate);
-    list_swap(&l->permute, &k->permute);
-    struct list_head *anchor = l->permute.next, *cur, *tmp;
-    list_for_each_prev_safe(cur, tmp, &graph.permute) {
-        if (cur == anchor)
+    PAD3; log_f(3, "EVAL _depth=%d w0={ pos=%d[%s] depth=%d time=%d }  w1={ pos=%d[%s] depth=%d time=%d } pick=%d pressure=%d \n",
+              _depth,
+              worker[0].pos->index, worker[0].pos->val.str,
+              worker[0].depth, worker[0].time,
+              worker[1].pos->index, worker[1].pos->val.str,
+              worker[1].depth, worker[1].time,
+              pick, pressure);
+    list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
+        cur = list_entry(list_flow, struct valve, flow_sorted);
+        int nworkers = worker[0].pos->index == worker[1].pos->index? 1: 2;
+        if (!--_pick) {
+            PAD4; log(4, "pick exhausted\n");
             break;
-        list_move_tail(cur, anchor);
-    }
-    return 1;
-}
+        }
+        for (int _w = 0; _w < nworkers; ++_w) {
+            struct worker *w = worker + _w;
+            int d = DIST(w->pos->index, cur->index);
+            int remain = w->time - (d + 1);
+            PAD3; log(3, "worker %d/%d ", _w + 1, nworkers );
+            PAD3; log(3, "dist(%s,%s) = %d ", w->pos->val.str, cur->val.str, d);
+            if (remain < 1) {
+                PAD3; log(4, "time exhausted\n");
+                continue;
+            }
+            val = remain * cur->rate;
+            PAD3; log(3, "--> val=%d\n", val);
 
+            if (w->depth > 0) {
+                struct worker _tmp = *w;
+                w->pos = cur;
+                w->depth--;
+                w->time = remain;
+                /* do not use list_del() here, to preserve prev/next pointers */
+                __list_del_entry(list_flow);
+                sub = eval3(_depth + 1, worker, pick, pressure + w->pos->rate);
+                list_flow->prev->next = list_flow;
+                list_flow->next->prev = list_flow;
+                *w = _tmp;
+            } else {
+                sub = NULL;
+            }
+            val1 = sub? sub->evalflow: 0;
+            PAD3; log(3, "eval3(%s->%s)= %5d = %d + %d", w->pos->val.str, cur->val.str,
+                      val+val1, val, val1);
+            if (val + val1 > max) {
+                max = val + val1;
+                best = cur;
+                bestworker = _w;
+                log(3, "  NEW MAX !");
+            }
+            log(3, "\n");
+        }
+    }
+    if (best) {
+        best->evalflow = max;
+        best->worker = bestworker;                         /* FIXME */
+        PAD3; log(3, "EVAL returning best [%s] worker=%d eval=%d\n", best->val.str,
+                  best->worker, max);
+    }
+    return best;
+}
 
 static struct valve *find_valve(union val val, int ntunnels, int rate)
 {
     struct valve *cur;
-    uint hash = val.val, bucket = hash_32(hash, HBITS);
 
-    log_f(3, "val=%s ntunnels=%d rate=%d h=%u b=%d\n", val.str, ntunnels,
-          rate, hash, bucket);
-    hlist_for_each_entry(cur, &hasht_valves[bucket], hlist) {
+    log_f(3, "val=%s ntunnels=%d rate=%d\n", val.str, ntunnels, rate);
+    list_for_each_entry(cur, &graph.index_sorted, index_sorted) {
+        //log(3, "\tcomparing with found, addr=%p\n", cur);
         if (cur->val.val == val.val) {
             log(3, "\tfound, addr=%p\n", cur);
             if (ntunnels)
@@ -290,13 +375,13 @@ static struct valve *find_valve(union val val, int ntunnels, int rate)
     cur->val.val = val.val;
     cur->ntunnels = 0;
     cur->state = CLOSED;
+    cur->worker = -1;
     cur->evalflow = cur->playedflow = 0;
     cur->evaltime = cur->playedtime = 30;
     INIT_LIST_HEAD(&cur->index_sorted);
     INIT_LIST_HEAD(&cur->flow_sorted);
-    INIT_LIST_HEAD(&cur->permute);
+    INIT_LIST_HEAD(&cur->eval);
     INIT_LIST_HEAD(&cur->played);
-    hlist_add_head(&cur->hlist, &hasht_valves[bucket]);
     log(3, "\talloc new, addr=%p\n", cur);
 init:
     if (ntunnels) {
@@ -308,20 +393,28 @@ end:
     return cur;
 }
 
-static char *getnth(char *buf, int n)
+/**
+ * nthtok - get nth token fron string.
+ * @buf: buffer to parse.
+ * @sep: separators string.
+ * @n: token number (0: first token).
+ *
+ * @Return: pointer to token.
+ */
+static char *nthtok(char *buf, const char *sep, int n)
 {
     char *ret;
     for (; n >= 0; n--) {
-        ret = strtok(buf, SEP);
+        ret = strtok(buf, sep);
         buf = NULL;
     }
     return ret;
 }
 
+#define SEP " ,;="
 static struct graph *parse()
 {
     int index = 0, ntunnels;
-    ulong  bucket;
     size_t alloc = 0;
     ssize_t buflen;
     char *buf = NULL, *tok;
@@ -331,11 +424,13 @@ static struct graph *parse()
 
     while ((buflen = getline(&buf, &alloc, stdin)) > 0) {
         buf[--buflen] = 0;
-        strncpy(cur.str, getnth(buf, 1), sizeof(cur.str));
+        /* valve name */
+        strncpy(cur.str, nthtok(buf, SEP, 1), sizeof(cur.str));
+
         //printf("valve=%s ", tok);
-        rate = atoi(getnth(NULL, 3));
+        rate = atoi(nthtok(NULL, SEP, 3));
         //printf("rate=%s ", tok);
-        tok = getnth(NULL, 4);
+        tok = nthtok(NULL, SEP, 4);
         ntunnels = (buf + buflen - tok) / 4 + 1;
         v1 = find_valve(cur, ntunnels, rate);
         v1->index = index++;
@@ -360,8 +455,6 @@ static struct graph *parse()
                 graph.openable |= (1 << v1->index);
                 //printf("->%#lx", graph.openable);
             }
-        } else {
-            graph.nzero++;
         }
         //printf("lead=%s ntunnels=%d ", tok, ntunnels);
         do {
@@ -369,23 +462,21 @@ static struct graph *parse()
             v2 = find_valve(link, 0, 0);
             *(v1->tunnels + v1->ntunnels++) = v2;
             //printf(",%s", tok);
-        } while ((tok = getnth(NULL, 0)));
+        } while ((tok = nthtok(NULL, SEP, 0)));
             //printf("\n");
     }
     graph.aa = find_valve((union val) { .str="AA" }, 0, 0);
     /* build array of indexed valves */
-    graph.indexed = calloc(graph.nvalves, sizeof(struct valve *));
-    index = 0;
-    hash_for_each(hasht_valves, bucket, v1, hlist) {
-        graph.indexed[v1->index] = v1;
-        index++;
+    graph.indexed_all = calloc(graph.nvalves, sizeof(struct valve *));
+    list_for_each_entry(v1, &graph.index_sorted, index_sorted) {
+        graph.indexed_all[v1->index] = v1;
     }
     return &graph;
 }
 
 static int is_neighbour(int i, int j)
 {
-    struct valve *v1 = graph.indexed[i], *v2 = graph.indexed[j];
+    struct valve *v1 = graph.indexed_all[i], *v2 = graph.indexed_all[j];
     for (int i = 0; i < v1->ntunnels; ++i)
         if (v1->tunnels[i]->val.val == v2->val.val)
             return 1;
@@ -405,10 +496,8 @@ static void build_distances()
                 else
                     DIST(i, j) = DIST(j, i) = 10000;
             }
-            //printf("pos(%d,%d)=%d\n", i, j, pos(i, j));
         }
     }
-    //print_valves();
 
     /* get all distances using Floyd-Warshall
      * see https://en.wikipedia.org/wiki/Floyd%E2%80%93Warshall_algorithm
@@ -431,56 +520,90 @@ static void build_distances()
     return;
 }
 
-//static ulong do_1(struct valve *cur, int min, int pressure)
-//{
-//    ulong tmp;
+static void print_played()
+{
+    struct valve *p;
+    int total = 0;
+    for (int w = 0; w < 2; ++w) {
+        int remain = 26, i = 1;
+        struct valve *prev = graph.aa;
+        i = 1;
+        printf("played by %d:\n", w);
+        list_for_each_entry(p, &graph.played[w], played) {
+            printf("%2d: %s, ", i, p->val.str);
+            remain -= DIST(p->index, prev->index) + 1;
+            total += p->rate * remain;
+            printf("dist=%d remain=%d total=%d", DIST(p->index, prev->index), remain,
+                   total);
+            printf("\n");
+            i++;
+            prev = p;
+        }
+    }
+}
 
-    //  if (cur->state == CLOSED) {
+static void doit()
+{
+    struct worker w[2];
+    w[0].pos = w[1].pos = graph.aa;
+    w[0].depth = w[1].depth = 4;
+    w[0].time = w[1].time = 26;
+/*    struct worker w[2] = {
+        { .pos = graph.aa, .depth = 5, .time = 30 },
+        { .pos = graph.aa, .depth = 5, .time = 30 },
+    };
+    */
+    struct valve *best;
 
-    //}
-//}
+    //list_add_tail(&w[0].pos->played, &graph.played[0]);
+    //list_add_tail(&w[1].pos->played, &graph.played[1]);
+    //while ()
+    while ((best = eval3(0, w, 12, 0))) {
+        list_del(&best->flow_sorted);
+        list_add_tail(&best->played, &graph.played[best->worker]);
+        w[best->worker].time -= DIST(w[best->worker].pos->index, best->index) + 1;
+        w[best->worker].pos = best;
+        print_played();
+    }
 
-//static union val start = { .str = "AA" };
+}
 
 static ulong part1()
 {
     ulong res = 1;
-    //struct valve *cur = graph.aa;
+    struct worker w[2];
+    w[0].pos = w[1].pos = graph.aa;
+    w[0].depth = w[1].depth = 5;
+    w[0].time = w[1].time = 30;
 
-    printf("part1\n");
-    build_distances();
-    print_valves();
-
-    puts("zob1");
+    printf("part 1\n");
     eval(0, graph.aa, 7, 7, 30, 0);
-    puts("zob2");
-    /*
-    permute_prepare(4);
-    for (int i = 0; permute(i); ++i) {
-        struct valve *cur;
-        printf("permutation %d: ", i);
-        list_for_each_entry(cur, &graph.permute, permute) {
-            printf("%d ", cur->rate);
-        }
-        printf("\n");
-    }
-    */
-
+    eval2(0, &w[0], 4, 0);
     return res;
 }
 
 static ulong part2()
 {
-    ulong res = 2;
+    ulong res = 1;
+    //struct worker w = {
+    //    .pos = graph.aa,
+    //    .depth = 4,
+    //    .time = 30
+    //};
+    printf("part 2\n");
+    //while ()
+    //eval2(0, &w, 7, 0);
+    doit();
     return res;
 }
-
 
 int main(int ac, char **av)
 {
     int part = parseargs(ac, av);
     pool_valve = pool_create("valve", 512, sizeof(struct valve));
     parse();
+    build_distances();
+    print_valves();
     printf("%s: res=%lu\n", *av, part == 1? part1(): part2());
     exit(0);
 }

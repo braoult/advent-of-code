@@ -180,8 +180,6 @@ the most pressure you can release?/
 
 Your puzzle answer was =1737=.
 
-The first half of this puzzle is complete! It provides one gold star: *
-
 ** --- Part Two ---
 You're worried that even with an optimal approach, the pressure released
 won't be enough. What if you got one of the elephants to help you?
@@ -271,3 +269,7 @@ release a total of =1707= pressure.
 
 /With you and an elephant working together for 26 minutes, what is the
 most pressure you could release?/
+
+Your puzzle answer was =2216=.
+
+Both parts of this puzzle are complete! They provide two gold stars: **
