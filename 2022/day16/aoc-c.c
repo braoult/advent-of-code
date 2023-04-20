@@ -134,166 +134,24 @@ static void print_valves()
 /**
  * eval() - eval possible moves from @flow_sorted list.
  * @_depth: recursivity depth (for debug only, TODO: remove).
- * @valve: &starting valve (where we are).
- * @depth: remaining depth (-1: full depth).
+ * @nworkers: number of workers.
+ * @workers: array of workers.
  * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
- * @time: remaining time.
  * @pressure: total pressure per time unit so far.
  *
- * Find the "best" next move by evaluating up to @depth moves, using only the
- * first @pick elements in @flow_sorted list, and within @time remaining time.
- *
- * @depth and @picked may be linked, for instance to fully explore the first N
- * possibilities in @flow_sorted with a N depth.
+ * Find the "best" next move by evaluating only the first @pick elements
+ * in @flow_sorted list.
  *
  * @Return: the current position eval.
  */
-static struct valve *eval(int _depth, struct valve *pos, int depth, int pick, int time, int pressure)
+static struct valve *eval(int _depth, int nworkers, struct worker *worker, int pick, int pressure)
 {
     struct valve *cur, *best = NULL, *sub;
     struct list_head *list_flow, *tmp;
-    int _pick = pick, val = 0, val1, max = 0;
-
-    PAD3; log(3, "EVAL _depth=%d pos=%d[%s] depth=%d pick=%d time=%d pressure=%d\n",
-              _depth, pos->index, pos->val.str, depth, pick, time, pressure);
-    list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
-        cur = list_entry(list_flow, struct valve, flow_sorted);
-        int d = DIST(pos->index, cur->index);
-        PAD4; log(4, "dist(%s,%s) = %d\n", pos->val.str, cur->val.str, d);
-        if (!--_pick) {
-            PAD4; log(4, "pick exhausted\n");
-            continue;
-        }
-        if (time - (d + 1 + 1) < 0) {
-            PAD4; log(4, "time exhausted\n");
-            continue;
-        }
-        val = (time - (d + 1)) * cur->rate;
-        PAD4; log(4, "val=%d\n", val);
-
-        if (depth > 0) {
-            /* do not use list_del() here, to preserve prev/next pointers */
-            __list_del_entry(list_flow);
-            sub = eval(_depth + 1, cur, depth - 1, pick, time - d - 1, pressure + pos->rate);
-            list_flow->prev->next = list_flow;
-            list_flow->next->prev = list_flow;
-        } else {
-            sub = NULL;
-        }
-        val1 = sub? sub->evalflow: 0;
-        PAD3; log(3, "eval(%s->%s)= %5d = %d + %d", pos->val.str, cur->val.str,
-                  val+val1, val, val1);
-        if (val + val1 > max) {
-            max = val + val1;
-            best = cur;
-            log(3, "  NEW MAX !");
-        }
-        log(3, "\n");
-    }
-    if (best) {
-        best->evalflow = max;
-        PAD3; log(3, "EVAL returning best [%s] eval=%d\n", best->val.str, max);
-    }
-    return best;
-}
-
-/**
- * eval() - eval possible moves from @flow_sorted list.
- * @_depth: recursivity depth (for debug only, TODO: remove).
- * @valve: &starting valve (where we are).
- * @depth: remaining depth (-1: full depth).
- * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
- * @time: remaining time.
- * @pressure: total pressure per time unit so far.
- *
- * Find the "best" next move by evaluating up to @depth moves, using only the
- * first @pick elements in @flow_sorted list, and within @time remaining time.
- *
- * @depth and @picked may be linked, for instance to fully explore the first N
- * possibilities in @flow_sorted with a N depth.
- *
- * @Return: the current position eval.
- */
-static struct valve *eval2(int _depth, struct worker *worker, int pick, int pressure)
-{
-    struct valve *cur, *best = NULL, *sub;
-    struct list_head *list_flow, *tmp;
-    int _pick = pick, val = 0, val1, max = 0;
-
-    PAD3; log(3, "EVAL _depth=%d pos=%d[%s] depth=%d pick=%d time=%d pressure=%d\n",
-              _depth, worker->pos->index, worker->pos->val.str, worker->depth,
-              pick, worker->time, pressure);
-    list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
-        cur = list_entry(list_flow, struct valve, flow_sorted);
-        int d = DIST(worker->pos->index, cur->index),
-            remain = worker->time - (d + 1);
-        PAD4; log(4, "dist(%s,%s) = %d\n", worker->pos->val.str, cur->val.str, d);
-        if (!--_pick) {
-            PAD4; log(4, "pick exhausted\n");
-            continue;
-        }
-        if (remain < 1) {
-            PAD4; log(4, "time exhausted\n");
-            continue;
-        }
-        val = remain * cur->rate;
-        PAD4; log(4, "val=%d\n", val);
-
-        if (worker->depth > 0) {
-            struct worker w = {
-                .pos = cur,
-                .depth = worker->depth - 1,
-                .time = remain
-            };
-            /* do not use list_del() here, to preserve prev/next pointers */
-            __list_del_entry(list_flow);
-            sub = eval2(_depth + 1, &w, pick, pressure + worker->pos->rate);
-            list_flow->prev->next = list_flow;
-            list_flow->next->prev = list_flow;
-        } else {
-            sub = NULL;
-        }
-        val1 = sub? sub->evalflow: 0;
-        PAD3; log(3, "eval2(%s->%s)= %5d = %d + %d", worker->pos->val.str, cur->val.str,
-                  val+val1, val, val1);
-        if (val + val1 > max) {
-            max = val + val1;
-            best = cur;
-            log(3, "  NEW MAX !");
-        }
-        log(3, "\n");
-    }
-    if (best) {
-        best->evalflow = max;
-        best->worker = 0;                         /* FIXME */
-        PAD3; log(3, "EVAL returning best [%s] worker=%d eval=%d\n", best->val.str,
-                  best->worker, max);
-    }
-    return best;
-}
-
-/**
- * eval() - eval possible moves from @flow_sorted list.
- * @_depth: recursivity depth (for debug only, TODO: remove).
- * @valve: &starting valve (where we are).
- * @depth: remaining depth (-1: full depth).
- * @pick: max position (in @flow_sorted) to pick moves from (-1 for all).
- * @time: remaining time.
- * @pressure: total pressure per time unit so far.
- *
- * Find the "best" next move by evaluating up to @depth moves, using only the
- * first @pick elements in @flow_sorted list, and within @time remaining time.
- *
- * @depth and @picked may be linked, for instance to fully explore the first N
- * possibilities in @flow_sorted with a N depth.
- *
- * @Return: the current position eval.
- */
-static struct valve *eval3(int _depth, struct worker *worker, int pick, int pressure)
-{
-    struct valve *cur, *best = NULL, *sub;
-    struct list_head *list_flow, *tmp;
-    int _pick = pick, val = 0, val1, max = 0, bestworker;
+    int _pick = pick, val = 0, val1, max = 0, bestworker = -1;
+    int _nworkers = nworkers;
+    if (nworkers == 2 && worker[0].pos->index ==  worker[1].pos->index)
+        _nworkers = 1;
 
     PAD3; log_f(3, "EVAL _depth=%d w0={ pos=%d[%s] depth=%d time=%d }  w1={ pos=%d[%s] depth=%d time=%d } pick=%d pressure=%d \n",
               _depth,
@@ -304,12 +162,12 @@ static struct valve *eval3(int _depth, struct worker *worker, int pick, int pres
               pick, pressure);
     list_for_each_safe(list_flow, tmp, &graph.flow_sorted) {
         cur = list_entry(list_flow, struct valve, flow_sorted);
-        int nworkers = worker[0].pos->index == worker[1].pos->index? 1: 2;
+        //int nworkers = worker[0].pos->index == worker[1].pos->index? 1: 2;
         if (!--_pick) {
             PAD4; log(4, "pick exhausted\n");
             break;
         }
-        for (int _w = 0; _w < nworkers; ++_w) {
+        for (int _w = 0; _w < _nworkers; ++_w) {
             struct worker *w = worker + _w;
             int d = DIST(w->pos->index, cur->index);
             int remain = w->time - (d + 1);
@@ -329,7 +187,7 @@ static struct valve *eval3(int _depth, struct worker *worker, int pick, int pres
                 w->time = remain;
                 /* do not use list_del() here, to preserve prev/next pointers */
                 __list_del_entry(list_flow);
-                sub = eval3(_depth + 1, worker, pick, pressure + w->pos->rate);
+                sub = eval(_depth + 1, nworkers, worker, pick, pressure + w->pos->rate);
                 list_flow->prev->next = list_flow;
                 list_flow->next->prev = list_flow;
                 *w = _tmp;
@@ -520,15 +378,15 @@ static void build_distances()
     return;
 }
 
-static void print_played()
+static void print_played(int nworkers)
 {
     struct valve *p;
     int total = 0;
-    for (int w = 0; w < 2; ++w) {
+    for (int w = 0; w < nworkers; ++w) {
         int remain = 26, i = 1;
         struct valve *prev = graph.aa;
         i = 1;
-        printf("played by %d:\n", w);
+        printf("played by %d/%d:\n", w + 1, nworkers);
         list_for_each_entry(p, &graph.played[w], played) {
             printf("%2d: %s, ", i, p->val.str);
             remain -= DIST(p->index, prev->index) + 1;
@@ -542,59 +400,38 @@ static void print_played()
     }
 }
 
-static void doit()
+static int doit(int part)
 {
     struct worker w[2];
-    w[0].pos = w[1].pos = graph.aa;
-    w[0].depth = w[1].depth = 4;
-    w[0].time = w[1].time = 26;
-/*    struct worker w[2] = {
-        { .pos = graph.aa, .depth = 5, .time = 30 },
-        { .pos = graph.aa, .depth = 5, .time = 30 },
-    };
-    */
     struct valve *best;
+    int res = 0;
+    //int topick = part == 1? 7: 12;
+    int topick = part == 1? 12: 12;
 
-    //list_add_tail(&w[0].pos->played, &graph.played[0]);
-    //list_add_tail(&w[1].pos->played, &graph.played[1]);
-    //while ()
-    while ((best = eval3(0, w, 12, 0))) {
+    w[0].pos = w[1].pos = graph.aa;
+    //w[0].depth = w[1].depth = part == 1? 7: 4;
+    w[0].depth = w[1].depth = part == 1? 4: 4;
+    w[0].time = w[1].time = part == 1? 30: 26;
+
+    while ((best = eval(0, part, w, topick, 0))) {
         list_del(&best->flow_sorted);
         list_add_tail(&best->played, &graph.played[best->worker]);
         w[best->worker].time -= DIST(w[best->worker].pos->index, best->index) + 1;
         w[best->worker].pos = best;
-        print_played();
+        res += best->rate * w[best->worker].time;
+        print_played(part);
     }
-
+    return res;
 }
 
 static ulong part1()
 {
-    ulong res = 1;
-    struct worker w[2];
-    w[0].pos = w[1].pos = graph.aa;
-    w[0].depth = w[1].depth = 5;
-    w[0].time = w[1].time = 30;
-
-    printf("part 1\n");
-    eval(0, graph.aa, 7, 7, 30, 0);
-    eval2(0, &w[0], 4, 0);
-    return res;
+    return doit(1);
 }
 
 static ulong part2()
 {
-    ulong res = 1;
-    //struct worker w = {
-    //    .pos = graph.aa,
-    //    .depth = 4,
-    //    .time = 30
-    //};
-    printf("part 2\n");
-    //while ()
-    //eval2(0, &w, 7, 0);
-    doit();
-    return res;
+    return doit(2);
 }
 
 int main(int ac, char **av)
